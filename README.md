@@ -1,6 +1,6 @@
-# Majesty - Luxury AI Lamp Configurator
-
-A premium, interactive product configurator website for the Majesty luxury AI lamp. Features a stunning dark theme with glassmorphism effects, smooth animations, and a high-fidelity 3D customization interface.
+# MAJESTY™ - AIoT Luxury Dining Lamp
+ 
+A premium, interactive product configurator website for the MAJESTY™ - AIoT Luxury Dining Lamp. Features a stunning dark theme with glassmorphism effects, smooth animations, and a high-fidelity 3D customization interface.
 
 ## Features
 
@@ -96,4 +96,4 @@ majesty-lamp/
 
 ## License
 
-© 2026 Majesty. All rights reserved.
+© 2026 LUMERIE™ . All rights reserved.
