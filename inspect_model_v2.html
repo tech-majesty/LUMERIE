@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Inspect GLB V2</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+
+<body>
+    <script>
+        const loader = new THREE.GLTFLoader();
+        loader.load('3D Model/MajestyGLB.glb', function (gltf) {
+            console.log('MODEL_START');
+            console.log('Nodes:');
+            gltf.scene.traverse(node => {
+                console.log(`Node: ${node.name} (${node.type})`);
+                if (node.material) {
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach((m, i) => console.log(`  Material[${i}]: ${m.name}`));
+                    } else {
+                        console.log(`  Material: ${node.material.name}`);
+                    }
+                }
+            });
+            console.log('All Materials in file:');
+            Object.keys(gltf.parser.json.materials || {}).forEach(index => {
+                const m = gltf.parser.json.materials[index];
+                console.log(`  FileMaterial: ${m.name}`);
+            });
+            console.log('MODEL_END');
+        }, undefined, function (error) {
+            console.error('Error loading model:', error);
+        });
+    </script>
+</body>
+
+</html>

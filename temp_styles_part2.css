@@ -1,0 +1,237 @@
+/* ===== Theme Toggle ===== */
+.theme-toggle-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: rotate(15deg);
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ===== Cart Modal ===== */
+.cart-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 100;
+    display: flex;
+    justify-content: flex-end;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.cart-modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cart-modal {
+    width: 400px;
+    max-width: 100%;
+    height: 100%;
+    background: #1a1a1a;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cart-modal-overlay.open .cart-modal {
+    transform: translateX(0);
+}
+
+.cart-header {
+    padding: var(--spacing-xl);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cart-header h3 {
+    color: white;
+    font-family: var(--font-display);
+    font-weight: 400;
+}
+
+.close-modal {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+
+.cart-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.cart-item {
+    display: flex;
+    gap: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.05);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    align-items: center;
+}
+
+.cart-item-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: #000;
+}
+
+.cart-item-details {
+    flex: 1;
+}
+
+.cart-item-title {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.cart-item-specs {
+    color: #a1a1aa;
+    font-size: 0.75rem;
+}
+
+.remove-item-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 4px;
+}
+
+.cart-footer {
+    padding: var(--spacing-xl);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.empty-cart-message {
+    text-align: center;
+    color: #a1a1aa;
+    margin-top: var(--spacing-2xl);
+}
+
+/* ===== Light Mode Overrides ===== */
+body.light-mode .sidebar {
+    background: #ffffff;
+    border-left-color: #e5e7eb;
+}
+
+body.light-mode .bottom-bar {
+    background: #ffffff;
+    border-top-color: #e5e7eb;
+}
+
+body.light-mode .sidebar-title,
+body.light-mode .product-model,
+body.light-mode .control-title,
+body.light-mode .cart-header h3,
+body.light-mode .cart-item-title {
+    color: var(--color-text-primary);
+}
+
+body.light-mode .product-specs,
+body.light-mode .cart-item-specs {
+    color: var(--color-text-secondary);
+}
+
+body.light-mode .control-btn {
+    background: white;
+    border-color: #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .control-btn:hover {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+body.light-mode .control-btn.active {
+    border-color: black;
+    box-shadow: 0 0 0 1px black;
+}
+
+body.light-mode .control-btn.active::after {
+    border-color: black;
+}
+
+body.light-mode .theme-toggle-btn {
+    border-color: #e5e7eb;
+    color: #1a1a1a;
+}
+
+body.light-mode .theme-toggle-btn:hover {
+    background: #f3f4f6;
+}
+
+body.light-mode .btn-secondary {
+    border-color: #e5e7eb;
+    color: #1a1a1a;
+}
+
+body.light-mode .btn-secondary:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+body.light-mode .btn-primary {
+    background: #1a1a1a;
+    color: white;
+    border-color: #1a1a1a;
+}
+
+body.light-mode .btn-primary:hover {
+    background: #000;
+}
+
+body.light-mode .cart-modal {
+    background: #ffffff;
+    border-left-color: #e5e7eb;
+}
+
+body.light-mode .cart-header,
+body.light-mode .cart-footer {
+    border-color: #e5e7eb;
+}
+
+body.light-mode .close-modal {
+    color: #1a1a1a;
+}
+
+body.light-mode .cart-item {
+    background: #f3f4f6;
+}
+
+body.light-mode .empty-cart-message {
+    color: #6b7280;
+}
