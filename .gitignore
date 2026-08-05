@@ -1,0 +1,15 @@
+3D Model/
+
+# OS junk
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Scratch
+temp_*
+*.log
