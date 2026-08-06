@@ -1203,3 +1203,39 @@ body.light-mode #cursor-tooltip {
         transform: none !important;
     }
 }
+
+/* Pattern Studio entry in the sidebar header. Uses the existing type scale and
+   accent so it reads as part of the panel, and does not touch the product bar. */
+.studio-link {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 var(--spacing-xl);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: #ffffff;
+    transition: all 0.2s ease;
+}
+
+.studio-link:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+body.light-mode .studio-link {
+    border-color: var(--color-border);
+    color: #1a1a1a;
+}
+
+body.light-mode .studio-link:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}

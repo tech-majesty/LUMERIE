@@ -27,6 +27,42 @@ const bases = ['Red', 'Red Metallic', 'Black', 'White', 'Gold', 'Silver', 'Coppe
 const rims = ['Golden Ring', 'Silver Ring', 'Copper Ring'];
 const patterns = ['Triangle', 'Star', 'Arabic'];
 
+// Hoisted out of the render loop, which re-allocated it every frame.
+const PATTERN_MESH_NAMES = ['Triangle_Pattern', 'Star_Pattern', 'Arabic_Pattern'];
+
+// ---------------------------------------------------------------------------
+//  Coded (procedural) patterns.
+//
+//  A pattern added to pattern-engine.js is computed in a shader on the existing
+//  sleeve mesh. That means a new pattern is a recipe object and nothing else:
+//  no texture bake, no GLB re-export, no upload. The *_Pattern meshes in the GLB
+//  are all the same geometry, so one of them carries whichever coded pattern is
+//  selected.
+// ---------------------------------------------------------------------------
+const CODED_CARRIER_MESH = 'Triangle_Pattern';
+
+function getCodedRecipe(name) {
+    const MP = window.MajestyPatterns;
+    if (!MP || !MP.RECIPES) return null;
+    // A name shipped as a baked texture in the GLB keeps using that texture;
+    // only names that are NOT baked fall through to the shader.
+    if (['Triangle', 'Star', 'Arabic'].indexOf(name) !== -1) return null;
+    return MP.RECIPES[name] || null;
+}
+
+/** Pattern names available in the UI: the baked ones plus every coded recipe. */
+function allPatternNames() {
+    const MP = window.MajestyPatterns;
+    const coded = MP && MP.RECIPES ? Object.keys(MP.RECIPES) : [];
+    return patterns.concat(coded.filter(n => patterns.indexOf(n) === -1));
+}
+
+// The 3D model now streams in behind the revealed page, so the 3D toggle has to
+// cope with being pressed before the model is ready.
+let viewerReady = false;
+let pending3D = false;
+let apply3DMode = () => { };   // assigned by setup3DViewToggle()
+
 // Cart state
 let cart = [];
 
@@ -409,6 +445,25 @@ class ThreeViewer {
 
                 // Pattern meshes - show only the selected one and apply emissive
                 if (patternMeshNames.includes(node.name)) {
+                    // CODED PATTERNS: a pattern defined in pattern-engine.js is
+                    // drawn by a shader on the sleeve, so it needs no baked
+                    // texture and no mesh of its own. All the *_Pattern meshes
+                    // are the same sleeve geometry, so any of them can carry it —
+                    // we use the first one and hide the rest.
+                    const coded = getCodedRecipe(config.pattern);
+                    if (coded) {
+                        const isCarrier = node.name === CODED_CARRIER_MESH;
+                        node.visible = isCarrier;
+                        if (isCarrier) this.applyCodedPattern(node, coded);
+                        return;
+                    }
+
+                    // A coded pattern borrows the carrier mesh and swaps its
+                    // material. Put the mesh's own baked material back before
+                    // showing a shipped pattern, or Triangle would render with
+                    // the last coded pattern's mask instead of its texture.
+                    this.restorePatternMaterial(node);
+
                     const selectedPatternMesh = patternMeshMap[config.pattern];
                     node.visible = (node.name === selectedPatternMesh);
 
@@ -457,6 +512,69 @@ class ThreeViewer {
                 }
             }
         });
+    }
+
+    /**
+     * Put a coded pattern on the sleeve. The shader is built once per pattern and
+     * cached; switching patterns afterwards is just a material swap, and tweaking
+     * a recipe only writes uniforms.
+     */
+    /** Restore a pattern mesh's own baked material, if a coded pattern borrowed it. */
+    restorePatternMaterial(mesh) {
+        const saved = this._bakedPatternMats && this._bakedPatternMats[mesh.name];
+        if (saved && mesh.material !== saved) mesh.material = saved;
+    }
+
+    applyCodedPattern(mesh, recipe) {
+        const MP = window.MajestyPatterns;
+        if (!MP) return;
+
+        // Remember the mesh's shipped material the first time we borrow it, so
+        // selecting a baked pattern later can put it back untouched.
+        this._bakedPatternMats = this._bakedPatternMats || {};
+        const isOurs = this._codedMaterials &&
+            Object.keys(this._codedMaterials).some(k => this._codedMaterials[k] === mesh.material);
+        if (!this._bakedPatternMats[mesh.name] && !isOurs) {
+            this._bakedPatternMats[mesh.name] = mesh.material;
+        }
+
+        // The tilt-aware height needs the sleeve's measured top/bottom edges.
+        // Measured once per geometry, then reused.
+        if (!this._edgeProfile) {
+            try {
+                this._edgeProfile = MP.computeEdgeProfile(mesh.geometry);
+            } catch (e) {
+                console.warn('Edge profile failed, patterns will use flat bands:', e);
+                this._edgeProfile = null;
+            }
+        }
+        if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+        const bb = mesh.geometry.boundingBox;
+
+        // Glow must be IDENTICAL to the shipped patterns, so the emissive colour
+        // and intensity come from this viewer's own materialSettings.patterns —
+        // the exact table Triangle / Star / Arabic read — not from the recipe.
+        // The recipe's own emission block is only used for the studio preview.
+        const glow = this.materialSettings.patterns[config.pattern]
+            || this.materialSettings.patterns['Triangle']
+            || { emissive: 16753920, emissiveIntensity: 10 };
+
+        this._codedMaterials = this._codedMaterials || {};
+        const key = recipe.name + '|' + recipe.generator;
+        if (!this._codedMaterials[key]) {
+            this._codedMaterials[key] = MP.makeSiteMaterial(THREE, recipe, this._edgeProfile, {
+                yMin: bb.min.y, yMax: bb.max.y,
+                emissive: glow.emissive,
+                emissiveIntensity: glow.emissiveIntensity,
+                roughness: 0.5,
+                metalness: 0
+            });
+        }
+        const mat = this._codedMaterials[key];
+        // keep it in step if the settings are tweaked at runtime (debug GUI)
+        mat.emissive.setHex(glow.emissive);
+        mat.emissiveIntensity = glow.emissiveIntensity;
+        mesh.material = mat;
     }
 
     applyMaterialByName(mesh, configValue, type) {
@@ -547,13 +665,22 @@ class ThreeViewer {
     animate() {
         requestAnimationFrame(() => this.animate());
 
+        // PERF: the 3D view is hidden until the user opts into it (the container
+        // only gets .active in 3D mode), and this loop is expensive — two full
+        // composer passes plus a whole-scene material swap, every frame. Without
+        // this gate the page renders an invisible scene forever, burning GPU and
+        // battery while the 2D still is on screen. Nothing captures the canvas,
+        // so skipping the work while hidden is not observable.
+        const visible = this.container && this.container.classList.contains('active');
+        if (!visible || document.hidden) return;
+
         if (this.bloomComposer && this.finalComposer) {
             // 1. Darken non-bloomed objects
-            // We need to identify bloomed objects. 
+            // We need to identify bloomed objects.
             // Since we haven't strictly used layers yet (simpler to just check names/properties),
             // let's use the visible pattern check here.
 
-            const patternMeshNames = ['Triangle_Pattern', 'Star_Pattern', 'Arabic_Pattern'];
+            const patternMeshNames = PATTERN_MESH_NAMES;
 
             this.scene.traverse((obj) => {
                 if (obj.isMesh) {
@@ -707,16 +834,28 @@ function init() {
     // Start the animation loop
     requestAnimationFrame(updateLoader);
 
-    // Initialize 3D Viewer immediately with callbacks
+    // PERF: the preloader used to be driven by the GLB download, so the whole
+    // page stayed behind the splash until 6.7 MB of 3D model had arrived — even
+    // though the default view is a 2D still that weighs ~60 KB. Now the splash
+    // tracks what the first view actually needs (the hero render), and the model
+    // streams in behind the revealed page. Identical splash animation, just not
+    // blocked on an asset the first screen never shows.
+    const heroImg = document.getElementById('productImage');
+    const heroReady = () => { targetProgress = 100; };
+    if (heroImg && heroImg.complete) heroReady();
+    else if (heroImg) { heroImg.addEventListener('load', heroReady); heroImg.addEventListener('error', heroReady); }
+    else heroReady();
+    // never let a stalled asset trap the user behind the splash
+    setTimeout(heroReady, 4000);
+
+    // Initialize the 3D viewer immediately as before, but its download no
+    // longer gates the reveal. Every consumer already null-checks threeViewer.
     threeViewer = new ThreeViewer({
-        onProgress: (percent) => {
-            // Update the target, but clamp to 99 until finish allows 100
-            // (Actually GLTF loader tracking is good, we can trust it)
-            targetProgress = Math.max(0, Math.min(100, percent));
-        },
+        onProgress: () => { },
         onLoad: () => {
-            // Ensure we reach 100% eventually
-            targetProgress = 100;
+            viewerReady = true;
+            // If the user reached for 3D before the model landed, honour it now.
+            if (pending3D) { pending3D = false; apply3DMode(true); }
         }
     });
 
@@ -810,8 +949,9 @@ function setup3DViewToggle() {
     const container = document.getElementById('threeCanvasContainer');
     const cameraControls = document.getElementById('cameraControls');
 
-    const toggle3D = () => {
-        is3DMode = !is3DMode;
+    // Split out so it can also be called once the model finishes streaming.
+    apply3DMode = (on) => {
+        is3DMode = on;
 
         // Toggle Buttons State
         [toggleBtnDesktop, toggleBtnMobile].forEach(btn => {
@@ -826,17 +966,24 @@ function setup3DViewToggle() {
             }
         });
 
-
         if (is3DMode) {
             image.classList.add('hidden');
             container.classList.add('active');
             cameraControls.classList.add('active');
-            // threeViewer is already initialized in init()
         } else {
             image.classList.remove('hidden');
             container.classList.remove('active');
             cameraControls.classList.remove('active');
         }
+    };
+
+    const toggle3D = () => {
+        const wantOn = !is3DMode;
+        // Don't swap to an empty canvas: if the model is still streaming, keep
+        // the 2D still up and switch the moment it lands.
+        if (wantOn && !viewerReady) { pending3D = true; return; }
+        pending3D = false;
+        apply3DMode(wantOn);
     };
 
     if (toggleBtnDesktop) toggleBtnDesktop.addEventListener('click', toggle3D);
@@ -854,39 +1001,90 @@ function setupCameraAngleListeners() {
 
 // Preload all possible image combinations
 function preloadImages() {
-    console.log('Starting image preload...');
-    let loadedCount = 0;
-    const totalImages = bases.length * rims.length * patterns.length;
-
+    // PERF: this used to fire all 57 renders at once, so the browser opened the
+    // whole catalogue in parallel and starved the images the user can actually
+    // see. Same end state — every combination warm in cache, so switching stays
+    // instant — but ordered: the rim currently on screen first, then the rest
+    // during idle time, a few at a time.
+    const paths = [];
     rims.forEach(rim => {
         bases.forEach(base => {
             patterns.forEach(pattern => {
+                if (base === 'Copper' && rim !== 'Copper Ring') return; // Copper only for Copper Ring
                 let imagePath;
                 if (rim === 'Golden Ring') {
-                    if (base === 'Copper') return; // Copper only for Copper Ring
                     imagePath = `renders/Golden Ring/${base} - Golden Ring/${pattern} - ${base}.webp`;
-                } else if (rim === 'Silver Ring') {
-                    if (base === 'Copper') return; // Copper only for Copper Ring
-                    imagePath = `renders/Silver Ring/${base} - Silver Ring/Silver Ring - ${pattern} - ${base}.webp`;
-                } else if (rim === 'Copper Ring') {
-                    imagePath = `renders/Copper Ring/${base} - Copper Ring/Copper Ring - ${pattern} - ${base}.webp`;
+                } else {
+                    imagePath = `renders/${rim}/${base} - ${rim}/${rim} - ${pattern} - ${base}.webp`;
                 }
-
-                const img = new Image();
-                img.onload = () => {
-                    loadedCount++;
-                    if (loadedCount === totalImages) {
-                        console.log('All images preloaded successfully');
-                    }
-                };
-                img.src = imagePath;
+                paths.push({ rim, path: imagePath });
             });
         });
+    });
+
+    // The rim on screen is what the user is most likely to change first.
+    const queue = [
+        ...paths.filter(p => p.rim === config.rim).map(p => p.path),
+        ...paths.filter(p => p.rim !== config.rim).map(p => p.path)
+    ];
+
+    const CONCURRENCY = 4;
+    let index = 0, loaded = 0;
+    const idle = window.requestIdleCallback || (cb => setTimeout(() => cb({ timeRemaining: () => 8 }), 24));
+
+    const pump = () => {
+        if (index >= queue.length) {
+            console.log(`Preloaded ${loaded}/${queue.length} renders`);
+            return;
+        }
+        let inFlight = 0;
+        while (index < queue.length && inFlight < CONCURRENCY) {
+            const img = new Image();
+            const done = () => { loaded++; if (--inFlight <= 0) idle(pump); };
+            img.onload = done;
+            img.onerror = done;   // a missing render must not stall the queue
+            img.src = queue[index++];
+            inFlight++;
+        }
+    };
+    idle(pump);
+}
+
+/**
+ * Add a picker button for every coded pattern that isn't already in the markup.
+ * Clones the existing .control-item so the button is identical in style — the
+ * point is that adding a pattern needs no HTML edit, only a recipe.
+ * Runs before the click listeners are attached, so the new buttons get wired too.
+ */
+function injectCodedPatternButtons() {
+    const MP = window.MajestyPatterns;
+    if (!MP || !MP.RECIPES) return;
+
+    const existing = document.querySelector('.control-btn[data-type="pattern"]');
+    if (!existing) return;
+    const container = existing.closest('.control-options');
+    const template = existing.closest('.control-item');
+    if (!container || !template) return;
+
+    Object.keys(MP.RECIPES).forEach(name => {
+        if (container.querySelector(`.control-btn[data-value="${name}"]`)) return;
+        const item = template.cloneNode(true);
+        const btn = item.querySelector('.control-btn');
+        btn.classList.remove('active');
+        btn.dataset.value = name;
+        btn.title = name;
+        btn.innerHTML = MP.iconFor(name);
+        const label = item.querySelector('.mobile-label');
+        if (label) label.textContent = name;
+        container.appendChild(item);
     });
 }
 
 // Setup event listeners for all control buttons
 function setupEventListeners() {
+    // coded patterns first, so their buttons are included below
+    injectCodedPatternButtons();
+
     // ... (existing code for control buttons) ...
     const controlButtons = document.querySelectorAll('.control-btn');
 
@@ -895,9 +1093,14 @@ function setupEventListeners() {
             const type = this.dataset.type;
             const value = this.dataset.value;
 
-            // Update active state
-            const siblings = this.parentElement.querySelectorAll('.control-btn');
-            siblings.forEach(btn => btn.classList.remove('active'));
+            // Update active state.
+            // Each button sits in its own .control-item wrapper, so
+            // this.parentElement only ever contained the button itself and the
+            // previously selected option never lost its highlight — two buttons
+            // could read as active at once. Scope to the whole option group.
+            const group = this.closest('.control-options') || this.parentElement;
+            group.querySelectorAll(`.control-btn[data-type="${type}"]`)
+                .forEach(btn => btn.classList.remove('active'));
             this.classList.add('active');
 
             // Add click animation
@@ -1124,6 +1327,16 @@ function updateProduct() {
 // Update the product image based on current configuration
 function updateProductImage() {
     const productImage = document.getElementById('productImage');
+
+    // Coded patterns exist only in the 3D view: the 57 stills in renders/ are
+    // pre-rendered per combination and there is no file for a pattern that was
+    // added as code. Rather than request a URL that cannot exist and leave a
+    // broken image, switch to the 3D view, which is where the pattern lives.
+    if (getCodedRecipe(config.pattern)) {
+        if (!is3DMode && viewerReady) apply3DMode(true);
+        else if (!is3DMode) pending3D = true;
+        return;
+    }
 
     // Build the path based on your folder structure:
     // renders/[Rim Finish]/[Base Color] - [Rim Finish]/[Pattern] - [Base Color].png

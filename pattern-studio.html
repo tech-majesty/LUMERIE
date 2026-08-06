@@ -1,0 +1,2084 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Majesty Pattern Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ===== Design tokens — copied from the site's styles.css so the studio
+           and the storefront share one visual language. Like the homepage, dark
+           is the default and `body.light-mode` is the override. ===== */
+        :root {
+            --color-bg-primary: #ffffff;
+            --color-bg-secondary: #f8f9fa;
+            --color-bg-sidebar: #fafbfc;
+
+            --color-text-primary: #4d4d4d;
+            --color-text-secondary: #6b7280;
+            --color-text-muted: #9ca3af;
+
+            --color-border: #e5e7eb;
+            --color-border-light: #f3f4f6;
+            --color-accent: #d4a574;
+
+            --font-display: 'Playfair Display', serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 0.75rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+
+            --radius-sm: 0.25rem;
+            --radius-md: 0.5rem;
+            --radius-full: 9999px;
+
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+            /* studio-only additions, expressed against the shared palette */
+            --panel: #010101;
+            --panel-line: rgba(255, 255, 255, 0.1);
+            --panel-line-soft: rgba(255, 255, 255, 0.06);
+            --panel-fill: rgba(255, 255, 255, 0.05);
+            --panel-text: #ffffff;
+            --panel-text-dim: #a1a1aa;
+            --gold: #EEBA58;
+            --ok: #4ade80;
+            --warn: #fbbf24;
+            --err: #f87171;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            overflow: hidden;
+            background: var(--panel);
+            color: var(--panel-text);
+            font-family: var(--font-body);
+            font-size: 13px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            display: grid;
+            grid-template-columns: 320px 1fr 320px;
+        }
+
+        /* ===== Panels — same 320px sidebar metrics as the storefront ===== */
+        aside {
+            background: var(--panel);
+            border-right: 1px solid var(--panel-line);
+            overflow-y: auto;
+            padding-bottom: var(--spacing-2xl);
+        }
+
+        aside.right {
+            border-right: 0;
+            border-left: 1px solid var(--panel-line);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--panel-line);
+        }
+
+        .brand h1 {
+            font-family: var(--font-display);
+            font-size: 1.125rem;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            color: var(--gold);
+        }
+
+        .brand small {
+            display: block;
+            font-family: var(--font-body);
+            font-size: 0.625rem;
+            font-weight: 400;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+            margin-top: 3px;
+        }
+
+        /* matches .theme-toggle-btn on the homepage */
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            cursor: pointer;
+            padding: 7px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            width: auto;
+            margin: 0;
+        }
+
+        .theme-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .theme-toggle-btn svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .sec {
+            border-bottom: 1px solid var(--panel-line);
+            padding: var(--spacing-lg);
+        }
+
+        /* matches .control-title on the homepage */
+        .sec>label.h,
+        label.h {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            margin-bottom: 7px;
+        }
+
+        .row label {
+            flex: 1;
+            font-size: 0.75rem;
+            color: var(--panel-text-dim);
+        }
+
+        .row output {
+            width: 48px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.6875rem;
+            color: var(--panel-text);
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--color-accent);
+            height: 18px;
+            background: transparent;
+        }
+
+        .rng {
+            margin-bottom: 9px;
+        }
+
+        .rng .row {
+            margin-bottom: 0;
+        }
+
+        select,
+        input[type=text],
+        input[type=number] {
+            width: 100%;
+            background: var(--panel-fill);
+            color: var(--panel-text);
+            border: 1px solid var(--panel-line);
+            border-radius: var(--radius-sm);
+            padding: 0.625rem 0.5rem;
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+        }
+
+        select:focus,
+        input[type=text]:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+
+        input[type=color] {
+            width: 44px;
+            height: 26px;
+            background: none;
+            border: 1px solid var(--panel-line);
+            border-radius: var(--radius-sm);
+            padding: 1px;
+            cursor: pointer;
+        }
+
+        /* matches .btn-primary / .btn-secondary on the homepage */
+        button {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            padding: 0.75rem 1.5rem;
+            margin-bottom: 7px;
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            background: transparent;
+            color: var(--panel-text);
+            transition: all 0.2s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+
+        button:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+        button.primary {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+        }
+
+        button.primary:hover:not(:disabled) {
+            background: var(--color-accent);
+            border-color: var(--color-accent);
+            color: #000000;
+        }
+
+        .seg {
+            display: flex;
+            margin-bottom: 9px;
+        }
+
+        .seg button {
+            margin: 0;
+            border-radius: 0;
+            font-size: 0.625rem;
+            padding: 0.625rem 0.25rem;
+            letter-spacing: 0.06em;
+        }
+
+        .seg button:first-child {
+            border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+        }
+
+        .seg button:last-child {
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            border-left: 0;
+        }
+
+        .seg button:not(:first-child):not(:last-child) {
+            border-left: 0;
+        }
+
+        .seg button.on {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+        }
+
+        /* ===== Viewport ===== */
+        #view {
+            position: relative;
+            /* Same backdrop as the storefront's product area: plain black
+               (styles.css .main-display). The warm glow around the lamp comes
+               from its own emission and the reflector floor, not from CSS. */
+            background: #000000;
+        }
+
+        #view canvas {
+            display: block;
+        }
+
+        #hud {
+            position: absolute;
+            left: var(--spacing-lg);
+            top: var(--spacing-lg);
+            font-size: 0.6875rem;
+            color: var(--panel-text-dim);
+            pointer-events: none;
+            text-shadow: 0 1px 3px #000;
+            line-height: 1.8;
+        }
+
+        #hud b {
+            color: var(--gold);
+            font-weight: 500;
+        }
+
+        /* its own line: it is a sibling span of #hudMain, so inline would run on */
+        #perfLine {
+            display: block;
+        }
+
+        #status {
+            position: absolute;
+            left: var(--spacing-lg);
+            bottom: var(--spacing-lg);
+            right: var(--spacing-lg);
+            font-size: 0.6875rem;
+            color: var(--panel-text-dim);
+            pointer-events: none;
+            text-shadow: 0 1px 3px #000;
+        }
+
+        #status.busy {
+            color: var(--warn);
+        }
+
+        #status.ok {
+            color: var(--ok);
+        }
+
+        #status.err {
+            color: var(--err);
+        }
+
+        .note {
+            font-size: 0.6875rem;
+            color: var(--color-text-secondary);
+            line-height: 1.7;
+            margin-top: var(--spacing-xs);
+        }
+
+        .note code {
+            color: var(--gold);
+            font-family: ui-monospace, Menlo, monospace;
+            font-size: 0.625rem;
+        }
+
+        .note b {
+            color: var(--panel-text-dim);
+            font-weight: 500;
+        }
+
+        pre {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-line);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-sm);
+            font: 400 10px/1.6 ui-monospace, Menlo, monospace;
+            color: #d4d4d8;
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .drop {
+            border: 1px dashed var(--panel-line);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-md) var(--spacing-sm);
+            text-align: center;
+            font-size: 0.6875rem;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .drop.hot {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .kv {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6875rem;
+            padding: 3px 0;
+            color: var(--color-text-secondary);
+        }
+
+        .kv b {
+            color: var(--panel-text);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .swatches {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        /* echoes .control-btn: round, 2px ring, subtle fill */
+        .swatches i {
+            width: 24px;
+            height: 24px;
+            border-radius: var(--radius-full);
+            border: 2px solid var(--panel-line);
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .swatches i:hover {
+            border-color: var(--color-accent);
+            transform: translateY(-1px);
+        }
+
+        #uvcanvas,
+        #texpreview {
+            width: 100%;
+            border: 1px solid var(--panel-line);
+            border-radius: var(--radius-sm);
+            background: #08080a;
+            display: block;
+            margin-bottom: 7px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        aside::-webkit-scrollbar,
+        pre::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        aside::-webkit-scrollbar-thumb,
+        pre::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.14);
+            border-radius: 4px;
+        }
+
+        /* ===== Light mode — mirrors the storefront's body.light-mode block ===== */
+        body.light-mode {
+            --panel: #ffffff;
+            --panel-line: #e5e7eb;
+            --panel-line-soft: #f3f4f6;
+            --panel-fill: #ffffff;
+            --panel-text: var(--color-text-primary);
+            --panel-text-dim: var(--color-text-secondary);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+        }
+
+        /* The storefront has no light-mode override for the product area, so the
+           stage stays black in both themes and the lamp reads identically. */
+        body.light-mode #view {
+            background: #000000;
+        }
+
+        body.light-mode #hud,
+        body.light-mode #status {
+            text-shadow: none;
+            color: var(--color-text-secondary);
+        }
+
+        body.light-mode #hud b {
+            color: #a8802e;
+        }
+
+        body.light-mode .brand h1 {
+            color: #a8802e;
+        }
+
+        body.light-mode button {
+            border-color: var(--color-border);
+            color: #1a1a1a;
+        }
+
+        body.light-mode button:hover:not(:disabled) {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        body.light-mode button.primary,
+        body.light-mode .seg button.on {
+            background: #1a1a1a;
+            color: #ffffff;
+            border-color: #1a1a1a;
+        }
+
+        body.light-mode button.primary:hover:not(:disabled) {
+            background: #000;
+        }
+
+        body.light-mode .theme-toggle-btn {
+            border-color: var(--color-border);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .theme-toggle-btn:hover {
+            background: #f3f4f6;
+        }
+
+        body.light-mode select,
+        body.light-mode input[type=text] {
+            background: #ffffff;
+            color: var(--color-text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        body.light-mode pre {
+            background: var(--color-bg-secondary);
+            color: #374151;
+        }
+
+        body.light-mode aside::-webkit-scrollbar-thumb,
+        body.light-mode pre::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ============ LEFT: SOURCE + PATTERN ============ -->
+    <aside>
+        <div class="brand">
+            <h1>Pattern Studio<small>Majesty · Lumerie</small></h1>
+            <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light / dark">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+                </svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" style="display:none">
+                    <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="sec">
+            <label class="h">Model</label>
+            <div class="row"><label>Source</label></div>
+            <input type="text" id="glbUrl" value="https://pub-0fa84320243249fca31ce0de4238c3e8.r2.dev/MajestyGLB.glb">
+            <div style="height:7px"></div>
+            <button id="btnLoadUrl">Load from URL (live R2)</button>
+            <button id="btnLoadLocal">Load local copy (3D Model/)</button>
+            <div class="drop" id="glbDrop">or drop a local <code>.glb</code></div>
+            <input type="file" id="glbFile" accept=".glb" class="hidden">
+            <div id="modelInfo" class="note"></div>
+        </div>
+
+        <div class="sec">
+            <label class="h">Pattern</label>
+            <div class="row"><label>Name</label></div>
+            <input type="text" id="pname" value="Ladder">
+            <div style="height:9px"></div>
+            <div class="row"><label>Generator</label></div>
+            <select id="ptype"><!-- filled from GENERATORS at startup --></select>
+            <div id="edgeInfo" class="note"></div>
+            <div style="height:9px"></div>
+            <div id="imgBox" class="hidden">
+                <div class="drop" id="texDrop">drop a tileable <code>PNG</code> (alpha = pattern)</div>
+                <input type="file" id="texFile" accept="image/*" class="hidden">
+                <div class="rng"><div class="row"><label>Repeat around</label><output id="o_tileX">4</output></div>
+                    <input type="range" id="tileX" min="1" max="24" step="1" value="4"></div>
+                <div class="rng"><div class="row"><label>Repeat vertical</label><output id="o_tileY">3</output></div>
+                    <input type="range" id="tileY" min="1" max="24" step="1" value="3"></div>
+                <div class="rng"><div class="row"><label>Invert alpha</label><output id="o_inv">off</output></div>
+                    <input type="range" id="inv" min="0" max="1" step="1" value="0"></div>
+            </div>
+            <div id="paramBox"></div>
+            <div class="rng"><div class="row"><label>Rotate around lamp</label><output id="o_rot">0°</output></div>
+                <input type="range" id="rot" min="-180" max="180" step="1" value="0"></div>
+        </div>
+
+        <div class="sec">
+            <label class="h">Emission</label>
+            <div class="row"><label>Glow colour</label><input type="color" id="ecol" value="#ff9a36"></div>
+            <div class="swatches" id="presetCols"></div>
+            <div style="height:10px"></div>
+            <div class="rng"><div class="row"><label>Strength (glTF)</label><output id="o_estr">50</output></div>
+                <input type="range" id="estr" min="0" max="120" step="1" value="50"></div>
+            <div class="rng"><div class="row"><label>Roughness</label><output id="o_rough">0.50</output></div>
+                <input type="range" id="rough" min="0" max="1" step="0.01" value="0.5"></div>
+            <div class="note">Defaults match the existing <code>Triangle</code> / <code>Star</code> / <code>Arabic</code>
+                materials exactly: emissive <code>[1, 0.605, 0.214]</code>, strength <code>50</code>, roughness
+                <code>0.5</code>, <code>BLEND</code>, double-sided.</div>
+        </div>
+    </aside>
+
+    <!-- ============ CENTER: VIEWPORT ============ -->
+    <main id="view">
+        <div id="hud"><span id="hudMain"></span><span id="perfLine"></span></div>
+        <div id="status">Loading three.js…</div>
+    </main>
+
+    <!-- ============ RIGHT: BAKE / EXPORT ============ -->
+    <aside class="right">
+        <div class="brand">
+            <h1>Output<small>bake · glb · render</small></h1>
+        </div>
+
+        <div class="sec">
+            <label class="h">Preview mode</label>
+            <div class="seg" id="segMode">
+                <button data-mode="proc" class="on">Procedural</button>
+                <button data-mode="baked">Baked tex</button>
+            </div>
+            <div class="seg" id="segIso">
+                <button data-iso="0" class="on">Full lamp</button>
+                <button data-iso="1">Pattern only</button>
+            </div>
+            <div class="row"><label>Base Color</label>
+                <select id="baseCol" style="width:auto;flex:0 0 130px">
+                    <option value="Red" selected>Red</option>
+                    <option value="Red Metallic">Red Metallic</option>
+                    <option value="Black">Black</option>
+                    <option value="White">White</option>
+                    <option value="Gold">Gold</option>
+                    <option value="Silver">Silver</option>
+                    <option value="Copper">Copper</option>
+                </select>
+            </div>
+            <div class="row"><label>Rim Finish</label>
+                <select id="rimCol" style="width:auto;flex:0 0 130px">
+                    <option value="Golden Ring" selected>Golden Ring</option>
+                    <option value="Silver Ring">Silver Ring</option>
+                    <option value="Copper Ring">Copper Ring</option>
+                </select>
+            </div>
+            <div class="seg" id="segView" style="margin-top:9px">
+                <button data-view="left">Left</button>
+                <button data-view="front" class="on">Front</button>
+                <button data-view="right">Right</button>
+            </div>
+            <div class="note"><b>Procedural</b> is ground truth — the pattern is computed from 3D position, no UVs
+                involved. Switch to <b>Baked tex</b> after baking: the two must look identical. If they don't, the bake
+                is wrong.</div>
+        </div>
+
+        <div class="sec">
+            <label class="h">Texture bake</label>
+            <div class="kv"><span>Resolution</span><b id="bakeRes">3556 × 2000</b></div>
+            <div class="kv"><span>Matches existing art</span><b style="color:var(--ok)">yes</b></div>
+            <div style="height:9px"></div>
+            <button id="btnBake" disabled>Bake texture</button>
+            <canvas id="texpreview" class="hidden"></canvas>
+            <div id="bakeInfo" class="note"></div>
+            <button id="btnDlTex" class="hidden">Download pattern PNG</button>
+            <button id="btnUv" disabled>Download UV template</button>
+            <div class="note">UV template = the sleeve's unwrap as a wireframe, for hand-drawn art. The unwrap is a
+                cone, so a flat drawing must be pre-warped into a V — the generators above do that for you
+                automatically.</div>
+        </div>
+
+        <div class="sec">
+            <label class="h">Export model</label>
+            <button id="btnGlb" class="primary" disabled>Export .glb with pattern</button>
+            <div id="glbInfo" class="note"></div>
+            <div class="note">Surgical patch — clones the existing sleeve's accessors, so the file only grows by the
+                PNG. Every other mesh, material and extension is byte-identical.</div>
+        </div>
+
+        <div class="sec">
+            <label class="h">Render passes · 1920×1080</label>
+            <div class="row"><label>Transparent background</label></div>
+            <button id="btnRenderLines" disabled>Pattern alpha pass</button>
+            <button id="btnRenderGlow" disabled>Bloom glow pass</button>
+            <button id="btnRenderLamp" disabled>Full lamp alpha pass</button>
+            <div class="note">Composite: lamp pass at bottom, alpha pass over it, glow pass on <b>Screen</b> or
+                <b>Add</b>. Glow is additive light so it can't live in an alpha channel — that's why it's a separate
+                layer.</div>
+        </div>
+
+        <div class="sec">
+            <label class="h">Wire it into the site</label>
+            <button id="btnSnip" disabled>Generate code + SVG icon</button>
+            <pre id="snippet" class="hidden"></pre>
+        </div>
+
+        <div class="sec">
+            <label class="h">Share this pattern</label>
+            <button id="btnCopyRecipe" class="primary" disabled>Copy pattern recipe</button>
+            <button id="btnPasteRecipe">Paste a recipe</button>
+            <pre id="recipeOut" class="hidden"></pre>
+            <div class="note">The recipe is every setting needed to rebuild this exact pattern —
+                generator, all sliders, size ramp, tilt, rotation and emission. Copy it and send it
+                over; pasting one back restores the pattern here precisely.</div>
+        </div>
+    </aside>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+
+    <!-- shared procedural pattern engine (same file the storefront loads) -->
+    <script src="pattern-engine.js"></script>
+
+    <script>
+        // =====================================================================
+        //  Majesty Pattern Studio
+        //
+        //  The lamp's three patterns are NOT geometry. All three pattern nodes
+        //  share one sleeve mesh (9288 verts, identical bounds) and differ only
+        //  in one alpha PNG. So a new pattern needs no modelling at all.
+        //
+        //  Patterns here are authored in SURFACE space (angle around the lamp,
+        //  height up the lamp) and baked to the sleeve's UV layout on the GPU.
+        //  That matters because the unwrap is a cone: its UVs run -0.20..1.21
+        //  in u and 0.53..1.06 in v, so a flat drawing has to be warped into a
+        //  V to sit straight on the model. Authoring in surface space removes
+        //  that problem entirely.
+        // =====================================================================
+
+        const TEX_W = 3556, TEX_H = 2000;           // matches existing pattern PNGs
+        const PATTERN_NODES = ['Triangle_Pattern', 'Arabic_Pattern', 'Star_Pattern'];
+        const SRC_MATERIAL = 'Triangle';            // material we clone for a new pattern
+        const $ = s => document.querySelector(s);
+
+        const state = {
+            glbBytes: null, gltfJson: null, binOffset: 0,   // raw file, for surgical patching
+            model: null, sleeve: null,                      // three.js objects
+            bakedTexture: null, bakedBlob: null,
+            tileTexture: null,
+            mode: 'proc', iso: 0,
+            bounds: null, edges: null
+        };
+
+        function status(msg, cls = '') { const el = $('#status'); el.textContent = msg; el.className = cls; }
+
+        // ---------------------------------------------------------------------
+        //  Pattern definitions.
+        //
+        //  Every generator is a GLSL body that sets  float a  (0..1 coverage)
+        //  from these, all supplied by the framework:
+        //
+        //     th   angle around the lamp, -PI..PI, 0 = front (rotate-aware)
+        //     h    height, 0 at the bottom edge .. 1 at the top edge
+        //     hz   height within the pattern's own zone, 0..1
+        //     u    0..1 once around the lamp
+        //     aa   antialias width in hz units
+        //     aau  antialias width in u units
+        //
+        //  h is TILT-AWARE. The lamp's top rim is a steep slant (Y swings
+        //  0.519 at the front to 2.062 at the back) while the base is dead
+        //  flat (swing 0.0008). Normalising against the measured edge curves
+        //  makes a constant-h contour hug the slanted rim up top and flatten
+        //  out toward the base, instead of ringing the lamp at a constant Y.
+        //
+        //  Thickness params are a FRACTION OF THE SPACING, so lines keep their
+        //  look when you change the count.
+        // ---------------------------------------------------------------------
+
+        // ---------------------------------------------------------------------
+        //  The pattern engine now lives in pattern-engine.js, shared with the
+        //  storefront so the two cannot drift apart. Pull its exports into the
+        //  local names the rest of this file already uses.
+        // ---------------------------------------------------------------------
+        if (!window.MajestyPatterns) {
+            document.addEventListener('DOMContentLoaded', () =>
+                status('pattern-engine.js failed to load — serve this page from the project root.', 'err'));
+        }
+        const MP = window.MajestyPatterns || {};
+        const COMMON_PARAMS = MP.COMMON_PARAMS;
+        const SCALABLE = MP.SCALABLE;
+        const GENERATORS = MP.GENERATORS;
+        const SHADER_HEAD = MP.SHADER_HEAD;
+        const paramsFor = MP.paramsFor;
+        const buildPatternShader = MP.buildPatternShader;
+        const computeEdgeProfile = MP.computeEdgeProfile;
+
+        function patternUniforms(type) {
+            const e = state.edges || { topA: [2, 0, 0, 0, 0, 0], topB: [0, 0, 0, 0, 0, 0], botA: [-2, 0, 0, 0, 0, 0], botB: [0, 0, 0, 0, 0, 0] };
+            const u = {
+                glowColor: { value: new THREE.Color(0xff9a36) },
+                glowStrength: { value: 1.0 },
+                yMin: { value: -2.0333 }, yMax: { value: 2.0624 },
+                bakeMode: { value: 0 },
+                p_rot: { value: +$('#rot').value },
+                topA: { value: e.topA.slice() }, topB: { value: e.topB.slice() },
+                botA: { value: e.botA.slice() }, botB: { value: e.botB.slice() },
+                uvOffset: { value: new THREE.Vector2(0, 0) }
+            };
+            const { own, common } = paramsFor(type);
+            for (const [k, p] of Object.entries(own)) u['u_p_' + k] = { value: p.val };
+            for (const [k, p] of Object.entries(common)) u['p_' + k] = { value: p.val };
+            if (type === 'image') {
+                u.tileMap = { value: state.tileTexture };
+                u.p_tileX = { value: +$('#tileX').value };
+                u.p_tileY = { value: +$('#tileY').value };
+                u.p_inv = { value: +$('#inv').value };
+            }
+            return u;
+        }
+
+        // ---------------------------------------------------------------------
+        //  three.js scene — mirrors production settings so the preview is honest
+        // ---------------------------------------------------------------------
+        let renderer, scene, camera, controls, bloomComposer, finalComposer, bloomPass, renderPass;
+        let logoLight = null, floorMesh = null;
+        const LAYER_LOGO = 1;   // storefront reserves layer 1 for the Logo
+        let procMaterial = null, bakedMaterial = null, darkMat;
+        const savedMats = {};
+
+        function initThree() {
+            const view = $('#view');
+            // ===== Scene setup copied from the main 3D viewer (script.js) =====
+            // Renderer state, camera lens, light rig, environment, floor and
+            // material tables are all the storefront's, so what you judge here is
+            // what the product page shows. The only studio-specific additions are
+            // OrbitControls (you have to be able to inspect a pattern) and the
+            // procedural pattern material being authored.
+            // No preserveDrawingBuffer: it makes Chrome keep and copy the drawing buffer
+            // every frame. The render-pass exports read the canvas synchronously in the
+            // same task as render(), which works without it.
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            // Storefront uses the raw devicePixelRatio; capped at 2 here because the
+            // studio runs two composer passes plus a reflector every frame, and a 3x
+            // framebuffer on top of that is what tips it over. Identical on the 2x
+            // displays this is actually used on.
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(view.clientWidth, view.clientHeight);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.shadowMap.enabled = true;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = MAIN.global.exposure;
+            renderer.setClearColor(0x000000, 0);
+            view.appendChild(renderer.domElement);
+
+            scene = new THREE.Scene();
+            // same 10-degree product lens and start position as the storefront
+            camera = new THREE.PerspectiveCamera(10, view.clientWidth / view.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 3);
+            camera.layers.enable(LAYER_LOGO);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.enablePan = false;
+            controls.target.set(0, 0, 0);
+            controls.minDistance = 0.6;
+            controls.maxDistance = 12;
+
+            // --- light rig, verbatim from script.js -------------------------
+            const g = MAIN.global;
+            scene.add(new THREE.AmbientLight(0xffffff, g.ambientIntensity));
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, g.mainLightIntensity);
+            mainLight.position.set(5, 5, 5);
+            scene.add(mainLight);
+
+            const rimLight = new THREE.PointLight(0xffffff, g.rimLightIntensity);
+            rimLight.position.set(-5, 3, -5);
+            scene.add(rimLight);
+
+            // dedicated spotlight that only lights the Logo (layer 1)
+            logoLight = new THREE.SpotLight(0xffffff, g.logoLightIntensity);
+            logoLight.distance = g.logoLightDistance;
+            logoLight.decay = g.logoLightDecay;
+            logoLight.angle = g.logoLightAngle;
+            logoLight.penumbra = g.logoLightPenumbra;
+            logoLight.position.set(g.logoLightX, g.logoLightY, g.logoLightZ);
+            logoLight.target.position.set(g.logoLightTargetX, g.logoLightTargetY, g.logoLightTargetZ);
+            logoLight.layers.set(LAYER_LOGO);
+            logoLight.target.layers.set(LAYER_LOGO);
+            scene.add(logoLight);
+            scene.add(logoLight.target);
+
+            // --- same HDR environment, via PMREM ---------------------------
+            new THREE.RGBELoader().load('env_texture/studio_small_08_1k.hdr', tex => {
+                const pmrem = new THREE.PMREMGenerator(renderer);
+                pmrem.compileEquirectangularShader();
+                scene.environment = pmrem.fromEquirectangular(tex).texture;
+                tex.dispose(); pmrem.dispose();
+                applyMainMaterials();
+            }, undefined, () => status('HDR env missing — serve this file from the project root so env_texture/ resolves.', 'err'));
+
+            // Selective bloom, production values: strength .5, radius 1, threshold .5
+            renderPass = new THREE.RenderPass(scene, camera);
+            bloomComposer = new THREE.EffectComposer(renderer);
+            bloomComposer.renderToScreen = false;
+            bloomComposer.addPass(renderPass);
+            bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(view.clientWidth, view.clientHeight), 0.5, 1, 0.5);
+            bloomComposer.addPass(bloomPass);
+
+            finalComposer = new THREE.EffectComposer(renderer);
+            finalComposer.addPass(renderPass);
+            const mix = new THREE.ShaderPass(new THREE.ShaderMaterial({
+                uniforms: { baseTexture: { value: null }, bloomTexture: { value: bloomComposer.renderTarget2.texture } },
+                vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+                fragmentShader: 'uniform sampler2D baseTexture; uniform sampler2D bloomTexture; varying vec2 vUv; void main(){ gl_FragColor = texture2D(baseTexture,vUv) + texture2D(bloomTexture,vUv); }'
+            }), 'baseTexture');
+            mix.needsSwap = true;
+            finalComposer.addPass(mix);
+
+            darkMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+            window.addEventListener('resize', onResize);
+            animate();
+        }
+
+        function onResize() {
+            const v = $('#view');
+            camera.aspect = v.clientWidth / v.clientHeight; camera.updateProjectionMatrix();
+            renderer.setSize(v.clientWidth, v.clientHeight);
+            bloomComposer.setSize(v.clientWidth, v.clientHeight);
+            finalComposer.setSize(v.clientWidth, v.clientHeight);
+        }
+
+        // Selective bloom: darken everything that shouldn't glow, bloom, restore, composite.
+        function darkenNonGlow(obj) {
+            if (obj.isMesh && obj !== state.sleeve) { savedMats[obj.uuid] = obj.material; obj.material = darkMat; }
+        }
+        function restoreMats(obj) {
+            if (savedMats[obj.uuid]) { obj.material = savedMats[obj.uuid]; delete savedMats[obj.uuid]; }
+        }
+
+        function renderFrame() {
+            if (!state.model) { renderer.clear(); return; }
+            scene.traverse(darkenNonGlow);
+            // PERF: the Reflector re-renders the whole scene into its own target
+            // whenever it is drawn. During the bloom pass the floor is blacked out
+            // anyway, so drawing it there costs a second full scene render for
+            // nothing. Hiding it halves the reflector's per-frame cost with no
+            // visual change.
+            if (floorMesh) floorMesh.visible = false;
+            bloomComposer.render();
+            if (floorMesh) floorMesh.visible = true;
+            scene.traverse(restoreMats);
+            finalComposer.render();
+        }
+
+        // Live fps / cost readout. The 3D view here is heavy enough that it is
+        // worth being able to see, rather than guess, when something is stalling.
+        const perf = { frames: 0, fps: 0, last: performance.now(), reflector: '-' };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls && controls.update();
+            renderFrame();
+            perf.frames++;
+            const now = performance.now();
+            if (now - perf.last >= 1000) {
+                perf.fps = Math.round(perf.frames * 1000 / (now - perf.last));
+                perf.frames = 0;
+                perf.last = now;
+                const el = document.getElementById('perfLine');
+                if (el && state.model) {
+                    el.style.color = perf.fps < 20 ? 'var(--err)' : 'var(--ok)';
+                    el.textContent = `${perf.fps} fps · floor ${perf.reflector} · dpr ${renderer.getPixelRatio()}`;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        //  GLB parsing — we keep the raw bytes so export is a surgical patch
+        //  rather than a re-export (which would drop KHR extensions and bloat).
+        // ---------------------------------------------------------------------
+        function parseGLB(buf) {
+            const dv = new DataView(buf);
+            if (dv.getUint32(0, true) !== 0x46546C67) throw new Error('not a GLB (bad magic)');
+            const total = dv.getUint32(8, true);
+            let off = 12, json = null, binOffset = 0, binLength = 0;
+            while (off + 8 <= total) {
+                const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
+                const start = off + 8;
+                if (type === 0x4E4F534A) json = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, start, len)));
+                else if (type === 0x004E4942) { binOffset = start; binLength = len; }
+                off = start + len + ((4 - len % 4) % 4);   // chunks are 4-byte aligned
+            }
+            if (!json) throw new Error('no JSON chunk');
+            return { json, binOffset, binLength };
+        }
+
+        async function loadGLBBytes(bytes, label) {
+            status('Parsing GLB…', 'busy');
+            const buf = bytes.buffer ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes;
+            const { json, binOffset, binLength } = parseGLB(buf);
+            state.glbBytes = new Uint8Array(buf);
+            state.gltfJson = json;
+            state.binOffset = binOffset;
+
+            // Report what's inside, and flag anything unexpected.
+            const patternNodes = json.nodes.filter(n => /pattern/i.test(n.name || ''));
+            const imgs = (json.images || []).map(i => i.name).join(', ');
+            $('#modelInfo').innerHTML =
+                `<b style="color:var(--ok)">${label}</b><br>` +
+                `${json.meshes.length} meshes · ${json.materials.length} materials · ${(json.images || []).length} images<br>` +
+                `patterns found: <code>${patternNodes.map(n => n.name).join('</code>, <code>') || 'none'}</code><br>` +
+                `textures: <code>${imgs}</code>`;
+
+            // Hand the same bytes to GLTFLoader for the preview.
+            await new Promise((res, rej) => {
+                new THREE.GLTFLoader().parse(buf.slice(0), '', gltf => {
+                    if (state.model) scene.remove(state.model);
+                    state.model = gltf.scene; scene.add(state.model);
+
+                    // Find the sleeve: any pattern mesh will do, they're the same geometry.
+                    let sleeve = null;
+                    gltf.scene.traverse(o => {
+                        if (!o.isMesh) return;
+                        if (PATTERN_NODES.includes(o.name) || /pattern/i.test(o.name)) {
+                            if (!sleeve) sleeve = o; else o.visible = false;
+                        }
+                        if (/^Screen_(Copper|Silver)$/.test(o.name)) o.visible = false;
+                    });
+                    if (!sleeve) return rej(new Error('no pattern mesh found in this GLB'));
+                    state.sleeve = sleeve;
+                    sleeve.visible = true;
+
+                    // Real bounds drive the h normalisation, so it adapts to any model.
+                    sleeve.geometry.computeBoundingBox();
+                    const bb = sleeve.geometry.boundingBox;
+                    state.bounds = bb;
+
+                    // Measure the top and bottom edges so patterns can follow them.
+                    state.edges = computeEdgeProfile(sleeve.geometry);
+                    const e = state.edges;
+                    const pct = (r, s) => s > 1e-4 ? ` (${(r / s * 100).toFixed(1)}% of swing)` : ' (flat)';
+                    $('#edgeInfo').innerHTML =
+                        `top edge swing <b>${e.topSwing.toFixed(3)}</b> · fit ±${e.topRes.toFixed(4)}${pct(e.topRes, e.topSwing)}<br>` +
+                        `bottom swing <b>${e.botSwing.toFixed(4)}</b> · fit ±${e.botRes.toFixed(4)}${pct(e.botRes, e.botSwing)}<br>` +
+                        (e.topSwing > 0.05
+                            ? `<span style="color:var(--ok)">Slanted top detected — patterns follow it.</span>`
+                            : `<span style="color:var(--muted)">Top edge is level; tilt has little effect.</span>`);
+
+                    // Centre on the origin exactly as the storefront does
+                    // (script.js:325-331), so the 10-degree lens at z = 3 frames
+                    // the lamp the same way here as it does on the product page.
+                    const wbox = new THREE.Box3().setFromObject(state.model);
+                    const wcenter = wbox.getCenter(new THREE.Vector3());
+                    state.model.position.sub(wcenter);
+
+                    res();
+                }, rej);
+            });
+
+            rebuildParams();
+            applyMainMaterials();
+            addReflectorFloor();
+            resetView();
+            ['#btnBake', '#btnUv', '#btnGlb', '#btnRenderLines', '#btnRenderGlow', '#btnRenderLamp', '#btnSnip', '#btnCopyRecipe']
+                .forEach(s => $(s).disabled = false);
+            $('#btnGlb').disabled = true;   // needs a bake first
+            updateHud();
+            status('Model ready. Adjust the pattern, then bake.', 'ok');
+        }
+
+        // The storefront's three camera angles (script.js:99-103). Orbit is still
+        // free for inspection; these snap you back to how the product page frames
+        // the lamp, so what you judge is what the customer sees.
+        const MAIN_ANGLES = {
+            front: { x: 0, y: 0, z: 3 },
+            left: { x: -1.8, y: 0.5, z: 3 },
+            right: { x: 1.8, y: 0.5, z: 3 }
+        };
+
+        function resetView(name = 'front') {
+            const a = MAIN_ANGLES[name] || MAIN_ANGLES.front;
+            camera.position.set(a.x, a.y, a.z);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+
+        // ---------------------------------------------------------------------
+        //  Live procedural material on the sleeve
+        // ---------------------------------------------------------------------
+        function applyProcMaterial() {
+            if (!state.sleeve) return;
+            const type = $('#ptype').value;
+            const { vert, frag } = buildPatternShader(type, false);
+            const u = patternUniforms(type);
+            if (state.bounds) { u.yMin.value = state.bounds.min.y; u.yMax.value = state.bounds.max.y; }
+            syncUniformsFromUI(u);
+            procMaterial = new THREE.ShaderMaterial({
+                vertexShader: vert, fragmentShader: frag, uniforms: u,
+                transparent: true, side: THREE.DoubleSide, depthWrite: false,
+                extensions: { derivatives: true }
+            });
+            if (state.mode === 'proc') state.sleeve.material = procMaterial;
+        }
+
+        function syncUniformsFromUI(u) {
+            const type = $('#ptype').value;
+            const { own, common } = paramsFor(type);
+            // sliders are always #p_<key>; the uniform is u_p_* for generator
+            // params and p_* for the common ones
+            for (const k of Object.keys(own)) {
+                const el = $('#p_' + k); if (el && u['u_p_' + k]) u['u_p_' + k].value = +el.value;
+            }
+            for (const k of Object.keys(common)) {
+                const el = $('#p_' + k); if (el && u['p_' + k]) u['p_' + k].value = +el.value;
+            }
+            if (state.edges) {
+                if (u.topA) u.topA.value = state.edges.topA.slice();
+                if (u.topB) u.topB.value = state.edges.topB.slice();
+                if (u.botA) u.botA.value = state.edges.botA.slice();
+                if (u.botB) u.botB.value = state.edges.botB.slice();
+            }
+            if (type === 'image') {
+                u.p_tileX && (u.p_tileX.value = +$('#tileX').value);
+                u.p_tileY && (u.p_tileY.value = +$('#tileY').value);
+                u.p_inv && (u.p_inv.value = +$('#inv').value);
+                u.tileMap && (u.tileMap.value = state.tileTexture);
+            }
+            if (u.p_rot) u.p_rot.value = +$('#rot').value;
+            const c = new THREE.Color($('#ecol').value);
+            u.glowColor.value.copy(c);
+            // glTF emissiveStrength 50 is far beyond what a preview can show
+            // literally; scale it into a sane display range instead.
+            u.glowStrength.value = 0.6 + (+$('#estr').value / 50) * 1.4;
+        }
+
+        function updateProcUniforms() {
+            if (procMaterial) syncUniformsFromUI(procMaterial.uniforms);
+            if (bakedMaterial) {
+                const c = new THREE.Color($('#ecol').value);
+                bakedMaterial.emissive.copy(c);
+                bakedMaterial.emissiveIntensity = Math.max(0.1, +$('#estr').value / 12);
+                bakedMaterial.roughness = +$('#rough').value;
+            }
+            updateHud();
+        }
+
+        // ---------------------------------------------------------------------
+        //  GPU bake: draw the sleeve into a 3556x2000 target, positioning each
+        //  vertex by its UV.  The unwrap spills outside 0..1 and the sampler
+        //  is REPEAT, so we draw a 3x3 block of UV offsets and keep the max
+        //  coverage — that folds the wrapped parts back into the tile.
+        // ---------------------------------------------------------------------
+        function bakeTexture() {
+            if (!state.sleeve) return;
+            status('Baking ' + TEX_W + '×' + TEX_H + '…', 'busy');
+
+            const type = $('#ptype').value;
+            const { vert, frag } = buildPatternShader(type, true);
+            const u = patternUniforms(type);
+            if (state.bounds) { u.yMin.value = state.bounds.min.y; u.yMax.value = state.bounds.max.y; }
+            syncUniformsFromUI(u);
+            u.bakeMode.value = 1;
+
+            const mat = new THREE.ShaderMaterial({
+                vertexShader: vert, fragmentShader: frag, uniforms: u,
+                transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+                blending: THREE.CustomBlending,
+                blendEquation: THREE.MaxEquation,          // union of the 9 offset passes
+                blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+                blendEquationAlpha: THREE.MaxEquation,
+                blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor,
+                extensions: { derivatives: true }
+            });
+
+            const rt = new THREE.WebGLRenderTarget(TEX_W, TEX_H, {
+                minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+                encoding: THREE.LinearEncoding, depthBuffer: false, stencilBuffer: false
+            });
+
+            const bakeScene = new THREE.Scene();
+            const quadMesh = new THREE.Mesh(state.sleeve.geometry, mat);
+            bakeScene.add(quadMesh);
+            const bakeCam = new THREE.Camera();   // shader writes clip space directly
+
+            const prevTarget = renderer.getRenderTarget();
+            const prevTone = renderer.toneMapping, prevEnc = renderer.outputEncoding;
+            renderer.toneMapping = THREE.NoToneMapping;
+            renderer.outputEncoding = THREE.LinearEncoding;
+            renderer.setRenderTarget(rt);
+            renderer.setClearColor(0x000000, 0);
+            renderer.clear(true, false, false);
+            renderer.autoClear = false;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    u.uvOffset.value.set(dx, dy);
+                    renderer.render(bakeScene, bakeCam);
+                }
+            }
+            renderer.autoClear = true;
+
+            const px = new Uint8Array(TEX_W * TEX_H * 4);
+            renderer.readRenderTargetPixels(rt, 0, 0, TEX_W, TEX_H, px);
+
+            renderer.setRenderTarget(prevTarget);
+            renderer.toneMapping = prevTone; renderer.outputEncoding = prevEnc;
+            renderer.setClearColor(0x000000, 0);
+
+            // No row flip. The bake writes gl_Position = uv*2-1, so v=0 lands on
+            // the framebuffer's bottom row, and readPixels returns bottom-row
+            // first — its row 0 IS v=0. glTF textures load with flipY=false,
+            // meaning v=0 samples the PNG's first row. Row 0 to row 0, direct.
+            const canvas = document.createElement('canvas');
+            canvas.width = TEX_W; canvas.height = TEX_H;
+            const ctx = canvas.getContext('2d');
+            const img = ctx.createImageData(TEX_W, TEX_H);
+            img.data.set(px);
+            ctx.putImageData(img, 0, 0);
+
+            // Coverage stat — a sanity check against the existing art
+            // (Triangle 11.5%, Star 12.7%, Arabic 23.4%).
+            let opaque = 0;
+            for (let i = 3; i < img.data.length; i += 4) if (img.data[i] > 200) opaque++;
+            const pct = (opaque / (TEX_W * TEX_H) * 100);
+
+            const prev = $('#texpreview');
+            prev.width = 300; prev.height = Math.round(300 * TEX_H / TEX_W);
+            const pctx = prev.getContext('2d');
+            pctx.fillStyle = '#08080a'; pctx.fillRect(0, 0, prev.width, prev.height);
+            pctx.drawImage(canvas, 0, 0, prev.width, prev.height);
+            prev.classList.remove('hidden');
+
+            canvas.toBlob(blob => {
+                state.bakedBlob = blob;
+                $('#bakeInfo').innerHTML =
+                    `coverage <b>${pct.toFixed(2)}%</b> · PNG <b>${(blob.size / 1024).toFixed(0)} KB</b><br>` +
+                    (pct < 0.5 ? '<span style="color:var(--err)">Almost empty — check the parameters.</span>'
+                        : pct > 60 ? '<span style="color:var(--warn)">Very dense — the lamp will read as solid glow.</span>'
+                            : '<span style="color:var(--ok)">In range of the existing patterns.</span>');
+                $('#btnDlTex').classList.remove('hidden');
+                $('#btnGlb').disabled = false;
+
+                // Build the baked-texture material for the verification toggle.
+                const tex = new THREE.Texture(canvas);
+                tex.flipY = false;                 // glTF convention
+                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                tex.encoding = THREE.sRGBEncoding;
+                tex.needsUpdate = true;
+                state.bakedTexture = tex;
+                bakedMaterial = new THREE.MeshStandardMaterial({
+                    map: tex, transparent: true, alphaTest: 0.0, side: THREE.DoubleSide,
+                    metalness: 0, roughness: +$('#rough').value,
+                    emissive: new THREE.Color($('#ecol').value),
+                    emissiveMap: tex,
+                    emissiveIntensity: Math.max(0.1, +$('#estr').value / 12),
+                    depthWrite: false
+                });
+                if (state.mode === 'baked') state.sleeve.material = bakedMaterial;
+                status(`Baked. ${pct.toFixed(2)}% coverage. Flip to "Baked tex" to verify it matches.`, 'ok');
+            }, 'image/png');
+
+            rt.dispose(); mat.dispose();
+        }
+
+        // ---------------------------------------------------------------------
+        //  UV template — the unwrap as a wireframe, for hand-drawn art
+        // ---------------------------------------------------------------------
+        function downloadUVTemplate() {
+            const geo = state.sleeve.geometry;
+            const uv = geo.attributes.uv, idx = geo.index;
+            const c = document.createElement('canvas'); c.width = TEX_W; c.height = TEX_H;
+            const g = c.getContext('2d');
+            g.fillStyle = '#101014'; g.fillRect(0, 0, TEX_W, TEX_H);
+            // 0..1 tile border
+            g.strokeStyle = '#EEBA58'; g.lineWidth = 6; g.strokeRect(0, 0, TEX_W, TEX_H);
+            g.strokeStyle = 'rgba(212,165,116,0.55)'; g.lineWidth = 1;
+            const X = i => uv.getX(i) * TEX_W, Y = i => uv.getY(i) * TEX_H;
+            g.beginPath();
+            const n = idx ? idx.count : uv.count;
+            for (let i = 0; i < n; i += 3) {
+                const a = idx ? idx.getX(i) : i, b = idx ? idx.getX(i + 1) : i + 1, d = idx ? idx.getX(i + 2) : i + 2;
+                g.moveTo(X(a), Y(a)); g.lineTo(X(b), Y(b)); g.lineTo(X(d), Y(d)); g.closePath();
+            }
+            g.stroke();
+            g.fillStyle = '#EEBA58'; g.font = '600 30px Inter, sans-serif';
+            g.fillText(`Majesty sleeve UV template — ${TEX_W}x${TEX_H} — art goes in the wireframe region`, 30, 50);
+            g.fillText(`u ${uvRange(uv, 0)}   v ${uvRange(uv, 1)}   (sampler is REPEAT, so overflow wraps)`, 30, 90);
+            c.toBlob(b => saveBlob(b, 'UV-template.png'));
+        }
+        function uvRange(uv, comp) {
+            let lo = Infinity, hi = -Infinity;
+            for (let i = 0; i < uv.count; i++) { const v = comp ? uv.getY(i) : uv.getX(i); if (v < lo) lo = v; if (v > hi) hi = v; }
+            return `${lo.toFixed(3)}..${hi.toFixed(3)}`;
+        }
+
+        // ---------------------------------------------------------------------
+        //  Surgical GLB patch — reuse the sleeve's accessors, append one PNG
+        // ---------------------------------------------------------------------
+        async function exportGLB() {
+            if (!state.bakedBlob) { status('Bake the texture first.', 'err'); return; }
+            status('Patching GLB…', 'busy');
+            const name = ($('#pname').value || 'Pattern').trim();
+            const png = new Uint8Array(await state.bakedBlob.arrayBuffer());
+            const j = JSON.parse(JSON.stringify(state.gltfJson));
+
+            // Locate the donor pattern (mesh + material) to clone.
+            const donorNodeIdx = j.nodes.findIndex(n => /pattern/i.test(n.name || ''));
+            if (donorNodeIdx < 0) throw new Error('no donor pattern node');
+            const donorMeshIdx = j.nodes[donorNodeIdx].mesh;
+            const donorMesh = j.meshes[donorMeshIdx];
+            let srcMatIdx = j.materials.findIndex(m => m.name === SRC_MATERIAL);
+            if (srcMatIdx < 0) srcMatIdx = donorMesh.primitives[0].material;
+
+            const bin = state.glbBytes.subarray(state.binOffset, state.binOffset + binLengthOf(state.glbBytes));
+            const binLen = bin.byteLength;
+            const pad = (4 - (binLen % 4)) % 4;                 // keep bufferViews 4-aligned
+            const newViewOffset = binLen + pad;
+
+            j.bufferViews.push({ buffer: 0, byteOffset: newViewOffset, byteLength: png.byteLength });
+            const bvIdx = j.bufferViews.length - 1;
+            j.images.push({ name, mimeType: 'image/png', bufferView: bvIdx });
+            const imgIdx = j.images.length - 1;
+            // Reuse the sampler the existing pattern textures use (REPEAT, linear/mip).
+            const donorTexIdx = j.materials[srcMatIdx].pbrMetallicRoughness.baseColorTexture.index;
+            const sampler = j.textures[donorTexIdx].sampler;
+            j.textures.push({ sampler, source: imgIdx });
+            const texIdx = j.textures.length - 1;
+
+            // Clone the donor material, retarget its texture, apply UI values.
+            const mat = JSON.parse(JSON.stringify(j.materials[srcMatIdx]));
+            mat.name = name;
+            mat.pbrMetallicRoughness.baseColorTexture = { index: texIdx };
+            mat.pbrMetallicRoughness.roughnessFactor = +$('#rough').value;
+            const c = new THREE.Color($('#ecol').value);
+            mat.emissiveFactor = [c.r, c.g, c.b];
+            mat.extensions = mat.extensions || {};
+            mat.extensions.KHR_materials_emissive_strength = { emissiveStrength: +$('#estr').value };
+            j.materials.push(mat);
+            const matIdx = j.materials.length - 1;
+
+            // Clone the mesh: same accessors, new material. Adds zero geometry bytes.
+            const mesh = { name: name + ' Pattern', primitives: donorMesh.primitives.map(p => Object.assign({}, p, { material: matIdx })) };
+            j.meshes.push(mesh);
+            const meshIdx = j.meshes.length - 1;
+
+            // Copy any transform from the donor node so it sits identically.
+            const donor = j.nodes[donorNodeIdx];
+            const node = { name: name + ' Pattern', mesh: meshIdx };
+            for (const k of ['translation', 'rotation', 'scale', 'matrix']) if (donor[k]) node[k] = donor[k].slice();
+            j.nodes.push(node);
+            const nodeIdx = j.nodes.length - 1;
+            j.scenes[j.scene || 0].nodes.push(nodeIdx);
+
+            if (!j.extensionsUsed.includes('KHR_materials_emissive_strength')) j.extensionsUsed.push('KHR_materials_emissive_strength');
+            j.buffers[0].byteLength = newViewOffset + png.byteLength;
+
+            // Reassemble: header + JSON chunk + BIN chunk.
+            const jsonStr = JSON.stringify(j);
+            let jsonBytes = new TextEncoder().encode(jsonStr);
+            const jsonPad = (4 - (jsonBytes.byteLength % 4)) % 4;
+            if (jsonPad) {
+                const p = new Uint8Array(jsonBytes.byteLength + jsonPad);
+                p.set(jsonBytes); p.fill(0x20, jsonBytes.byteLength);   // pad JSON with spaces
+                jsonBytes = p;
+            }
+            const newBinLen = newViewOffset + png.byteLength;
+            const binPad = (4 - (newBinLen % 4)) % 4;
+            const totalLen = 12 + 8 + jsonBytes.byteLength + 8 + newBinLen + binPad;
+
+            const out = new Uint8Array(totalLen);
+            const dv = new DataView(out.buffer);
+            dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, totalLen, true);
+            dv.setUint32(12, jsonBytes.byteLength, true); dv.setUint32(16, 0x4E4F534A, true);
+            out.set(jsonBytes, 20);
+            const binChunkStart = 20 + jsonBytes.byteLength;
+            dv.setUint32(binChunkStart, newBinLen + binPad, true);
+            dv.setUint32(binChunkStart + 4, 0x004E4942, true);
+            out.set(bin, binChunkStart + 8);                              // original BIN
+            out.set(png, binChunkStart + 8 + newViewOffset);              // + our PNG
+
+            saveBlob(new Blob([out], { type: 'model/gltf-binary' }), 'MajestyGLB.glb');
+            const grew = ((out.byteLength - state.glbBytes.byteLength) / 1024).toFixed(0);
+            $('#glbInfo').innerHTML =
+                `<span style="color:var(--ok)">Exported.</span> node <code>${name} Pattern</code> ` +
+                `→ three.js sees <code>${name.replace(/\s+/g, '_')}_Pattern</code><br>` +
+                `${(state.glbBytes.byteLength / 1048576).toFixed(2)} MB → <b>${(out.byteLength / 1048576).toFixed(2)} MB</b> (+${grew} KB, PNG only)`;
+            status('GLB exported. Upload it to R2 under the same key to go live.', 'ok');
+        }
+
+        function binLengthOf(bytes) {
+            const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            const total = dv.getUint32(8, true);
+            let off = 12;
+            while (off < total) {
+                const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
+                if (type === 0x004E4942) return len;
+                off = off + 8 + len + ((4 - len % 4) % 4);
+            }
+            throw new Error('no BIN chunk');
+        }
+
+        // ---------------------------------------------------------------------
+        //  1920x1080 render passes for compositing
+        // ---------------------------------------------------------------------
+        function renderPassOut(kind) {
+            const W = 1920, H = 1080;
+            const view = $('#view');
+            const oldSize = new THREE.Vector2(); renderer.getSize(oldSize);
+            const oldRatio = renderer.getPixelRatio();
+            const oldAspect = camera.aspect;
+
+            renderer.setPixelRatio(1);
+            renderer.setSize(W, H, false);
+            camera.aspect = W / H; camera.updateProjectionMatrix();
+
+            const hiddenNow = [];
+            if (kind === 'lines') {
+                // Pattern only, unlit, flat white-through-glow-colour, no bloom.
+                state.model.traverse(o => { if (o.isMesh && o !== state.sleeve && o.visible) { o.visible = false; hiddenNow.push(o); } });
+            }
+
+            let canvas;
+            if (kind === 'glow') {
+                // Bloom-only: everything except the sleeve is black, so the
+                // composite layer is pure additive light on black.
+                scene.traverse(darkenNonGlow);
+                renderer.setClearColor(0x000000, 1);
+                bloomComposer.setSize(W, H);
+                bloomComposer.renderToScreen = true;
+                bloomComposer.render();
+                bloomComposer.renderToScreen = false;
+                scene.traverse(restoreMats);
+                canvas = copyCanvas(W, H);
+                renderer.setClearColor(0x000000, 0);
+                bloomComposer.setSize(view.clientWidth, view.clientHeight);
+            } else {
+                renderer.setClearColor(0x000000, 0);
+                renderer.setRenderTarget(null);
+                renderer.clear();
+                renderer.render(scene, camera);
+                canvas = copyCanvas(W, H);
+            }
+
+            hiddenNow.forEach(o => o.visible = true);
+            renderer.setPixelRatio(oldRatio);
+            renderer.setSize(oldSize.x, oldSize.y, false);
+            camera.aspect = oldAspect; camera.updateProjectionMatrix();
+            onResize();
+
+            const names = { lines: 'pattern-alpha', glow: 'pattern-glow', lamp: 'lamp-alpha' };
+            canvas.toBlob(b => {
+                saveBlob(b, `${slug($('#pname').value)}-${names[kind]}-1920x1080.png`);
+                status(`${names[kind]} pass saved (1920×1080${kind === 'glow' ? ', on black — screen/add it' : ', transparent'}).`, 'ok');
+            }, 'image/png');
+        }
+
+        function copyCanvas(W, H) {
+            const c = document.createElement('canvas'); c.width = W; c.height = H;
+            c.getContext('2d').drawImage(renderer.domElement, 0, 0, W, H);
+            return c;
+        }
+
+        // ---------------------------------------------------------------------
+        //  Code snippet + SVG icon for the site
+        // ---------------------------------------------------------------------
+        function svgIcon() {
+            const t = $('#ptype').value, P = k => +($('#p_' + k) || { value: 0 }).value;
+            let body = '';
+            if (t === 'ladder') {
+                const n = Math.min(8, Math.max(3, Math.round(P('rungs') / 2)));
+                const gap = 12;
+                for (let i = 0; i < n; i++) {
+                    const y = 22 + i * (52 / (n - 1));
+                    body += `<line x1="18" y1="${y.toFixed(0)}" x2="${50 - gap / 2}" y2="${y.toFixed(0)}"/>` +
+                        `<line x1="${50 + gap / 2}" y1="${y.toFixed(0)}" x2="82" y2="${y.toFixed(0)}"/>`;
+                }
+                // two verticals, one down each edge of the channel
+                body += `<line x1="${50 - gap / 2}" y1="20" x2="${50 - gap / 2}" y2="76"/>`;
+                body += `<line x1="${50 + gap / 2}" y1="20" x2="${50 + gap / 2}" y2="76"/>`;
+                body += `<line x1="14" y1="84" x2="86" y2="84"/>`;
+            } else if (t === 'stripes') {
+                for (let i = 0; i < 6; i++) { const y = 20 + i * 12; body += `<line x1="16" y1="${y}" x2="84" y2="${y}"/>`; }
+            } else if (t === 'grid') {
+                for (let i = 0; i < 5; i++) { const y = 22 + i * 14; body += `<line x1="18" y1="${y}" x2="82" y2="${y}"/>`; }
+                for (let i = 0; i < 5; i++) { const x = 22 + i * 14; body += `<line x1="${x}" y1="18" x2="${x}" y2="82"/>`; }
+            } else if (t === 'chevron') {
+                for (let i = 0; i < 4; i++) { const y = 26 + i * 16; body += `<polyline points="18,${y} 34,${y - 10} 50,${y} 66,${y - 10} 82,${y}"/>`; }
+            } else if (t === 'diamond') {
+                body = `<path d="M50,18 L82,50 L50,82 L18,50 Z"/><path d="M50,34 L66,50 L50,66 L34,50 Z"/>`;
+            } else if (t === 'dots') {
+                for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++)
+                    body += `<circle cx="${26 + c * 16 + (r % 2 ? 8 : 0)}" cy="${26 + r * 16}" r="4" fill="currentColor" stroke="none"/>`;
+            } else if (t === 'fluting') {
+                for (let i = 0; i < 7; i++) { const x = 20 + i * 10; body += `<line x1="${x}" y1="18" x2="${x}" y2="82"/>`; }
+            } else if (t === 'brick') {
+                for (let r = 0; r < 4; r++) { const y = 24 + r * 16; body += `<line x1="16" y1="${y}" x2="84" y2="${y}"/>`; }
+                for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+                    const x = 28 + c * 22 + (r % 2 ? 11 : 0), y = 24 + r * 16;
+                    body += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 16}"/>`;
+                }
+            } else if (t === 'herringbone') {
+                for (let r = 0; r < 3; r++) { const y = 28 + r * 18; const s = r % 2 ? 1 : -1;
+                    for (let c = 0; c < 4; c++) { const x = 20 + c * 16; body += `<line x1="${x}" y1="${y + s * 7}" x2="${x + 14}" y2="${y - s * 7}"/>`; } }
+            } else if (t === 'wave') {
+                for (let r = 0; r < 4; r++) { const y = 24 + r * 16;
+                    body += `<path d="M16,${y} Q30,${y - 8} 44,${y} T72,${y} T90,${y}"/>`; }
+            } else if (t === 'arches') {
+                for (let c = 0; c < 3; c++) { const x = 22 + c * 24;
+                    body += `<path d="M${x},76 L${x},56 A11,11 0 0 1 ${x + 22},56 L${x + 22},76"/>`; }
+                body += `<line x1="14" y1="78" x2="86" y2="78"/>`;
+            } else if (t === 'scales') {
+                for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) {
+                    const x = 20 + c * 20 + (r % 2 ? 10 : 0), y = 30 + r * 18;
+                    body += `<path d="M${x - 10},${y} A10,10 0 0 0 ${x + 10},${y}"/>`; }
+            } else if (t === 'honeycomb') {
+                const hex = (cx, cy, r) => { let p = [];
+                    for (let i = 0; i < 6; i++) { const a = Math.PI / 180 * (60 * i - 30);
+                        p.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`); }
+                    return `<polygon points="${p.join(' ')}"/>`; };
+                body = hex(50, 34, 14) + hex(50, 66, 14) + hex(74, 50, 14) + hex(26, 50, 14);
+            } else if (t === 'triangles') {
+                for (let c = 0; c < 3; c++) { const x = 20 + c * 22;
+                    body += `<polygon points="${x},72 ${x + 22},72 ${x + 11},46"/>`; }
+                for (let c = 0; c < 2; c++) { const x = 31 + c * 22;
+                    body += `<polygon points="${x},44 ${x + 22},44 ${x + 11},18"/>`; }
+            } else if (t === 'sunburst') {
+                for (let i = -3; i <= 3; i++) body += `<line x1="50" y1="86" x2="${50 + i * 13}" y2="18"/>`;
+            } else if (t === 'decofan') {
+                for (let i = 1; i <= 4; i++) body += `<path d="M${50 - i * 11},84 A${i * 11},${i * 11} 0 0 1 ${50 + i * 11},84"/>`;
+            } else if (t === 'crosses') {
+                const plus = (cx, cy, s) => `<line x1="${cx - s}" y1="${cy}" x2="${cx + s}" y2="${cy}"/><line x1="${cx}" y1="${cy - s}" x2="${cx}" y2="${cy + s}"/>`;
+                const ex = (cx, cy, s) => { const d = s * 0.72; return `<line x1="${cx - d}" y1="${cy - d}" x2="${cx + d}" y2="${cy + d}"/><line x1="${cx + d}" y1="${cy - d}" x2="${cx - d}" y2="${cy + d}"/>`; };
+                body = plus(28, 26, 13) + plus(72, 26, 13) + ex(50, 50, 11) + plus(28, 74, 8) + plus(72, 74, 8);
+            } else if (t === 'fourstar') {
+                const star = (cx, cy, s) => `<path d="M${cx},${cy - s} Q${cx + s * .18},${cy - s * .18} ${cx + s},${cy} Q${cx + s * .18},${cy + s * .18} ${cx},${cy + s} Q${cx - s * .18},${cy + s * .18} ${cx - s},${cy} Q${cx - s * .18},${cy - s * .18} ${cx},${cy - s} Z" fill="currentColor" stroke="none"/>`;
+                body = star(30, 30, 9) + star(70, 30, 9) + star(50, 50, 13) + star(30, 74, 15) + star(70, 74, 15);
+            } else if (t === 'tristar' || t === 'triprong') {
+                const tri = (cx, cy, s) => { let p = '';
+                    for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + i * 2.0944;
+                        p += `<line x1="${cx}" y1="${cy}" x2="${(cx + s * Math.cos(a)).toFixed(1)}" y2="${(cy + s * Math.sin(a)).toFixed(1)}"/>`; }
+                    return p; };
+                body = tri(30, 30, 13) + tri(70, 30, 13) + tri(50, 58, 13) + tri(30, 82, 13) + tri(70, 82, 13);
+            } else if (t === 'trihalftone') {
+                const up = (cx, cy, s) => `<polygon points="${cx},${cy - s} ${cx + s},${cy + s * .8} ${cx - s},${cy + s * .8}" fill="currentColor" stroke="none"/>`;
+                body = up(26, 24, 6) + up(50, 24, 6) + up(74, 24, 6) + up(30, 50, 11) + up(64, 50, 11) + up(26, 80, 5) + up(50, 80, 5) + up(74, 80, 5);
+            } else if (t === 'dashes') {
+                const cols = [[20, .3], [34, .6], [48, .45], [62, .8], [76, .55], [88, .35]];
+                for (const [x, frac] of cols) { const top = 84 - 66 * frac;
+                    for (let y = 84; y > top; y -= 11) body += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y - 6}"/>`; }
+            } else if (t === 'truchet') {
+                body = `<path d="M18,50 A16,16 0 0 1 34,34"/><path d="M50,18 A16,16 0 0 1 66,34"/>` +
+                    `<path d="M34,66 A16,16 0 0 0 50,82"/><path d="M66,66 A16,16 0 0 1 82,50"/>` +
+                    `<path d="M34,34 A16,16 0 0 0 50,50"/><path d="M50,50 A16,16 0 0 1 66,66"/>`;
+            } else {
+                body = `<rect x="20" y="20" width="60" height="60" rx="6"/><path d="M20,60 L40,42 L58,60 L70,50 L80,58"/>`;
+            }
+            return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
+</svg>`;
+        }
+
+        function slug(s) { return (s || 'Pattern').trim().replace(/\s+/g, '-'); }
+
+        function makeSnippet() {
+            const name = ($('#pname').value || 'Pattern').trim();
+            const mesh = name.replace(/\s+/g, '_') + '_Pattern';
+            const icon = svgIcon().split('\n').map((l, i) => i ? '                                ' + l.trim() : l).join('\n');
+            const txt =
+                `# 1. script.js:22 — configNames\n` +
+                `    '${name}': '${name}'\n\n` +
+                `# 2. script.js:28 — patterns array\n` +
+                `const patterns = ['Triangle', 'Star', 'Arabic', '${name}'];\n\n` +
+                `# 3. script.js:86 — materialSettings.patterns\n` +
+                `    "${name}": { "emissive": ${colorHexInt($('#ecol').value)}, "emissiveIntensity": 10 }\n\n` +
+                `# 4. script.js:392 — patternMeshMap\n` +
+                `    '${name}': '${mesh}'\n\n` +
+                `# 5. script.js:397 AND script.js:556 — BOTH patternMeshNames arrays\n` +
+                `const patternMeshNames = ['Triangle_Pattern', 'Star_Pattern', 'Arabic_Pattern', '${mesh}'];\n` +
+                `    (line 556 is a separate hardcoded copy inside the bloom pass —\n` +
+                `     miss it and the new pattern renders without glow)\n\n` +
+                `# 6. index.html:354 — new button after the Arabic .control-item\n` +
+                `                    <div class="control-item">\n` +
+                `                        <button class="control-btn" data-type="pattern" data-value="${name}" title="${name}">\n` +
+                `                            ${icon}\n` +
+                `                        </button>\n` +
+                `                        <span class="mobile-label">${name}</span>\n` +
+                `                    </div>\n\n` +
+                `# 7. Renders needed — ${19} files (19 rim x base pairs)\n` +
+                renderList(name);
+            const pre = $('#snippet'); pre.textContent = txt; pre.classList.remove('hidden');
+            navigator.clipboard && navigator.clipboard.writeText(txt).then(
+                () => status('Snippet generated and copied to clipboard.', 'ok'),
+                () => status('Snippet generated.', 'ok'));
+        }
+
+        function renderList(P) {
+            const rims = ['Golden Ring', 'Silver Ring', 'Copper Ring'];
+            const bases = ['Red', 'Red Metallic', 'Black', 'White', 'Gold', 'Silver', 'Copper'];
+            let out = '';
+            for (const rim of rims) for (const b of bases) {
+                if (b === 'Copper' && rim !== 'Copper Ring') continue;
+                const fn = rim === 'Golden Ring' ? `${P} - ${b}.webp` : `${rim} - ${P} - ${b}.webp`;
+                out += `renders/${rim}/${b} - ${rim}/${fn}\n`;
+            }
+            return out;
+        }
+        function colorHexInt(hex) { return parseInt(hex.replace('#', ''), 16); }
+
+        // ---------------------------------------------------------------------
+        //  Pattern recipe — a portable record of everything that defines the
+        //  pattern, so a configuration can be handed to someone else (or back to
+        //  this tool) and rebuilt bit-for-bit. Deliberately only the pattern:
+        //  base/rim are preview context, recorded for reference but not applied.
+        // ---------------------------------------------------------------------
+        const RECIPE_VERSION = 1;
+
+        function buildRecipe() {
+            const type = $('#ptype').value;
+            const { own, common } = paramsFor(type);
+            const read = (k) => {
+                const el = $('#p_' + k);
+                return el ? +el.value : undefined;
+            };
+            const params = {};
+            for (const k of Object.keys(own)) params[k] = read(k);
+            const placement = {};
+            for (const k of Object.keys(common)) placement[k] = read(k);
+
+            const recipe = {
+                majestyPatternRecipe: RECIPE_VERSION,
+                name: ($('#pname').value || 'Pattern').trim(),
+                generator: type,
+                params,
+                placement,
+                rotateDeg: +$('#rot').value,
+                emission: {
+                    colour: $('#ecol').value,
+                    strength: +$('#estr').value,
+                    roughness: +$('#rough').value
+                }
+            };
+
+            if (type === 'image') {
+                recipe.imageTile = {
+                    repeatAround: +$('#tileX').value,
+                    repeatVertical: +$('#tileY').value,
+                    invert: +$('#inv').value === 1,
+                    note: 'The tile PNG itself is not in this recipe — send that file separately.'
+                };
+            }
+
+            // context, for sanity-checking that we are on the same model
+            recipe.context = {
+                sleeve: state.sleeve ? state.sleeve.name : null,
+                verts: state.sleeve ? state.sleeve.geometry.attributes.position.count : null,
+                previewBase: $('#baseCol').value,
+                previewRim: $('#rimCol').value,
+                bakeResolution: `${TEX_W}x${TEX_H}`
+            };
+            return recipe;
+        }
+
+        function copyRecipe() {
+            const recipe = buildRecipe();
+            const text = JSON.stringify(recipe, null, 2);
+            const pre = $('#recipeOut');
+            pre.textContent = text;
+            pre.classList.remove('hidden');
+            const ok = () => status('Recipe copied — paste it in chat to share this pattern.', 'ok');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(ok, () => {
+                    // clipboard can be blocked on file:// or without focus; the
+                    // text is on screen either way
+                    status('Clipboard blocked — select the recipe below and copy it.', 'warn');
+                });
+            } else {
+                status('Recipe ready below — select it and copy.', 'warn');
+            }
+        }
+
+        function applyRecipe(recipe) {
+            if (!recipe || !recipe.majestyPatternRecipe) throw new Error('not a Majesty pattern recipe');
+            if (!GENERATORS[recipe.generator]) throw new Error(`unknown generator "${recipe.generator}"`);
+            // collected and reported at the end, so nothing overwrites it
+            const notes = [];
+            if (recipe.majestyPatternRecipe > RECIPE_VERSION) {
+                notes.push(`recipe is version ${recipe.majestyPatternRecipe}, this studio understands ${RECIPE_VERSION}`);
+            }
+
+            if (recipe.name) $('#pname').value = recipe.name;
+            $('#ptype').value = recipe.generator;
+
+            if (recipe.imageTile) {
+                $('#tileX').value = recipe.imageTile.repeatAround ?? 4;
+                $('#tileY').value = recipe.imageTile.repeatVertical ?? 3;
+                $('#inv').value = recipe.imageTile.invert ? 1 : 0;
+            }
+            if (recipe.emission) {
+                if (recipe.emission.colour) $('#ecol').value = recipe.emission.colour;
+                if (recipe.emission.strength != null) $('#estr').value = recipe.emission.strength;
+                if (recipe.emission.roughness != null) $('#rough').value = recipe.emission.roughness;
+            }
+            if (recipe.rotateDeg != null) $('#rot').value = recipe.rotateDeg;
+
+            // rebuildParams() creates the sliders for this generator, so the
+            // values have to be written after it, then pushed to the shader.
+            rebuildParams();
+            const setAll = (obj) => {
+                let missing = [];
+                for (const [k, v] of Object.entries(obj || {})) {
+                    const el = $('#p_' + k);
+                    if (!el) { missing.push(k); continue; }
+                    el.value = v;
+                    el.dispatchEvent(new Event('input'));
+                }
+                return missing;
+            };
+            const missing = [...setAll(recipe.params), ...setAll(recipe.placement)];
+
+            // reflect the restored values in the readouts
+            $('#o_rot').textContent = $('#rot').value + '°';
+            $('#o_estr').textContent = $('#estr').value;
+            $('#o_rough').textContent = (+$('#rough').value).toFixed(2);
+            ['tileX', 'tileY', 'inv'].forEach(id => {
+                const o = $('#o_' + id);
+                if (o) o.textContent = id === 'inv' ? (+$('#inv').value ? 'on' : 'off') : $('#' + id).value;
+            });
+
+            updateProcUniforms();
+            invalidateBake();
+            updateHud();
+
+            if (missing.length) notes.push(`ignored unknown setting(s): ${missing.join(', ')}`);
+            if (recipe.context && state.sleeve && recipe.context.verts &&
+                recipe.context.verts !== state.sleeve.geometry.attributes.position.count) {
+                notes.push(`recipe was made on a ${recipe.context.verts}-vert sleeve, this model has ${state.sleeve.geometry.attributes.position.count}`);
+            }
+            status(notes.length
+                ? `Recipe loaded — ${notes.join('; ')}.`
+                : `Recipe loaded: ${recipe.name} (${GENERATORS[recipe.generator].label}). Bake to continue.`,
+                notes.length ? 'warn' : 'ok');
+        }
+
+        async function pasteRecipe() {
+            let text = '';
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText();
+            } catch (e) { /* fall through to the prompt */ }
+            if (!text) text = window.prompt('Paste a pattern recipe (JSON):') || '';
+            if (!text.trim()) return;
+            try {
+                applyRecipe(JSON.parse(text));
+            } catch (e) {
+                status('Could not read that recipe: ' + e.message, 'err');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        //  UI wiring
+        // ---------------------------------------------------------------------
+        function rebuildParams() {
+            const type = $('#ptype').value;
+            const gen = GENERATORS[type];
+            $('#imgBox').classList.toggle('hidden', type !== 'image');
+            const box = $('#paramBox'); box.innerHTML = '';
+
+            const addSlider = (k, p) => {
+                const dp = p.dp || 0, unit = p.unit || '';
+                const d = document.createElement('div');
+                d.className = 'rng';
+                d.innerHTML =
+                    `<div class="row"><label>${p.label}</label><output id="o_p_${k}">${(+p.val).toFixed(dp)}${unit}</output></div>` +
+                    `<input type="range" id="p_${k}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">`;
+                box.appendChild(d);
+                d.querySelector('input').addEventListener('input', e => {
+                    $('#o_p_' + k).textContent = (+e.target.value).toFixed(dp) + unit;
+                    updateProcUniforms();
+                });
+            };
+
+            const { own, common } = paramsFor(type);
+            for (const [k, p] of Object.entries(own)) addSlider(k, p);
+
+            // Size ramp + placement, present for every generator.
+            const hdr = document.createElement('label');
+            hdr.className = 'h';
+            hdr.style.cssText = 'display:block;margin:14px 0 8px';
+            hdr.textContent = 'Size & placement — all patterns';
+            box.appendChild(hdr);
+            for (const [k, p] of Object.entries(common)) addSlider(k, p);
+
+            applyProcMaterial();
+            invalidateBake();
+            updateHud();
+        }
+
+        function invalidateBake() {
+            state.bakedBlob = null; state.bakedTexture = null; bakedMaterial = null;
+            $('#btnGlb').disabled = true;
+            $('#btnDlTex').classList.add('hidden');
+            $('#texpreview').classList.add('hidden');
+            $('#bakeInfo').innerHTML = '';
+            if (state.mode === 'baked') setMode('proc');
+        }
+
+        function setMode(m) {
+            state.mode = m;
+            document.querySelectorAll('#segMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+            if (!state.sleeve) return;
+            if (m === 'baked') {
+                if (!bakedMaterial) { status('Bake first — nothing to compare yet.', 'err'); return setMode('proc'); }
+                state.sleeve.material = bakedMaterial;
+            } else {
+                state.sleeve.material = procMaterial;
+            }
+            updateHud();
+        }
+
+        function setIso(v) {
+            state.iso = +v;
+            document.querySelectorAll('#segIso button').forEach(b => b.classList.toggle('on', +b.dataset.iso === state.iso));
+            if (!state.model) return;
+            state.model.traverse(o => {
+                if (!o.isMesh) return;
+                if (o === state.sleeve) { o.visible = true; return; }
+                if (/^Screen_(Copper|Silver)$/.test(o.name)) { o.visible = false; return; }
+                if (/pattern/i.test(o.name)) { o.visible = false; return; }
+                o.visible = !state.iso;
+            });
+        }
+
+        // =====================================================================
+        //  MAIN — the storefront's material + light tables, copied verbatim from
+        //  script.js:47-105. Kept in one object so this file and the site cannot
+        //  drift apart: what the pattern looks like here is what it looks like
+        //  on the product page.
+        // =====================================================================
+        const MAIN = {
+            global: {
+                exposure: 1,
+                mainLightIntensity: 0.1,
+                rimLightIntensity: 2,
+                ambientIntensity: 0,
+                logoLightIntensity: 5,
+                logoLightX: 0, logoLightY: 1.6, logoLightZ: 0.7,
+                logoLightDistance: 2, logoLightDecay: 1,
+                logoLightAngle: 0.6, logoLightPenumbra: 0.5,
+                logoLightTargetX: 0, logoLightTargetY: 0, logoLightTargetZ: 0
+            },
+            bases: {
+                "Red": { metalness: 0, roughness: 0.1, envMapIntensity: 0.5, color: 5114121 },
+                "Red Metallic": { metalness: 1, roughness: 0.3, envMapIntensity: 1, color: 5114121 },
+                "Black": { metalness: 0, roughness: 0.1, envMapIntensity: 0.2, color: 0 },
+                "White": { metalness: 0, roughness: 0.1, envMapIntensity: 1, color: 11250603 },
+                "Gold": { metalness: 1, roughness: 0.3, envMapIntensity: 0.5, color: 16757575 },
+                "Silver": { metalness: 1, roughness: 0.2, envMapIntensity: 0.8, color: 16777215 },
+                "Copper": { metalness: 1, roughness: 0.25, envMapIntensity: 0.8, color: 16759700 }
+            },
+            rings: {
+                "Golden Ring": { metalness: 1, roughness: 0.25, envMapIntensity: 0.8, color: 16757575 },
+                "Silver Ring": { metalness: 1, roughness: 0.2, envMapIntensity: 0.8, color: 16777215 },
+                "Copper Ring": { metalness: 1, roughness: 0.2, envMapIntensity: 1, color: 16759700 }
+            },
+            floor: { color: 0x1a1a1a },
+            rimGroup: ['Rim', 'Ring', 'BaseRim', 'BaseRim_1', 'Logo'],
+            screenMain: 'Screen_Main_(Gold)',
+            hiddenScreens: ['Screen_Copper', 'Screen_Silver']
+        };
+
+        function applyPBR(mesh, s) {
+            if (!s || !mesh.material) return;
+            mesh.material.metalness = s.metalness;
+            mesh.material.roughness = s.roughness;
+            mesh.material.envMapIntensity = s.envMapIntensity;
+            mesh.material.color.setHex(s.color);
+            // Logo sits on layer 1 so its dedicated spotlight reaches it alone
+            if (mesh.name === 'Logo') mesh.layers.enable(LAYER_LOGO);
+            else mesh.layers.disable(LAYER_LOGO);
+            mesh.material.needsUpdate = true;
+        }
+
+        /** Same mesh-name contract the storefront uses. */
+        function applyMainMaterials() {
+            if (!state.model) return;
+            const base = MAIN.bases[$('#baseCol').value];
+            const ring = MAIN.rings[$('#rimCol').value];
+            state.model.traverse(o => {
+                if (!o.isMesh) return;
+                if (MAIN.hiddenScreens.includes(o.name)) { o.visible = false; return; }
+                if (o.name === 'Patterns') { o.visible = false; return; }
+                if (/_Pattern$/.test(o.name)) return;              // authored separately
+                if (o.name === 'Base') applyPBR(o, base);
+                if (MAIN.rimGroup.includes(o.name)) applyPBR(o, ring);
+                if (o.name === MAIN.screenMain) applyPBR(o, ring);
+            });
+        }
+
+        // kept as an alias so existing call sites keep working
+        const applyBaseColour = applyMainMaterials;
+
+        /** Real-time Reflector floor, same parameters as script.js:337-352, with
+         *  one deliberate difference: the reflection buffer is CAPPED.
+         *
+         *  The storefront asks for window.innerWidth * devicePixelRatio, which on
+         *  a retina laptop is ~3600x2000 — 7 megapixels of scene re-rendered
+         *  every time the floor is drawn. The studio draws the scene twice per
+         *  frame (bloom + final), and recursion allows another level, so that
+         *  became several 7 MP scene renders per frame and the tab froze.
+         *  A mirrored, near-black floor carries no fine detail, so a capped
+         *  buffer is visually indistinguishable and orders of magnitude cheaper. */
+        const REFLECTOR_MAX = 1024;
+        function addReflectorFloor() {
+            if (!state.model || floorMesh) return;
+            const view = $('#view');
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const w = Math.max(256, Math.min(REFLECTOR_MAX, Math.round((view.clientWidth || 960) * dpr)));
+            const h = Math.max(256, Math.min(REFLECTOR_MAX, Math.round((view.clientHeight || 720) * dpr)));
+            const box = new THREE.Box3().setFromObject(state.model);
+            floorMesh = new THREE.Reflector(new THREE.CircleGeometry(5, 64), {
+                clipBias: 0.003,
+                textureWidth: w,
+                textureHeight: h,
+                color: MAIN.floor.color,
+                recursion: 0          // no self-reflection: one less full scene pass
+            });
+            floorMesh.rotateX(-Math.PI / 2);
+            floorMesh.position.y = box.min.y;
+            scene.add(floorMesh);
+            perf.reflector = `${w}x${h}`;
+            console.log(`Reflector floor ${w}x${h} (capped at ${REFLECTOR_MAX})`);
+        }
+
+        function updateHud() {
+            const type = $('#ptype').value;
+            $('#hudMain').innerHTML =
+                `<b>${($('#pname').value || 'Pattern')}</b> · ${GENERATORS[type].label}<br>` +
+                (state.sleeve ? `sleeve <b>${state.sleeve.name}</b> · ${state.sleeve.geometry.attributes.position.count} verts<br>` : '') +
+
+                `mode <b>${state.mode === 'proc' ? 'procedural' : 'baked texture'}</b>` +
+                (state.iso ? ' · <b>isolated</b>' : '');
+        }
+
+        function saveBlob(blob, filename) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob); a.download = filename;
+            a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }
+
+        function wireDrop(dropEl, inputEl, handler) {
+            dropEl.addEventListener('click', () => inputEl.click());
+            inputEl.addEventListener('change', e => e.target.files[0] && handler(e.target.files[0]));
+            ['dragenter', 'dragover'].forEach(ev => dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.add('hot'); }));
+            ['dragleave', 'drop'].forEach(ev => dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.remove('hot'); }));
+            dropEl.addEventListener('drop', e => e.dataTransfer.files[0] && handler(e.dataTransfer.files[0]));
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initThree();
+            status('Ready. Load the model to begin.');
+
+            // Generator list comes from GENERATORS, so adding one is a single edit.
+            $('#ptype').innerHTML = Object.entries(GENERATORS)
+                .map(([k, g]) => `<option value="${k}">${g.label}</option>`).join('');
+
+            $('#ptype').addEventListener('change', rebuildParams);
+            // Scrolling the panel with the cursor over a <select> silently changes
+            // its value and would reset every slider. Ignore the wheel here.
+            $('#ptype').addEventListener('wheel', e => e.preventDefault(), { passive: false });
+            $('#baseCol').addEventListener('wheel', e => e.preventDefault(), { passive: false });
+            $('#pname').addEventListener('input', updateHud);
+            ['#ecol', '#estr', '#rough'].forEach(s => $(s).addEventListener('input', e => {
+                if (s === '#estr') $('#o_estr').textContent = e.target.value;
+                if (s === '#rough') $('#o_rough').textContent = (+e.target.value).toFixed(2);
+                updateProcUniforms();
+            }));
+            ['tileX', 'tileY', 'inv'].forEach(id => $('#' + id).addEventListener('input', e => {
+                $('#o_' + id).textContent = id === 'inv' ? (+e.target.value ? 'on' : 'off') : e.target.value;
+                updateProcUniforms(); invalidateBake();
+            }));
+            $('#rot').addEventListener('input', e => {
+                $('#o_rot').textContent = e.target.value + '°';
+                updateProcUniforms();
+            });
+
+            // Emissive presets — first one is the exact factory value.
+            const cols = [['#ff9a36', 'factory [1,0.605,0.214]'], ['#ffffff', 'white'], ['#ffd27f', 'warm gold'],
+            ['#7fd4ff', 'ice'], ['#ff5f6d', 'red'], ['#9dff7f', 'green'], ['#c08bff', 'violet']];
+            $('#presetCols').innerHTML = cols.map(([c, t]) => `<i style="background:${c}" title="${t}" data-c="${c}"></i>`).join('');
+            $('#presetCols').addEventListener('click', e => {
+                if (!e.target.dataset.c) return;
+                $('#ecol').value = e.target.dataset.c; updateProcUniforms();
+            });
+
+            document.querySelectorAll('#segMode button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+            document.querySelectorAll('#segIso button').forEach(b => b.onclick = () => setIso(b.dataset.iso));
+            $('#baseCol').addEventListener('change', applyMainMaterials);
+            $('#rimCol').addEventListener('change', applyMainMaterials);
+            $('#rimCol').addEventListener('wheel', e => e.preventDefault(), { passive: false });
+            document.querySelectorAll('#segView button').forEach(b => b.onclick = () => {
+                document.querySelectorAll('#segView button').forEach(x => x.classList.toggle('on', x === b));
+                resetView(b.dataset.view);
+            });
+
+            // Same light/dark toggle behaviour as the storefront (script.js).
+            const themeBtn = $('#themeToggleBtn');
+            const sunIcon = themeBtn.querySelector('.sun-icon');
+            const moonIcon = themeBtn.querySelector('.moon-icon');
+            themeBtn.addEventListener('click', () => {
+                document.body.classList.toggle('light-mode');
+                const isLight = document.body.classList.contains('light-mode');
+                sunIcon.style.display = isLight ? 'none' : 'block';
+                moonIcon.style.display = isLight ? 'block' : 'none';
+                try { localStorage.setItem('majesty-studio-theme', isLight ? 'light' : 'dark'); } catch (e) { }
+            });
+            try {
+                if (localStorage.getItem('majesty-studio-theme') === 'light') themeBtn.click();
+            } catch (e) { }
+
+            $('#btnLoadUrl').onclick = async () => {
+                try {
+                    status('Fetching GLB…', 'busy');
+                    const r = await fetch($('#glbUrl').value);
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    await loadGLBBytes(new Uint8Array(await r.arrayBuffer()), 'loaded from URL');
+                } catch (e) { status('Load failed: ' + e.message, 'err'); }
+            };
+            $('#btnLoadLocal').onclick = async () => {
+                try {
+                    status('Loading local GLB…', 'busy');
+                    const r = await fetch('3D Model/MajestyGLB.glb');
+                    if (!r.ok) throw new Error('HTTP ' + r.status + ' — put MajestyGLB.glb in "3D Model/"');
+                    await loadGLBBytes(new Uint8Array(await r.arrayBuffer()), 'local 3D Model/MajestyGLB.glb');
+                } catch (e) { status('Load failed: ' + e.message, 'err'); }
+            };
+            wireDrop($('#glbDrop'), $('#glbFile'), async f => {
+                try { await loadGLBBytes(new Uint8Array(await f.arrayBuffer()), f.name); }
+                catch (e) { status('Load failed: ' + e.message, 'err'); }
+            });
+            wireDrop($('#texDrop'), $('#texFile'), f => {
+                const img = new Image();
+                img.onload = () => {
+                    const t = new THREE.Texture(img);
+                    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.flipY = false; t.needsUpdate = true;
+                    state.tileTexture = t;
+                    $('#texDrop').innerHTML = `<span style="color:var(--ok)">${f.name}</span> · ${img.width}×${img.height}`;
+                    applyProcMaterial(); invalidateBake();
+                };
+                img.src = URL.createObjectURL(f);
+            });
+
+            $('#btnBake').onclick = () => { try { bakeTexture(); } catch (e) { status('Bake failed: ' + e.message, 'err'); console.error(e); } };
+            $('#btnDlTex').onclick = () => state.bakedBlob && saveBlob(state.bakedBlob, `${slug($('#pname').value)}-${TEX_W}x${TEX_H}.png`);
+            $('#btnUv').onclick = () => { try { downloadUVTemplate(); } catch (e) { status('UV export failed: ' + e.message, 'err'); } };
+            $('#btnGlb').onclick = () => exportGLB().catch(e => { status('Export failed: ' + e.message, 'err'); console.error(e); });
+            $('#btnRenderLines').onclick = () => renderPassOut('lines');
+            $('#btnRenderGlow').onclick = () => renderPassOut('glow');
+            $('#btnRenderLamp').onclick = () => renderPassOut('lamp');
+            $('#btnSnip').onclick = makeSnippet;
+            $('#btnCopyRecipe').onclick = copyRecipe;
+            $('#btnPasteRecipe').onclick = pasteRecipe;
+
+            rebuildParams();
+            updateHud();
+        });
+    </script>
+</body>
+
+</html>

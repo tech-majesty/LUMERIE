@@ -208,7 +208,6 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <h3 class="sidebar-title">Majesty AI Lamp</h3>
-
             <!-- Mobile 3D Toggle -->
             <button class="mobile-3d-btn mobile-only" id="view3DToggleMobile" title="Toggle 3D">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
@@ -236,6 +235,21 @@
                 </svg>
             </button>
         </div>
+
+            <!-- Pattern Studio: sits below the sidebar header: the bottom bar had no
+                 room without wrapping ADD TO CART, and putting it inside the
+                 header pushed the title onto two lines. -->
+            <a class="studio-link" id="studioLink" href="pattern-studio.html" target="_blank"
+                rel="noopener" title="Design a new light pattern">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 17.2V21h3.8L18 9.8 14.2 6 3 17.2z" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M16.5 4.5l3 3" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>PATTERN STUDIO</span>
+            </a>
 
         <div class="customization-controls">
             <!-- Base Color Selection -->
@@ -358,14 +372,12 @@
         </div>
     </aside>
 
-    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
     <script>window.fflate = fflate;</script>
     <!-- Cursor Tooltip -->
     <div id="cursor-tooltip"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
@@ -377,8 +389,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- procedural pattern engine: shared with the Pattern Studio -->
+    <script src="pattern-engine.js"></script>
     <script src="script.js"></script>
 </body>
 

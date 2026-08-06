@@ -13,3 +13,22 @@ Thumbs.db
 # Scratch
 temp_*
 *.log
+
+# React app build tooling (local only)
+node_modules/
+dist/
+.vite/
+
+# Unreferenced 23MB HDR — only studio_small_08_1k.hdr is loaded
+env_texture/env.exr
+
+# Local-only dev tooling. The published site is plain static files with no build
+# step, so the React app and its toolchain stay off the repo.
+app/
+package.json
+package-lock.json
+vite.config.js
+.claude/
+
+# Local staging folder for new pattern renders
+new Pattern/
