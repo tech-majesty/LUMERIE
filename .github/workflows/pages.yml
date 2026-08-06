@@ -1,0 +1,53 @@
+# Deploy the site to GitHub Pages via Actions instead of the legacy branch
+# builder.
+#
+# Why this exists: with Pages set to "Deploy from a branch", this repo's
+# deployments fail intermittently — the build succeeds in seconds, then the
+# publish sits at `deployment_queued` until the 10-minute timeout and reports
+# only "Page build failed" with duration 0. It has hit a README-only commit as
+# well as code commits, so it is not content-related. This path uploads an
+# artifact and deploys it explicitly, which does not depend on that queue and
+# gives real logs when something does go wrong.
+#
+# REQUIRES a one-time repo setting (admin only):
+#   Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+# Until that is switched, the deploy step below fails with
+# "Pages site not configured for GitHub Actions" — harmless, but expected.
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deployments race; queue instead of cancelling so a push is
+# not silently dropped.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # The site is plain static files — no build step. Everything the pages
+      # need already lives at the repo root; app/ and the toolchain are not in
+      # the repo at all.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
