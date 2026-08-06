@@ -27,6 +27,13 @@ permissions:
 
 # Never let two deployments race; queue instead of cancelling so a push is
 # not silently dropped.
+#
+# DO NOT set cancel-in-progress: true here, and do not cancel a running deploy
+# from the Actions UI. A Pages deployment is keyed by the COMMIT SHA — the log
+# line reads "Created deployment for <sha>, ID: <sha>". Cancelling leaves that
+# SHA's deployment record in a dead state, and every later attempt on the same
+# commit then fails instantly with "Error: Deployment cancelled."
+# The way out of that is a NEW COMMIT, not a re-run.
 concurrency:
   group: pages
   cancel-in-progress: false
