@@ -1676,25 +1676,14 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 `                        </button>\n` +
                 `                        <span class="mobile-label">${name}</span>\n` +
                 `                    </div>\n\n` +
-                `# 7. Renders needed — ${19} files (19 rim x base pairs)\n` +
-                renderList(name);
+                `# NOTE: no renders are needed. The site is 3D-only — the 2D stills\n` +
+                `# were removed, and a coded pattern needs no image at all.\n`;
             const pre = $('#snippet'); pre.textContent = txt; pre.classList.remove('hidden');
             navigator.clipboard && navigator.clipboard.writeText(txt).then(
                 () => status('Snippet generated and copied to clipboard.', 'ok'),
                 () => status('Snippet generated.', 'ok'));
         }
 
-        function renderList(P) {
-            const rims = ['Golden Ring', 'Silver Ring', 'Copper Ring'];
-            const bases = ['Red', 'Red Metallic', 'Black', 'White', 'Gold', 'Silver', 'Copper'];
-            let out = '';
-            for (const rim of rims) for (const b of bases) {
-                if (b === 'Copper' && rim !== 'Copper Ring') continue;
-                const fn = rim === 'Golden Ring' ? `${P} - ${b}.webp` : `${rim} - ${P} - ${b}.webp`;
-                out += `renders/${rim}/${b} - ${rim}/${fn}\n`;
-            }
-            return out;
-        }
         function colorHexInt(hex) { return parseInt(hex.replace('#', ''), 16); }
 
         // ---------------------------------------------------------------------

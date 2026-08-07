@@ -22,6 +22,18 @@ const configNames = {
     'Arabic': 'Arabic'
 };
 
+/**
+ * Display label for a config value.
+ *
+ * configNames only lists the three baked patterns, so a coded pattern used to
+ * come out as "undefined" in the cart and the summary. The map is an identity
+ * map anyway, so falling back to the value itself is both the fix and future
+ * proof: a new recipe needs no entry here.
+ */
+function displayName(value) {
+    return configNames[value] || value;
+}
+
 // Configuration options for preloading
 const bases = ['Red', 'Red Metallic', 'Black', 'White', 'Gold', 'Silver', 'Copper'];
 const rims = ['Golden Ring', 'Silver Ring', 'Copper Ring'];
@@ -57,18 +69,15 @@ function allPatternNames() {
     return patterns.concat(coded.filter(n => patterns.indexOf(n) === -1));
 }
 
-// The 3D model now streams in behind the revealed page, so the 3D toggle has to
-// cope with being pressed before the model is ready.
+// The viewer is the only view now, so nothing has to cope with a 2D/3D swap —
+// this just records when the model has landed, for the cart thumbnail.
 let viewerReady = false;
-let pending3D = false;
-let apply3DMode = () => { };   // assigned by setup3DViewToggle()
 
 // Cart state
 let cart = [];
 
 // Three.js Viewer State
 let threeViewer = null;
-let is3DMode = false;
 
 // Three.js Viewer Class
 class ThreeViewer {
@@ -685,15 +694,21 @@ class ThreeViewer {
     animate() {
         requestAnimationFrame(() => this.animate());
 
-        // PERF: the 3D view is hidden until the user opts into it (the container
-        // only gets .active in 3D mode), and this loop is expensive — two full
-        // composer passes plus a whole-scene material swap, every frame. Without
-        // this gate the page renders an invisible scene forever, burning GPU and
-        // battery while the 2D still is on screen. Nothing captures the canvas,
-        // so skipping the work while hidden is not observable.
-        const visible = this.container && this.container.classList.contains('active');
-        if (!visible || document.hidden) return;
+        // PERF: this loop is expensive — two full composer passes plus a
+        // whole-scene material swap, every frame. The viewer is always on screen
+        // now, so the only thing worth skipping is a backgrounded tab.
+        if (document.hidden) return;
 
+        this.renderFrame();
+    }
+
+    /**
+     * One frame of the selective-bloom pipeline. Split out of animate() so the
+     * cart thumbnail can force a fresh frame and grab it synchronously — the
+     * renderer has no preserveDrawingBuffer, so toDataURL() only returns pixels
+     * if it runs in the same task as the render that produced them.
+     */
+    renderFrame() {
         if (this.bloomComposer && this.finalComposer) {
             // 1. Darken non-bloomed objects
             // We need to identify bloomed objects.
@@ -735,6 +750,38 @@ class ThreeViewer {
             this.finalComposer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
+        }
+    }
+
+    /**
+     * A thumbnail of exactly what is on screen, for the cart.
+     *
+     * This replaces the pre-rendered still that used to be used: a still only
+     * existed for the 3 baked patterns, so any of the 9 coded ones produced a
+     * broken image. Capturing the canvas covers every combination, and it is the
+     * real configuration rather than an approximation of it.
+     *
+     * Downscaled to THUMB_W so a cart of several items does not hold several
+     * multi-megabyte data URLs in memory.
+     */
+    captureThumbnail(width) {
+        const THUMB_W = width || 320;
+        const src = this.renderer && this.renderer.domElement;
+        if (!src || !src.width || !src.height) return null;
+
+        // Force a frame so the drawing buffer holds current pixels, then read it
+        // before the browser can clear it.
+        this.renderFrame();
+
+        const out = document.createElement('canvas');
+        out.width = THUMB_W;
+        out.height = Math.max(1, Math.round(THUMB_W * src.height / src.width));
+        const ctx = out.getContext('2d');
+        ctx.drawImage(src, 0, 0, out.width, out.height);
+        try {
+            return out.toDataURL('image/webp', 0.85);
+        } catch (e) {
+            return out.toDataURL('image/png');
         }
     }
 
@@ -819,7 +866,6 @@ function init() {
     updateProduct();
     setupCartListeners();
     setupThemeListener();
-    setup3DViewToggle();
 
     // Preloader & 3D Viewer Initialization
     const loaderBar = document.getElementById('loaderProgressBar');
@@ -854,28 +900,28 @@ function init() {
     // Start the animation loop
     requestAnimationFrame(updateLoader);
 
-    // PERF: the preloader used to be driven by the GLB download, so the whole
-    // page stayed behind the splash until 6.7 MB of 3D model had arrived — even
-    // though the default view is a 2D still that weighs ~60 KB. Now the splash
-    // tracks what the first view actually needs (the hero render), and the model
-    // streams in behind the revealed page. Identical splash animation, just not
-    // blocked on an asset the first screen never shows.
-    const heroImg = document.getElementById('productImage');
-    const heroReady = () => { targetProgress = 100; };
-    if (heroImg && heroImg.complete) heroReady();
-    else if (heroImg) { heroImg.addEventListener('load', heroReady); heroImg.addEventListener('error', heroReady); }
-    else heroReady();
-    // never let a stalled asset trap the user behind the splash
-    setTimeout(heroReady, 4000);
+    // The splash tracks the model, because the model IS the first view now — the
+    // 2D still it used to track no longer exists. The bar shows real download
+    // progress and the page is revealed with a finished scene rather than an
+    // empty stage. Capped at 96% so the last few percent covers the work after
+    // the bytes land (material binding, edge fit, reflector) and the reveal never
+    // lands on a half-built frame.
+    const modelReady = () => { targetProgress = 100; };
+    // loadModel() reports 0-100. Math.max keeps the bar monotonic: if the repo
+    // copy fails and the R2 fallback restarts the download, progress must not
+    // visibly run backwards.
+    const onModelProgress = (percent) => {
+        if (!(percent > 0)) return;
+        targetProgress = Math.max(targetProgress, Math.min(96, percent * 0.96));
+    };
+    // A stalled or uncached CDN must not trap the client behind the splash.
+    setTimeout(modelReady, 20000);
 
-    // Initialize the 3D viewer immediately as before, but its download no
-    // longer gates the reveal. Every consumer already null-checks threeViewer.
     threeViewer = new ThreeViewer({
-        onProgress: () => { },
+        onProgress: onModelProgress,
         onLoad: () => {
             viewerReady = true;
-            // If the user reached for 3D before the model landed, honour it now.
-            if (pending3D) { pending3D = false; apply3DMode(true); }
+            modelReady();
         }
     });
 
@@ -955,60 +1001,9 @@ function init() {
     };
 
     setupTooltipTriggers();
-
-    // Start preloading images after a short delay
-    setTimeout(preloadImages, 1000);
 }
 
 
-
-function setup3DViewToggle() {
-    const toggleBtnDesktop = document.getElementById('view3DToggleDesktop');
-    const toggleBtnMobile = document.getElementById('view3DToggleMobile');
-    const image = document.getElementById('productImage');
-    const container = document.getElementById('threeCanvasContainer');
-    const cameraControls = document.getElementById('cameraControls');
-
-    // Split out so it can also be called once the model finishes streaming.
-    apply3DMode = (on) => {
-        is3DMode = on;
-
-        // Toggle Buttons State
-        [toggleBtnDesktop, toggleBtnMobile].forEach(btn => {
-            if (btn) {
-                if (is3DMode) {
-                    btn.classList.add('active');
-                    if (btn.querySelector('span')) btn.querySelector('span').textContent = '2D VIEW';
-                } else {
-                    btn.classList.remove('active');
-                    if (btn.querySelector('span')) btn.querySelector('span').textContent = '3D VIEW';
-                }
-            }
-        });
-
-        if (is3DMode) {
-            image.classList.add('hidden');
-            container.classList.add('active');
-            cameraControls.classList.add('active');
-        } else {
-            image.classList.remove('hidden');
-            container.classList.remove('active');
-            cameraControls.classList.remove('active');
-        }
-    };
-
-    const toggle3D = () => {
-        const wantOn = !is3DMode;
-        // Don't swap to an empty canvas: if the model is still streaming, keep
-        // the 2D still up and switch the moment it lands.
-        if (wantOn && !viewerReady) { pending3D = true; return; }
-        pending3D = false;
-        apply3DMode(wantOn);
-    };
-
-    if (toggleBtnDesktop) toggleBtnDesktop.addEventListener('click', toggle3D);
-    if (toggleBtnMobile) toggleBtnMobile.addEventListener('click', toggle3D);
-}
 
 function setupCameraAngleListeners() {
     document.querySelectorAll('.camera-btn').forEach(btn => {
@@ -1017,57 +1012,6 @@ function setupCameraAngleListeners() {
             if (threeViewer) threeViewer.setCameraAngle(angle);
         });
     });
-}
-
-// Preload all possible image combinations
-function preloadImages() {
-    // PERF: this used to fire all 57 renders at once, so the browser opened the
-    // whole catalogue in parallel and starved the images the user can actually
-    // see. Same end state — every combination warm in cache, so switching stays
-    // instant — but ordered: the rim currently on screen first, then the rest
-    // during idle time, a few at a time.
-    const paths = [];
-    rims.forEach(rim => {
-        bases.forEach(base => {
-            patterns.forEach(pattern => {
-                if (base === 'Copper' && rim !== 'Copper Ring') return; // Copper only for Copper Ring
-                let imagePath;
-                if (rim === 'Golden Ring') {
-                    imagePath = `renders/Golden Ring/${base} - Golden Ring/${pattern} - ${base}.webp`;
-                } else {
-                    imagePath = `renders/${rim}/${base} - ${rim}/${rim} - ${pattern} - ${base}.webp`;
-                }
-                paths.push({ rim, path: imagePath });
-            });
-        });
-    });
-
-    // The rim on screen is what the user is most likely to change first.
-    const queue = [
-        ...paths.filter(p => p.rim === config.rim).map(p => p.path),
-        ...paths.filter(p => p.rim !== config.rim).map(p => p.path)
-    ];
-
-    const CONCURRENCY = 4;
-    let index = 0, loaded = 0;
-    const idle = window.requestIdleCallback || (cb => setTimeout(() => cb({ timeRemaining: () => 8 }), 24));
-
-    const pump = () => {
-        if (index >= queue.length) {
-            console.log(`Preloaded ${loaded}/${queue.length} renders`);
-            return;
-        }
-        let inFlight = 0;
-        while (index < queue.length && inFlight < CONCURRENCY) {
-            const img = new Image();
-            const done = () => { loaded++; if (--inFlight <= 0) idle(pump); };
-            img.onload = done;
-            img.onerror = done;   // a missing render must not stall the queue
-            img.src = queue[index++];
-            inFlight++;
-        }
-    };
-    idle(pump);
 }
 
 /**
@@ -1239,9 +1183,9 @@ function addToCart() {
         id: Date.now(),
         config: { ...config },
         names: {
-            base: configNames[config.base],
-            rim: configNames[config.rim],
-            pattern: configNames[config.pattern]
+            base: displayName(config.base),
+            rim: displayName(config.rim),
+            pattern: displayName(config.pattern)
         },
         image: getCurrentImagePath()
     };
@@ -1265,7 +1209,9 @@ function renderCart() {
 
     container.innerHTML = cart.map(item => `
         <div class="cart-item">
-            <img src="${item.image}" alt="Lamp Config" class="cart-item-image">
+            ${item.image
+            ? `<img src="${item.image}" alt="Lamp Config" class="cart-item-image">`
+            : `<div class="cart-item-image"></div>`}
             <div class="cart-item-details">
                 <div class="cart-item-title">Majesty Lamp - ${item.names.base}</div>
                 <div class="cart-item-specs">${item.names.rim} • ${item.names.pattern}</div>
@@ -1302,14 +1248,13 @@ function closeCart() {
     document.getElementById('cartModal').classList.remove('open');
 }
 
+/**
+ * Thumbnail for a cart line. Comes from the live viewer, so it shows the actual
+ * configuration — including coded patterns, which never had a still.
+ * Returns null before the model has landed; renderCart() handles that.
+ */
 function getCurrentImagePath() {
-    if (config.rim === 'Golden Ring') {
-        return `renders/Golden Ring/${config.base} - Golden Ring/${config.pattern} - ${config.base}.webp`;
-    } else if (config.rim === 'Silver Ring') {
-        return `renders/Silver Ring/${config.base} - Silver Ring/Silver Ring - ${config.pattern} - ${config.base}.webp`;
-    } else if (config.rim === 'Copper Ring') {
-        return `renders/Copper Ring/${config.base} - Copper Ring/Copper Ring - ${config.pattern} - ${config.base}.webp`;
-    }
+    return (threeViewer && viewerReady) ? threeViewer.captureThumbnail() : null;
 }
 
 function setupThemeListener() {
@@ -1335,63 +1280,18 @@ function setupThemeListener() {
 
 // Update product display based on current configuration
 function updateProduct() {
-    updateProductImage();
     updateConfigurationName();
 
-    // Update 3D model if it exists
+    // The viewer is the whole product display now — no still to swap.
     if (threeViewer) {
         threeViewer.updateMaterials();
     }
 }
 
-// Update the product image based on current configuration
-function updateProductImage() {
-    const productImage = document.getElementById('productImage');
-
-    // Coded patterns exist only in the 3D view: the 57 stills in renders/ are
-    // pre-rendered per combination and there is no file for a pattern that was
-    // added as code. Rather than request a URL that cannot exist and leave a
-    // broken image, switch to the 3D view, which is where the pattern lives.
-    if (getCodedRecipe(config.pattern)) {
-        if (!is3DMode && viewerReady) apply3DMode(true);
-        else if (!is3DMode) pending3D = true;
-        return;
-    }
-
-    // Build the path based on your folder structure:
-    // renders/[Rim Finish]/[Base Color] - [Rim Finish]/[Pattern] - [Base Color].png
-    // OR for Silver Ring: renders/Silver Ring/[Base Color] - Silver Ring/Silver Ring - [Pattern] - [Base Color].png
-
-    let imagePath;
-
-    if (config.rim === 'Golden Ring') {
-        // Golden Ring path: renders/Golden Ring/[Base] - Golden Ring/[Pattern] - [Base].webp
-        imagePath = `renders/Golden Ring/${config.base} - Golden Ring/${config.pattern} - ${config.base}.webp`;
-    } else if (config.rim === 'Silver Ring') {
-        // Silver Ring path: renders/Silver Ring/[Base] - Silver Ring/Silver Ring - [Pattern] - [Base].webp
-        imagePath = `renders/Silver Ring/${config.base} - Silver Ring/Silver Ring - ${config.pattern} - ${config.base}.webp`;
-    } else if (config.rim === 'Copper Ring') {
-        // Copper Ring path: renders/Copper Ring/[Base] - Copper Ring/Copper Ring - [Pattern] - [Base].webp
-        imagePath = `renders/Copper Ring/${config.base} - Copper Ring/Copper Ring - ${config.pattern} - ${config.base}.webp`;
-    }
-
-    console.log('Loading image:', imagePath);
-
-    // Instant change - no transitions
-    productImage.src = imagePath;
-
-    // Handle image load error - fallback to placeholder
-    productImage.onerror = function () {
-        console.error(`Image not found: ${imagePath}`);
-        // Try to show a helpful error message
-        this.alt = `Image not found: ${config.pattern} - ${config.base} with ${config.rim}`;
-    };
-}
-
 // Update the configuration name/title
 function updateConfigurationName() {
     const engineSpec = document.getElementById('engineSpec');
-    const baseColorName = configNames[config.base].toUpperCase();
+    const baseColorName = displayName(config.base).toUpperCase();
 
     // Instant update
     if (engineSpec) {
@@ -1418,9 +1318,9 @@ function getCurrentConfiguration() {
         base: config.base,
         rim: config.rim,
         pattern: config.pattern,
-        baseColorName: configNames[config.base],
-        rimFinishName: configNames[config.rim],
-        patternName: configNames[config.pattern]
+        baseColorName: displayName(config.base),
+        rimFinishName: displayName(config.rim),
+        patternName: displayName(config.pattern)
     };
 }
 

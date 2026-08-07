@@ -89,57 +89,22 @@ body {
     z-index: 10;
 }
 
-.product-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    position: relative;
-    z-index: 1;
-    transition: opacity 0.5s ease;
-}
-
-.product-image.hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-
+/* The viewer is the only view, so it is simply always on. The opacity/.active
+   gate here existed to cross-fade with the 2D still, which no longer exists. */
 .three-container {
     position: absolute;
     inset: 0;
     z-index: 5;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.three-container.active {
-    opacity: 1;
-    pointer-events: all;
-}
-
-/* .view-3d-btn removed - now integrated into bottom bar as .btn-secondary */
-.view-3d-btn-legacy {
-    display: none;
-}
-
 
 .camera-controls {
     position: absolute;
-    top: var(--spacing-xl);
+    top: var(--spacing-lg);
     left: 50%;
     transform: translateX(-50%);
     z-index: 25;
     display: flex;
     gap: var(--spacing-sm);
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.camera-controls.active {
-    opacity: 1;
-    pointer-events: all;
-    top: var(--spacing-lg);
 }
 
 .camera-btn {
@@ -409,47 +374,6 @@ body {
     display: flex;
 }
 
-.mobile-3d-btn {
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    width: 38px;
-    height: 38px;
-    /* display: flex; - Removed to prevent overriding .mobile-only */
-    align-items: center;
-    justify-content: center;
-    margin-right: 10px;
-    transition: all 0.3s ease;
-}
-
-.mobile-3d-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.mobile-3d-btn.active {
-    background: rgba(238, 186, 88, 0.2);
-    border-color: rgb(238, 186, 88);
-    color: rgb(238, 186, 88);
-}
-
-/* Light mode handling for new btn */
-body.light-mode .mobile-3d-btn {
-    border-color: #e5e7eb;
-    color: #1a1a1a;
-}
-
-body.light-mode .mobile-3d-btn:hover {
-    background: #f3f4f6;
-}
-
-body.light-mode .mobile-3d-btn.active {
-    background: rgba(0, 0, 0, 0.1);
-    border-color: black;
-}
-
 @media (max-width: 768px) {
     .mobile-only {
         display: flex;
@@ -568,12 +492,6 @@ body.light-mode .mobile-3d-btn.active {
         height: 40px;
         flex: 1;
         justify-content: center;
-    }
-
-    .product-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
     }
 }
 

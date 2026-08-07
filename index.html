@@ -68,13 +68,12 @@
                     </g>
                 </svg>
             </div>
-            <img id="productImage" src="renders/Golden Ring/Red - Golden Ring/Triangle - Red.webp" alt="Majesty Lamp"
-                class="product-image">
-            <div id="threeCanvasContainer" class="three-container"></div>
+            <!-- The 3D view is the only view. The pre-rendered stills that used to
+                 live here could not show a coded pattern, and there were only 57 of
+                 them; the viewer covers every combination. -->
+            <div id="threeCanvasContainer" class="three-container active"></div>
 
-
-
-            <div id="cameraControls" class="camera-controls">
+            <div id="cameraControls" class="camera-controls active">
                 <button class="camera-btn active" data-angle="front">FRONT</button>
                 <button class="camera-btn" data-angle="left">LEFT</button>
                 <button class="camera-btn" data-angle="right">RIGHT</button>
@@ -89,18 +88,6 @@
                     <p class="product-specs">LUXURY AI LAMP • <span id="engineSpec">RED</span></p>
                 </div>
                 <div class="action-buttons">
-                    <button class="btn-secondary desktop-only" id="view3DToggleDesktop">
-                        <span>3D VIEW</span>
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round" />
-                            <line x1="12" y1="22.08" x2="12" y2="12" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </button>
                     <button class="btn-secondary" id="summaryBtn">
                         <span>SUMMARY</span>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -208,19 +195,6 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <h3 class="sidebar-title">Majesty AI Lamp</h3>
-            <!-- Mobile 3D Toggle -->
-            <button class="mobile-3d-btn mobile-only" id="view3DToggleMobile" title="Toggle 3D">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
-                    <path
-                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" />
-                    <line x1="12" y1="22.08" x2="12" y2="12" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            </button>
-
             <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme">
                 <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     xmlns="http://www.w3.org/2000/svg">
