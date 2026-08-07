@@ -1,4 +1,6 @@
-3D Model/
+# 3D Model/ is COMMITTED on purpose: the studio and the storefront load it
+# from the repo so the site has no third-party dependency and the Pages CDN
+# serves it same-origin.
 
 # OS junk
 .DS_Store

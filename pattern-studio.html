@@ -572,8 +572,8 @@
             <div class="row"><label>Source</label></div>
             <input type="text" id="glbUrl" value="https://pub-0fa84320243249fca31ce0de4238c3e8.r2.dev/MajestyGLB.glb">
             <div style="height:7px"></div>
-            <button id="btnLoadUrl">Load from URL (live R2)</button>
-            <button id="btnLoadLocal">Load local copy (3D Model/)</button>
+            <button id="btnLoadUrl">Reload from R2 (backup copy)</button>
+            <button id="btnLoadLocal">Reload model</button>
             <div class="drop" id="glbDrop">or drop a local <code>.glb</code></div>
             <input type="file" id="glbFile" accept=".glb" class="hidden">
             <div id="modelInfo" class="note"></div>
@@ -837,6 +837,9 @@
         let renderer, scene, camera, controls, bloomComposer, finalComposer, bloomPass, renderPass;
         let logoLight = null, floorMesh = null;
         const LAYER_LOGO = 1;   // storefront reserves layer 1 for the Logo
+        // The model is committed to the repo, so it comes from the same origin as
+        // this page — no third-party dependency, and the Pages CDN caches it.
+        const REPO_GLB = '3D Model/MajestyGLB.glb';
         let procMaterial = null, bakedMaterial = null, darkMat;
         const savedMats = {};
 
@@ -2104,22 +2107,47 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 if (localStorage.getItem('majesty-studio-theme') === 'light') themeBtn.click();
             } catch (e) { }
 
+            // Fetch a GLB with a progress readout, since it is ~6.4 MB.
+            const fetchGLB = async (url, label) => {
+                status(`Loading model… ${label}`, 'busy');
+                const r = await fetch(url);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const len = +(r.headers.get('content-length') || 0);
+                if (!r.body || !len) return new Uint8Array(await r.arrayBuffer());
+                // stream so the status line can show progress instead of hanging
+                const reader = r.body.getReader();
+                const chunks = []; let got = 0;
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value); got += value.length;
+                    status(`Loading model… ${Math.round(got / len * 100)}%`, 'busy');
+                }
+                const out = new Uint8Array(got); let at = 0;
+                chunks.forEach(c => { out.set(c, at); at += c.length; });
+                return out;
+            };
+
             $('#btnLoadUrl').onclick = async () => {
                 try {
-                    status('Fetching GLB…', 'busy');
-                    const r = await fetch($('#glbUrl').value);
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    await loadGLBBytes(new Uint8Array(await r.arrayBuffer()), 'loaded from URL');
+                    await loadGLBBytes(await fetchGLB($('#glbUrl').value, 'R2'), 'loaded from R2');
                 } catch (e) { status('Load failed: ' + e.message, 'err'); }
             };
-            $('#btnLoadLocal').onclick = async () => {
+            $('#btnLoadLocal').onclick = () => loadRepoModel();
+
+            // The model ships with the site, so load it on open — the studio is
+            // useless without it and there is no reason to make anyone click.
+            // Falls back to R2 only if the repo copy is somehow missing.
+            async function loadRepoModel() {
                 try {
-                    status('Loading local GLB…', 'busy');
-                    const r = await fetch('3D Model/MajestyGLB.glb');
-                    if (!r.ok) throw new Error('HTTP ' + r.status + ' — put MajestyGLB.glb in "3D Model/"');
-                    await loadGLBBytes(new Uint8Array(await r.arrayBuffer()), 'local 3D Model/MajestyGLB.glb');
-                } catch (e) { status('Load failed: ' + e.message, 'err'); }
-            };
+                    await loadGLBBytes(await fetchGLB(REPO_GLB, 'from site'), 'model from site');
+                } catch (e) {
+                    status(`Site copy unavailable (${e.message}) — trying R2…`, 'warn');
+                    try {
+                        await loadGLBBytes(await fetchGLB($('#glbUrl').value, 'R2'), 'loaded from R2 (fallback)');
+                    } catch (e2) { status('Load failed: ' + e2.message, 'err'); }
+                }
+            }
             wireDrop($('#glbDrop'), $('#glbFile'), async f => {
                 try { await loadGLBBytes(new Uint8Array(await f.arrayBuffer()), f.name); }
                 catch (e) { status('Load failed: ' + e.message, 'err'); }
@@ -2149,6 +2177,10 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
 
             rebuildParams();
             updateHud();
+
+            // Load the model straight away — the studio cannot do anything
+            // without it, so making the user click was pointless friction.
+            loadRepoModel();
         });
     </script>
 </body>

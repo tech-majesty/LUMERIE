@@ -336,7 +336,14 @@ class ThreeViewer {
             }
         };
 
-        this.loader.load('https://pub-0fa84320243249fca31ce0de4238c3e8.r2.dev/MajestyGLB.glb', (gltf) => {
+        // The model is committed to the repo, so it is served same-origin from the
+        // same CDN as the rest of the site — no dependency on the R2 bucket staying
+        // public, and it is cached alongside everything else. R2 stays as a fallback.
+        const MODEL_REPO = '3D Model/MajestyGLB.glb';
+        const MODEL_R2 = 'https://pub-0fa84320243249fca31ce0de4238c3e8.r2.dev/MajestyGLB.glb';
+        this._modelTriedFallback = false;
+
+        const onModelLoaded = (gltf) => {
             this.model = gltf.scene;
             this.scene.add(this.model);
 
@@ -390,11 +397,24 @@ class ThreeViewer {
             console.log('Real-time Reflector Floor added at:', floorY);
             if (this.options.onLoad) this.options.onLoad();
 
-        }, onProgress, (error) => {
+        };
+
+        const onModelError = (error) => {
+            // Fall back to R2 once if the repo copy is unavailable.
+            if (!this._modelTriedFallback) {
+                this._modelTriedFallback = true;
+                console.warn('Repo model unavailable, falling back to R2:', error);
+                this.loader.load(MODEL_R2, onModelLoaded, onProgress, (e2) => {
+                    console.error('Error loading 3D model:', e2);
+                    if (this.options.onLoad) this.options.onLoad();
+                });
+                return;
+            }
             console.error('Error loading 3D model:', error);
-            // Even on error, we should probably hide loader to allow site usage
             if (this.options.onLoad) this.options.onLoad();
-        });
+        };
+
+        this.loader.load(MODEL_REPO, onModelLoaded, onProgress, onModelError);
     }
 
     collectMaterials(object) {
