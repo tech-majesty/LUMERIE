@@ -138,6 +138,45 @@ class ThreeViewer {
                 envMapIntensity: 0.8,
                 positionY: -0.4, // Initial guess, will be updated by alignment
                 scale: 1.5
+            },
+            // Studio stage — the backdrop and floor, matched to the Blender
+            // reference. Every length is a MULTIPLE of the model's own size or of
+            // the floor radius, never a world unit, so the stage rescales itself
+            // if the model ever changes.
+            stage: {
+                // backdrop
+                backdropColor: 0x080605,   // near black, very slightly warm
+                glowColor: 0xffb463,   // warm halo, also reused for the floor pool
+                backdropDistance: 6.0,        // × model span
+                domeScale: 3.0,        // × whichever is larger, camera or span
+                glowElevation: 0.12,       // halo direction: +y is higher behind lamp
+                // The camera fov is only 10 degrees, so the visible patch of dome
+                // spans about that much angle. The halo's angular radius has to be
+                // the same order or the gradient is effectively constant across the
+                // frame — a wide, physically plausible spread reads as flat brown.
+                glowSpread: 0.32,       // radians
+                glowSoftness: 5.0,        // higher = tighter core, darker corners
+                glowGain: 1.30,
+                domeFloorFade: 0.25,       // how fast the dome dims below the horizon
+
+                // floor
+                floorColor: 0x090808,
+                floorRadius: 14.0,       // × model span
+                reflectionResolution: 512,        // small on purpose: the blur hides it
+                reflectStrength: 0.50,
+                reflectBlur: 0.0035,     // base tap spread, in projected UV
+                reflectBlurGrowth: 6.0,        // how much blurrier further out
+                // Gentle falloff on purpose. The floor reflects the BACKDROP as
+                // well as the lamp, and that reflected glow is what softens the
+                // horizon — fade it too fast and the floor goes black against a
+                // lit backdrop, leaving a hard line where they meet.
+                reflectFade: 3.2,
+                poolRadius: 0.20,
+                poolGain: 0.30,
+                edgeFade: 0.35,       // where the disc starts dissolving
+                fresnelGain: 0.60,       // 0 = flat reflectivity, 1 = full grazing bias
+                horizonGain: 0.14,       // backdrop bounce, blends floor into backdrop
+                horizonRange: 0.55
             }
         };
 
@@ -387,23 +426,7 @@ class ThreeViewer {
             const floorY = finalBox.min.y;
             this.materialSettings.floor.positionY = floorY;
 
-            // Use a Circle Reflector for the floor to enable real-time reflections
-            const floorSettings = this.materialSettings.floor;
-            const reflectorGeometry = new THREE.CircleGeometry(5, 64);
-
-            this.floor = new THREE.Reflector(reflectorGeometry, {
-                clipBias: 0.003,
-                textureWidth: window.innerWidth * window.devicePixelRatio,
-                textureHeight: window.innerHeight * window.devicePixelRatio,
-                color: floorSettings.color,
-                recursion: 1
-            });
-
-            this.floor.rotateX(-Math.PI / 2);
-            this.floor.position.y = floorSettings.positionY;
-            this.scene.add(this.floor);
-
-            console.log('Real-time Reflector Floor added at:', floorY);
+            this.buildStage(finalBox);
             if (this.options.onLoad) this.options.onLoad();
 
         };
@@ -710,6 +733,12 @@ class ThreeViewer {
      */
     renderFrame() {
         if (this.bloomComposer && this.finalComposer) {
+            // Keep the stage out of the bloom pass entirely. Darkening its
+            // material would be enough to stop it blooming, but hiding it also
+            // skips the Reflector's render-target pass, which would otherwise run
+            // twice per frame for a reflection the bloom pass never uses.
+            const stage = [this.backdrop, this.floor].filter(Boolean);
+            stage.forEach(o => { o.visible = false; });
             // 1. Darken non-bloomed objects
             // We need to identify bloomed objects.
             // Since we haven't strictly used layers yet (simpler to just check names/properties),
@@ -746,7 +775,8 @@ class ThreeViewer {
                 }
             });
 
-            // 4. Render final scene
+            // 4. Render final scene, with the stage back in
+            stage.forEach(o => { o.visible = true; });
             this.finalComposer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
@@ -785,16 +815,257 @@ class ThreeViewer {
         }
     }
 
-    updateFloorMaterial() {
-        if (!this.floor) return;
-        const settings = this.materialSettings.floor;
-        this.floor.position.y = settings.positionY;
-        this.floor.scale.set(settings.scale, settings.scale, settings.scale);
+    /**
+     * The studio stage: a lit backdrop and a glossy floor, matching the Blender
+     * reference — warm halo behind the lamp falling off to near black, and a
+     * reflection on the floor that is soft rather than mirror-sharp.
+     *
+     * Both are sized from the model's own bounding box and the camera frustum,
+     * so nothing here is a magic number tied to this particular lamp.
+     *
+     * Colour space note: like three's own Reflector shader, both materials write
+     * gl_FragColor directly and so sit OUTSIDE tonemapping. That is deliberate —
+     * the reflection texture is already tonemapped and sRGB-encoded by the pass
+     * that produced it, and the backdrop is a designed gradient rather than a lit
+     * surface, so ACES would only crush the falloff we are trying to match.
+     */
+    buildStage(box) {
+        const S = this.materialSettings.stage;
+        const size = box.getSize(new THREE.Vector3());
+        const span = Math.max(size.x, size.y, size.z);
+        const floorY = box.min.y;
 
-        // For Reflector, we update the color property
-        if (this.floor.getRenderTarget) { // Check if it's a Reflector
-            this.floor.getMaterial().color.setHex(settings.color);
+        // --- Backdrop -------------------------------------------------------
+        // A DOME, not a flat plate. A plate has edges, and once the LEFT/RIGHT
+        // presets yaw the camera those edges project as slanted lines across the
+        // frame — no amount of oversizing removes the failure mode, it only makes
+        // it rarer. A back-facing sphere has no silhouette to expose, so the
+        // gradient is driven by world direction instead of by UV and reads the
+        // same from any angle, including any camera added later.
+        const camDist = Math.max(...Object.values(this.cameraAngles).map(a =>
+            Math.hypot(a.pos.x, a.pos.y, a.pos.z)));
+        const domeR = Math.max(camDist, span * S.backdropDistance) * S.domeScale;
+
+        this.backdrop = new THREE.Mesh(
+            new THREE.SphereGeometry(domeR, 48, 32),
+            new THREE.ShaderMaterial({
+                side: THREE.BackSide,
+                depthWrite: false,        // nothing is ever behind the dome
+                uniforms: {
+                    glowColor: { value: new THREE.Color(S.glowColor) },
+                    baseColor: { value: new THREE.Color(S.backdropColor) },
+                    glowDir: { value: new THREE.Vector3(0, S.glowElevation, -1).normalize() },
+                    glowSpread: { value: S.glowSpread },
+                    glowSoft: { value: S.glowSoftness },
+                    glowGain: { value: S.glowGain },
+                    floorFade: { value: S.domeFloorFade },
+                    center: { value: new THREE.Vector3(0, box.min.y + size.y * 0.5, 0) }
+                },
+                vertexShader: `
+                    varying vec3 vDir;
+                    uniform vec3 center;
+                    void main() {
+                        vDir = normalize((modelMatrix * vec4(position, 1.0)).xyz - center);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }`,
+                fragmentShader: `
+                    uniform vec3  glowColor;
+                    uniform vec3  baseColor;
+                    uniform vec3  glowDir;
+                    uniform float glowSpread;
+                    uniform float glowSoft;
+                    uniform float glowGain;
+                    uniform float floorFade;
+                    varying vec3  vDir;
+                    void main() {
+                        vec3 d = normalize(vDir);
+
+                        // Angular distance from the halo's centre direction, so the
+                        // halo stays anchored behind the lamp in WORLD space rather
+                        // than sliding with the camera.
+                        float ang = acos(clamp(dot(d, normalize(glowDir)), -1.0, 1.0));
+                        float t = 1.0 - clamp(ang / max(glowSpread, 1e-3), 0.0, 1.0);
+
+                        // pow() falloff: bright core, long tail — how light on a
+                        // wall actually falls off. smoothstep would flatten it.
+                        float halo = pow(t, glowSoft) * glowGain;
+
+                        // Ease off below the horizon; the floor takes over there and
+                        // a bright dome under it would fight the reflection.
+                        float below = smoothstep(0.0, -floorFade, d.y);
+
+                        vec3 c = baseColor + glowColor * halo * (1.0 - below * 0.75);
+                        gl_FragColor = vec4(c, 1.0);
+                    }`
+            })
+        );
+        this.backdrop.position.set(0, box.min.y + size.y * 0.5, 0);
+        this.backdrop.renderOrder = -10;
+        this.scene.add(this.backdrop);
+
+        // --- Floor ----------------------------------------------------------
+        // The reflection is deliberately blurred, so the render target can be
+        // small: a sharp mirror needed a full-resolution buffer, a soft one does
+        // not. That makes this cheaper than the old full-window reflector.
+        const res = S.reflectionResolution;
+        const radius = span * S.floorRadius;
+
+        this.floor = new THREE.Reflector(new THREE.CircleGeometry(radius, 96), {
+            clipBias: 0.003,
+            textureWidth: res,
+            textureHeight: res,
+            color: new THREE.Color(S.floorColor),
+            recursion: 0,
+            shader: {
+                uniforms: {
+                    color: { value: null },
+                    tDiffuse: { value: null },
+                    textureMatrix: { value: null },
+                    glowColor: { value: new THREE.Color(S.glowColor) },
+                    reflectStrength: { value: S.reflectStrength },
+                    blurAmount: { value: S.reflectBlur },
+                    blurGrowth: { value: S.reflectBlurGrowth },
+                    reflectFade: { value: S.reflectFade },
+                    poolRadius: { value: S.poolRadius },
+                    poolGain: { value: S.poolGain },
+                    edgeFade: { value: S.edgeFade },
+                    floorRadius: { value: radius },
+                    fresnelGain: { value: S.fresnelGain },
+                    horizonGain: { value: S.horizonGain },
+                    horizonRange: { value: S.horizonRange }
+                },
+                vertexShader: `
+                    uniform mat4 textureMatrix;
+                    varying vec4 vUv;
+                    varying vec2 vLocal;
+                    varying vec3 vWorld;
+                    void main() {
+                        vUv = textureMatrix * vec4(position, 1.0);
+                        vLocal = position.xy;          // circle lies in local XY
+                        vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }`,
+                fragmentShader: `
+                    uniform vec3      color;
+                    uniform sampler2D tDiffuse;
+                    uniform vec3      glowColor;
+                    uniform float     reflectStrength;
+                    uniform float     blurAmount;
+                    uniform float     blurGrowth;
+                    uniform float     reflectFade;
+                    uniform float     poolRadius;
+                    uniform float     poolGain;
+                    uniform float     edgeFade;
+                    uniform float     floorRadius;
+                    uniform float     fresnelGain;
+                    uniform float     horizonGain;
+                    uniform float     horizonRange;
+                    varying vec4      vUv;
+                    varying vec2      vLocal;
+                    varying vec3      vWorld;
+
+                    void main() {
+                        // Normalised distance out from directly under the lamp.
+                        float r = length(vLocal) / max(floorRadius, 1e-3);
+
+                        // ROUGH REFLECTION: a ring of taps around the mirror
+                        // sample. The spread grows with distance, because a real
+                        // rough surface scatters more the further the ray travels
+                        // — that is what makes the reflection dissolve downward
+                        // instead of staying razor sharp all the way out.
+                        float spread = blurAmount * (1.0 + r * blurGrowth);
+                        vec3 refl = vec3(0.0);
+                        float wsum = 0.0;
+                        // 2 rings of 6, plus the centre tap.
+                        for (int ring = 1; ring <= 2; ring++) {
+                            float rad = spread * float(ring);
+                            float w = 1.0 / float(ring + 1);
+                            for (int i = 0; i < 6; i++) {
+                                float a = float(i) * 1.0471976 + float(ring) * 0.5236;
+                                vec2 off = vec2(cos(a), sin(a)) * rad;
+                                vec4 uv = vUv;
+                                uv.xy += off * uv.w;      // offset before divide
+                                refl += texture2DProj(tDiffuse, uv).rgb * w;
+                                wsum += w;
+                            }
+                        }
+                        refl += texture2DProj(tDiffuse, vUv).rgb * 1.5;
+                        wsum += 1.5;
+                        refl /= wsum;
+
+                        // FRESNEL: a glossy floor reflects far more at a grazing
+                        // angle than it does straight down. Without this the
+                        // distance fade alone drove the floor to black just where
+                        // it meets the lit backdrop, which read as a hard seam.
+                        vec3 vd = normalize(vWorld - cameraPosition);
+                        float fres = mix(1.0, pow(1.0 - abs(vd.y), 5.0), fresnelGain);
+
+                        // Mild distance fade on top, so the lamp's mirror image
+                        // still concentrates near its base.
+                        float fade = mix(exp(-r * reflectFade), 1.0, fres * 0.85);
+
+                        // Warm pool of light spilling onto the floor at the base.
+                        float pool = pow(max(0.0, 1.0 - r / max(poolRadius, 1e-3)), 2.2) * poolGain;
+
+                        // Light bouncing off the backdrop onto the floor. local +Y
+                        // is world -Z after the plate is laid flat, i.e. the
+                        // direction of the backdrop, so this ramps up toward the
+                        // horizon and blends floor into backdrop.
+                        float horizon = smoothstep(0.0, floorRadius * horizonRange, vLocal.y) * horizonGain;
+
+                        // Dissolve the disc edge so it never reads as a cut-out.
+                        float edge = 1.0 - smoothstep(edgeFade, 1.0, r);
+
+                        vec3 c = color
+                               + refl * reflectStrength * fade
+                               + glowColor * (pool + horizon);
+                        gl_FragColor = vec4(c * edge, 1.0);
+                    }`
+            }
+        });
+
+        this.floor.rotateX(-Math.PI / 2);
+        this.floor.position.y = floorY;
+        this.floor.renderOrder = -5;
+        this.scene.add(this.floor);
+
+        console.log(`Stage built — floor y=${floorY.toFixed(4)} r=${radius.toFixed(2)}, ` +
+            `dome r=${domeR.toFixed(2)}, reflection ${res}x${res}`);
+    }
+
+    /** Push the current stage settings into the live uniforms. */
+    updateStage() {
+        const S = this.materialSettings.stage;
+        if (this.backdrop) {
+            const u = this.backdrop.material.uniforms;
+            u.glowColor.value.set(S.glowColor);
+            u.baseColor.value.set(S.backdropColor);
+            u.glowDir.value.set(0, S.glowElevation, -1).normalize();
+            u.glowSpread.value = S.glowSpread;
+            u.glowSoft.value = S.glowSoftness;
+            u.glowGain.value = S.glowGain;
+            u.floorFade.value = S.domeFloorFade;
         }
+        if (this.floor) {
+            const u = this.floor.material.uniforms;
+            u.color.value.set(S.floorColor);
+            u.glowColor.value.set(S.glowColor);
+            u.reflectStrength.value = S.reflectStrength;
+            u.blurAmount.value = S.reflectBlur;
+            u.blurGrowth.value = S.reflectBlurGrowth;
+            u.reflectFade.value = S.reflectFade;
+            u.poolRadius.value = S.poolRadius;
+            u.poolGain.value = S.poolGain;
+            u.edgeFade.value = S.edgeFade;
+            u.fresnelGain.value = S.fresnelGain;
+            u.horizonGain.value = S.horizonGain;
+            u.horizonRange.value = S.horizonRange;
+            this.floor.position.y = this.materialSettings.floor.positionY;
+        }
+    }
+
+    updateFloorMaterial() {
+        this.updateStage();
     }
 
     setupDebugGUI() {
