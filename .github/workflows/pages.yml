@@ -15,9 +15,17 @@
 # "Pages site not configured for GitHub Actions" — harmless, but expected.
 name: Deploy Pages
 
+# MANUAL ONLY, on purpose.
+#
+# Pages Source is currently "Deploy from a branch", so GitHub already runs its
+# own "pages build and deployment" on every push. If this workflow also ran on
+# push, both would create a Pages deployment for the same commit — and because a
+# deployment's ID *is* the commit SHA, the two collide and cancel each other.
+# That is what produced the instant "Deployment cancelled" failures.
+#
+# Leave this on workflow_dispatch. Only add a push trigger if Source is switched
+# to "GitHub Actions", which stops the built-in builder from running.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
