@@ -720,29 +720,166 @@
   //  Recipes — the coded patterns. Add one entry per pattern; nothing else.
   //  These come straight from the studio's "Copy pattern recipe" button.
   // ===========================================================================
+  // Every entry below is a verbatim paste of the studio's "Copy pattern recipe"
+  // output, plus an `icon` for the storefront's pattern picker (same 100x100
+  // viewBox and currentColor convention as the buttons already in index.html).
+  //
+  // NOTE on `emission`: the storefront ignores it on purpose. applyCodedPattern
+  // takes the emissive colour and intensity from materialSettings.patterns so a
+  // coded pattern glows identically to the shipped Triangle / Star / Arabic.
+  // This block only drives the studio's own preview.
+  const STROKE_ICON = 'viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" ' +
+    'stroke="currentColor" stroke-width="5" stroke-linecap="round"';
+  const FILL_ICON = 'viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" ' +
+    'fill="currentColor" stroke="none"';
+
   const RECIPES = {
-    // Example, and a live demonstration that a pattern needs no texture:
-    // this is the client's Ladder motif, defined purely in code.
+    // The client's Ladder motif — rungs interrupted by a PAIR of verticals,
+    // and no bottom bands in this revision (bands: 0).
     'Ladder': {
       majestyPatternRecipe: 1,
       name: 'Ladder',
       generator: 'ladder',
       params: {
-        rungs: 11, thick: 0.2, splitAt: 0.34, gapDeg: 8, spineW: 2, spineSep: 8,
-        spineBot: 0.3, spineTop: 1, bands: 3, bandThick: 0.18
+        rungs: 11, thick: 0.21, splitAt: 0.33, gapDeg: 8, spineW: 2, spineSep: 8,
+        spineBot: 0.33, spineTop: 1, bands: 0, bandThick: 0.11
       },
       placement: { sizeBot: 1, sizeTop: 1, zFrom: 0, zTo: 1, tilt: 1 },
       rotateDeg: 0,
-      emission: { colour: '#ff9a36', strength: 50, roughness: 0.5 },
-      // Icon for the storefront's pattern picker. Same 100x100 viewBox and
-      // currentColor convention as the buttons already in index.html.
+      emission: { colour: '#ffffff', strength: 50, roughness: 0.5 },
+      icon: '<svg ' + STROKE_ICON + '>' +
+            '<line x1="16" y1="26" x2="42" y2="26"/><line x1="58" y1="26" x2="84" y2="26"/>' +
+            '<line x1="16" y1="38" x2="42" y2="38"/><line x1="58" y1="38" x2="84" y2="38"/>' +
+            '<line x1="16" y1="50" x2="42" y2="50"/><line x1="58" y1="50" x2="84" y2="50"/>' +
+            '<line x1="16" y1="62" x2="42" y2="62"/><line x1="58" y1="62" x2="84" y2="62"/>' +
+            '<line x1="16" y1="74" x2="42" y2="74"/><line x1="58" y1="74" x2="84" y2="74"/>' +
+            '<line x1="42" y1="18" x2="42" y2="84"/><line x1="58" y1="18" x2="58" y2="84"/></svg>'
+    },
+
+    'Arc Maze': {
+      majestyPatternRecipe: 1,
+      name: 'Arc Maze',
+      generator: 'truchet',
+      params: { cols: 27, rows: 12, thick: 0.26, seed: 3, bias: 0.5 },
+      placement: { sizeBot: 0.05, sizeTop: 1, zFrom: 0.31, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 50, roughness: 0.5 },
+      icon: '<svg ' + STROKE_ICON + '>' +
+            '<path d="M16,36 Q16,20 32,20"/><path d="M32,52 Q48,52 48,36"/>' +
+            '<path d="M48,68 Q48,84 64,84"/><path d="M64,52 Q80,52 80,36"/>' +
+            '<path d="M48,36 Q48,20 64,20"/><path d="M16,68 Q32,68 32,52"/></svg>'
+    },
+
+    'Data Rain': {
+      majestyPatternRecipe: 1,
+      name: 'Data Rain',
+      generator: 'dashes',
+      params: {
+        cols: 90, segs: 51, thick: 0.3, fill: 0.62,
+        density: 0, densTop: 1, seed: 7
+      },
+      placement: { sizeBot: 0.05, sizeTop: 0.54, zFrom: 0.25, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 50, roughness: 0.5 },
       icon: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" ' +
-            'stroke="currentColor" stroke-width="5" stroke-linecap="round">' +
-            '<line x1="18" y1="24" x2="42" y2="24"/><line x1="58" y1="24" x2="82" y2="24"/>' +
-            '<line x1="18" y1="38" x2="42" y2="38"/><line x1="58" y1="38" x2="82" y2="38"/>' +
-            '<line x1="18" y1="52" x2="42" y2="52"/><line x1="58" y1="52" x2="82" y2="52"/>' +
-            '<line x1="42" y1="20" x2="42" y2="70"/><line x1="58" y1="20" x2="58" y2="70"/>' +
-            '<line x1="16" y1="70" x2="84" y2="70"/><line x1="16" y1="82" x2="84" y2="82"/></svg>'
+            'stroke="currentColor" stroke-width="6" stroke-linecap="round">' +
+            '<line x1="20" y1="18" x2="20" y2="30"/><line x1="20" y1="42" x2="20" y2="54"/>' +
+            '<line x1="20" y1="66" x2="20" y2="80"/>' +
+            '<line x1="35" y1="26" x2="35" y2="38"/><line x1="35" y1="52" x2="35" y2="66"/>' +
+            '<line x1="50" y1="18" x2="50" y2="26"/><line x1="50" y1="38" x2="50" y2="50"/>' +
+            '<line x1="50" y1="62" x2="50" y2="74"/>' +
+            '<line x1="65" y1="30" x2="65" y2="44"/><line x1="65" y1="58" x2="65" y2="70"/>' +
+            '<line x1="80" y1="18" x2="80" y2="30"/><line x1="80" y1="44" x2="80" y2="56"/>' +
+            '<line x1="80" y1="68" x2="80" y2="82"/></svg>'
+    },
+
+    'Halftone Tris': {
+      majestyPatternRecipe: 1,
+      name: 'Halftone Tris',
+      generator: 'trihalftone',
+      params: { cols: 40, rows: 12, size: 1.25, edgeRatio: 0.12, mid: 1, updown: 1 },
+      placement: { sizeBot: 0.64, sizeTop: 1, zFrom: 0.34, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 50, roughness: 0.5 },
+      icon: '<svg ' + FILL_ICON + '>' +
+            '<path d="M22,32 L30,18 L38,32 Z M46,32 L54,18 L62,32 Z M70,32 L78,18 L86,32 Z"/>' +
+            '<path d="M16,78 L33,46 L50,78 Z M50,78 L67,46 L84,78 Z"/></svg>'
+    },
+
+    'Elite Tri': {
+      majestyPatternRecipe: 1,
+      name: 'Elite Tri',
+      generator: 'triprong',
+      params: { cols: 30, rows: 10, size: 0.73, tipThick: 0.005, midThick: 0.055, spin: 90 },
+      placement: { sizeBot: 0.05, sizeTop: 1.37, zFrom: 0.36, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 50, roughness: 0.5 },
+      icon: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" ' +
+            'stroke="currentColor" stroke-width="6" stroke-linecap="round">' +
+            '<path d="M32,35 L32,19 M32,35 L18,43 M32,35 L46,43"/>' +
+            '<path d="M68,35 L68,19 M68,35 L54,43 M68,35 L82,43"/>' +
+            '<path d="M50,68 L50,52 M50,68 L36,76 M50,68 L64,76"/></svg>'
+    },
+
+    'Stars': {
+      majestyPatternRecipe: 1,
+      name: 'Stars',
+      generator: 'fourstar',
+      params: { cols: 28, rows: 12, size: 0.96, sharp: 0.44, stagger: 1, spin: 90 },
+      placement: { sizeBot: 0.05, sizeTop: 1.06, zFrom: 0.34, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 62, roughness: 0.5 },
+      icon: '<svg ' + FILL_ICON + '>' +
+            '<path d="M32,12 Q35,29 52,32 Q35,35 32,52 Q29,35 12,32 Q29,29 32,12 Z"/>' +
+            '<path d="M68,12 Q71,29 88,32 Q71,35 68,52 Q65,35 48,32 Q65,29 68,12 Z"/>' +
+            '<path d="M50,50 Q53,65 68,68 Q53,71 50,86 Q47,71 32,68 Q47,65 50,50 Z"/></svg>'
+    },
+
+    'Dots': {
+      majestyPatternRecipe: 1,
+      name: 'Dots',
+      generator: 'dots',
+      params: { rows: 12, cols: 35, size: 0.5, stagger: 1, ring: 1 },
+      placement: { sizeBot: 0.05, sizeTop: 0.77, zFrom: 0.36, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 62, roughness: 0.5 },
+      // ring: 1 — outline only, so the icon is outlined too
+      icon: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" ' +
+            'stroke="currentColor" stroke-width="4">' +
+            '<circle cx="24" cy="28" r="9"/><circle cx="50" cy="28" r="9"/>' +
+            '<circle cx="76" cy="28" r="9"/>' +
+            '<circle cx="37" cy="52" r="9"/><circle cx="63" cy="52" r="9"/>' +
+            '<circle cx="24" cy="76" r="9"/><circle cx="50" cy="76" r="9"/>' +
+            '<circle cx="76" cy="76" r="9"/></svg>'
+    },
+
+    'Hex': {
+      majestyPatternRecipe: 1,
+      name: 'Hex',
+      generator: 'honeycomb',
+      params: { cols: 25, rows: 8, size: 0.69, thick: 0.27 },
+      placement: { sizeBot: 0.05, sizeTop: 1.16, zFrom: 0.36, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 62, roughness: 0.5 },
+      icon: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" ' +
+            'stroke="currentColor" stroke-width="5" stroke-linejoin="round">' +
+            '<polygon points="36,14 50,22 50,38 36,46 22,38 22,22"/>' +
+            '<polygon points="64,14 78,22 78,38 64,46 50,38 50,22"/>' +
+            '<polygon points="50,38 64,46 64,62 50,70 36,62 36,46"/></svg>'
+    },
+
+    'Waves': {
+      majestyPatternRecipe: 1,
+      name: 'Waves',
+      generator: 'wave',
+      params: { rows: 13, freq: 1, amp: 1, thick: 0.18, phase: 0 },
+      placement: { sizeBot: 0.05, sizeTop: 1.92, zFrom: 0.36, zTo: 1, tilt: 1 },
+      rotateDeg: 0,
+      emission: { colour: '#ffffff', strength: 62, roughness: 0.5 },
+      icon: '<svg ' + STROKE_ICON + '>' +
+            '<path d="M14,28 Q26,16 38,28 T62,28 T86,28"/>' +
+            '<path d="M14,50 Q26,38 38,50 T62,50 T86,50"/>' +
+            '<path d="M14,72 Q26,60 38,72 T62,72 T86,72"/></svg>'
     }
   };
 
