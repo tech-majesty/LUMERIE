@@ -157,15 +157,17 @@ class ThreeViewer {
                 glowSpread: 0.32,       // radians
                 glowSoftness: 5.0,        // higher = tighter core, darker corners
                 glowGain: 1.30,
-                domeFloorFade: 0.25,       // how fast the dome dims below the horizon
 
                 // floor
                 floorColor: 0x090808,
                 floorRadius: 14.0,       // × model span
                 reflectionResolution: 512,        // small on purpose: the blur hides it
                 reflectStrength: 0.50,
-                reflectBlur: 0.0035,     // base tap spread, in projected UV
-                reflectBlurGrowth: 6.0,        // how much blurrier further out
+                // Reflection is rendered sharp, then a blurred copy is mixed in by
+                // distance. Higher resolution than before is affordable because the
+                // blur is a separable pass at half res, not taps in the floor shader.
+                reflectBlurRadius: 2.2,        // gaussian step, in blur-buffer texels
+                reflectBlurRamp: 1.6,        // how fast it reaches full blur outward
                 // Gentle falloff on purpose. The floor reflects the BACKDROP as
                 // well as the lamp, and that reflected glow is what softens the
                 // horizon — fade it too fast and the floor goes black against a
@@ -173,9 +175,14 @@ class ThreeViewer {
                 reflectFade: 3.2,
                 poolRadius: 0.20,
                 poolGain: 0.30,
-                edgeFade: 0.35,       // where the disc starts dissolving
-                fresnelGain: 0.60,       // 0 = flat reflectivity, 1 = full grazing bias
-                horizonGain: 0.14,       // backdrop bounce, blends floor into backdrop
+                fresnelGain: 0.90,       // 0 = flat reflectivity, 1 = full grazing bias
+                horizonStart: 1.00,      // where the floor starts becoming pure mirror
+                horizonEnd: 1.80,      // where it fully is, so the join is seamless
+                // Was 0.14 to soften the seam back when the floor faded to black
+                // at its rim. Now that the floor becomes a pure mirror at the
+                // horizon, this term only adds warmth the dome does not have —
+                // measured as a 16 -> 39 luma step across the join. Keep it off.
+                horizonGain: 0.0,        // backdrop bounce onto the floor
                 horizonRange: 0.55
             }
         };
@@ -777,6 +784,7 @@ class ThreeViewer {
 
             // 4. Render final scene, with the stage back in
             stage.forEach(o => { o.visible = true; });
+            this.blurReflection();
             this.finalComposer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
@@ -858,7 +866,6 @@ class ThreeViewer {
                     glowSpread: { value: S.glowSpread },
                     glowSoft: { value: S.glowSoftness },
                     glowGain: { value: S.glowGain },
-                    floorFade: { value: S.domeFloorFade },
                     center: { value: new THREE.Vector3(0, box.min.y + size.y * 0.5, 0) }
                 },
                 vertexShader: `
@@ -875,7 +882,6 @@ class ThreeViewer {
                     uniform float glowSpread;
                     uniform float glowSoft;
                     uniform float glowGain;
-                    uniform float floorFade;
                     varying vec3  vDir;
                     void main() {
                         vec3 d = normalize(vDir);
@@ -890,11 +896,11 @@ class ThreeViewer {
                         // wall actually falls off. smoothstep would flatten it.
                         float halo = pow(t, glowSoft) * glowGain;
 
-                        // Ease off below the horizon; the floor takes over there and
-                        // a bright dome under it would fight the reflection.
-                        float below = smoothstep(0.0, -floorFade, d.y);
-
-                        vec3 c = baseColor + glowColor * halo * (1.0 - below * 0.75);
+                        // NO dimming below the equator. An earlier version faded the
+                        // dome down there to stop it fighting the floor, but the
+                        // floor now reaches the dome exactly, so the only thing
+                        // that dimming did was paint a dark band along the horizon.
+                        vec3 c = baseColor + glowColor * halo;
                         gl_FragColor = vec4(c, 1.0);
                     }`
             })
@@ -908,9 +914,20 @@ class ThreeViewer {
         // small: a sharp mirror needed a full-resolution buffer, a soft one does
         // not. That makes this cheaper than the old full-window reflector.
         const res = S.reflectionResolution;
-        const radius = span * S.floorRadius;
 
-        this.floor = new THREE.Reflector(new THREE.CircleGeometry(radius, 96), {
+        // The floor is sized to MEET THE DOME exactly, at the circle where the
+        // dome's surface crosses the floor's height. Anything smaller leaves a
+        // gap between the floor's rim and the dome, and fading that rim out was
+        // what drew a dark band along the horizon.
+        const dy = floorY - (box.min.y + size.y * 0.5);
+        const radius = Math.sqrt(Math.max(domeR * domeR - dy * dy, 0));
+
+        // Falloffs stay normalised by this reference length rather than by the
+        // disc radius, so growing the disc to meet the dome does not silently
+        // rescale the pool, the blur ramp and the reflection fade with it.
+        const refLen = span * S.floorRadius;
+
+        this.floor = new THREE.Reflector(new THREE.CircleGeometry(radius, 128), {
             clipBias: 0.003,
             textureWidth: res,
             textureHeight: res,
@@ -921,18 +938,19 @@ class ThreeViewer {
                     color: { value: null },
                     tDiffuse: { value: null },
                     textureMatrix: { value: null },
+                    tBlur: { value: null },        // filled in by blurReflection()
                     glowColor: { value: new THREE.Color(S.glowColor) },
                     reflectStrength: { value: S.reflectStrength },
-                    blurAmount: { value: S.reflectBlur },
-                    blurGrowth: { value: S.reflectBlurGrowth },
+                    blurRamp: { value: S.reflectBlurRamp },
                     reflectFade: { value: S.reflectFade },
                     poolRadius: { value: S.poolRadius },
                     poolGain: { value: S.poolGain },
-                    edgeFade: { value: S.edgeFade },
-                    floorRadius: { value: radius },
+                    floorRadius: { value: refLen },
                     fresnelGain: { value: S.fresnelGain },
                     horizonGain: { value: S.horizonGain },
-                    horizonRange: { value: S.horizonRange }
+                    horizonRange: { value: S.horizonRange },
+                    horizonStart: { value: S.horizonStart },
+                    horizonEnd: { value: S.horizonEnd }
                 },
                 vertexShader: `
                     uniform mat4 textureMatrix;
@@ -947,19 +965,20 @@ class ThreeViewer {
                     }`,
                 fragmentShader: `
                     uniform vec3      color;
-                    uniform sampler2D tDiffuse;
+                    uniform sampler2D tDiffuse;   // sharp reflection
+                    uniform sampler2D tBlur;      // gaussian-blurred copy
                     uniform vec3      glowColor;
                     uniform float     reflectStrength;
-                    uniform float     blurAmount;
-                    uniform float     blurGrowth;
+                    uniform float     blurRamp;
                     uniform float     reflectFade;
                     uniform float     poolRadius;
                     uniform float     poolGain;
-                    uniform float     edgeFade;
                     uniform float     floorRadius;
                     uniform float     fresnelGain;
                     uniform float     horizonGain;
                     uniform float     horizonRange;
+                    uniform float     horizonStart;
+                    uniform float     horizonEnd;
                     varying vec4      vUv;
                     varying vec2      vLocal;
                     varying vec3      vWorld;
@@ -968,58 +987,53 @@ class ThreeViewer {
                         // Normalised distance out from directly under the lamp.
                         float r = length(vLocal) / max(floorRadius, 1e-3);
 
-                        // ROUGH REFLECTION: a ring of taps around the mirror
-                        // sample. The spread grows with distance, because a real
-                        // rough surface scatters more the further the ray travels
-                        // — that is what makes the reflection dissolve downward
-                        // instead of staying razor sharp all the way out.
-                        float spread = blurAmount * (1.0 + r * blurGrowth);
-                        vec3 refl = vec3(0.0);
-                        float wsum = 0.0;
-                        // 2 rings of 6, plus the centre tap.
-                        for (int ring = 1; ring <= 2; ring++) {
-                            float rad = spread * float(ring);
-                            float w = 1.0 / float(ring + 1);
-                            for (int i = 0; i < 6; i++) {
-                                float a = float(i) * 1.0471976 + float(ring) * 0.5236;
-                                vec2 off = vec2(cos(a), sin(a)) * rad;
-                                vec4 uv = vUv;
-                                uv.xy += off * uv.w;      // offset before divide
-                                refl += texture2DProj(tDiffuse, uv).rgb * w;
-                                wsum += w;
-                            }
-                        }
-                        refl += texture2DProj(tDiffuse, vUv).rgb * 1.5;
-                        wsum += 1.5;
-                        refl /= wsum;
+                        // ROUGH REFLECTION: mix a sharp sample with a properly
+                        // blurred copy, rather than taking a ring of taps here.
+                        // The ring approach overlapped its own samples and read as
+                        // ghosting — a separable gaussian into its own buffer is
+                        // both smoother and cheaper than enough taps to hide it.
+                        vec3 sharp = texture2DProj(tDiffuse, vUv).rgb;
+                        vec3 soft  = texture2DProj(tBlur,    vUv).rgb;
 
-                        // FRESNEL: a glossy floor reflects far more at a grazing
-                        // angle than it does straight down. Without this the
-                        // distance fade alone drove the floor to black just where
-                        // it meets the lit backdrop, which read as a hard seam.
+                        // Sharper right under the lamp, softening as it recedes —
+                        // how a real rough surface scatters over distance.
+                        float rough = clamp(r * blurRamp, 0.0, 1.0);
+                        vec3 refl = mix(sharp, soft, rough);
+
+                        // FRESNEL: a glossy floor is nearly a full mirror at a
+                        // grazing angle. Letting it reach 1.0 at the horizon is
+                        // what makes the floor BECOME the dome there, so the two
+                        // meet with no step in brightness at all.
                         vec3 vd = normalize(vWorld - cameraPosition);
-                        float fres = mix(1.0, pow(1.0 - abs(vd.y), 5.0), fresnelGain);
+                        float grazing = pow(1.0 - abs(vd.y), 5.0);
 
-                        // Mild distance fade on top, so the lamp's mirror image
-                        // still concentrates near its base.
-                        float fade = mix(exp(-r * reflectFade), 1.0, fres * 0.85);
+                        // Near-field term keeps the lamp's own mirror image
+                        // concentrated around its base.
+                        float near = exp(-r * reflectFade);
+
+                        // Fresnel alone cannot finish the job: the view ray is only
+                        // exactly horizontal at an infinitely distant horizon, so
+                        // grazing peaks around 0.92 at the rim and that last 8% of
+                        // dark floor colour was still visible as a step. Force pure
+                        // reflection over the outer band so the join is exact.
+                        float far = smoothstep(horizonStart, horizonEnd, r);
+                        float k = mix(reflectStrength * near, 1.0,
+                                      clamp(max(grazing * fresnelGain, far), 0.0, 1.0));
 
                         // Warm pool of light spilling onto the floor at the base.
                         float pool = pow(max(0.0, 1.0 - r / max(poolRadius, 1e-3)), 2.2) * poolGain;
 
                         // Light bouncing off the backdrop onto the floor. local +Y
-                        // is world -Z after the plate is laid flat, i.e. the
-                        // direction of the backdrop, so this ramps up toward the
-                        // horizon and blends floor into backdrop.
+                        // is world -Z once the disc is laid flat, i.e. the
+                        // direction of the dome behind the lamp.
                         float horizon = smoothstep(0.0, floorRadius * horizonRange, vLocal.y) * horizonGain;
 
-                        // Dissolve the disc edge so it never reads as a cut-out.
-                        float edge = 1.0 - smoothstep(edgeFade, 1.0, r);
-
-                        vec3 c = color
-                               + refl * reflectStrength * fade
+                        // color fades out as k rises, so at the horizon (k = 1) the
+                        // floor is pure reflection and nothing darkens the join.
+                        vec3 c = color * (1.0 - k)
+                               + refl * k
                                + glowColor * (pool + horizon);
-                        gl_FragColor = vec4(c * edge, 1.0);
+                        gl_FragColor = vec4(c, 1.0);
                     }`
             }
         });
@@ -1029,8 +1043,110 @@ class ThreeViewer {
         this.floor.renderOrder = -5;
         this.scene.add(this.floor);
 
+        this.setupReflectionBlur(res, S.reflectBlurRadius);
+
         console.log(`Stage built — floor y=${floorY.toFixed(4)} r=${radius.toFixed(2)}, ` +
             `dome r=${domeR.toFixed(2)}, reflection ${res}x${res}`);
+    }
+
+    /**
+     * Two half-resolution buffers and a separable gaussian, used to produce the
+     * soft copy of the reflection that the floor mixes toward.
+     *
+     * Half resolution on purpose: the output is blurred, so the detail thrown
+     * away is detail the blur would have destroyed anyway, and it makes each pass
+     * a quarter of the work. Two 1D passes cost 2xN taps instead of the NxN a 2D
+     * kernel would need for the same radius.
+     */
+    setupReflectionBlur(res, radius) {
+        const half = Math.max(64, Math.floor(res / 2));
+        const opts = {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            depthBuffer: false,
+            stencilBuffer: false
+        };
+        this.blurRT = [
+            new THREE.WebGLRenderTarget(half, half, opts),
+            new THREE.WebGLRenderTarget(half, half, opts)
+        ];
+        // The reflection is already tonemapped and encoded by the pass that made
+        // it, so the blur must not re-encode: keep both buffers in the same space.
+        this.blurRT.forEach(rt => { rt.texture.encoding = THREE.LinearEncoding; });
+
+        this.blurMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                tSrc: { value: null },
+                direction: { value: new THREE.Vector2(1, 0) },
+                texel: { value: new THREE.Vector2(1 / half, 1 / half) },
+                radius: { value: radius }
+            },
+            vertexShader: `
+                varying vec2 vUvQ;
+                void main() {
+                    vUvQ = uv;
+                    gl_Position = vec4(position.xy, 0.0, 1.0);
+                }`,
+            fragmentShader: `
+                uniform sampler2D tSrc;
+                uniform vec2  direction;
+                uniform vec2  texel;
+                uniform float radius;
+                varying vec2  vUvQ;
+                void main() {
+                    // 9-tap gaussian, weights from Pascal's row 8 normalised.
+                    float w[5];
+                    w[0] = 0.2270270270;
+                    w[1] = 0.1945945946;
+                    w[2] = 0.1216216216;
+                    w[3] = 0.0540540541;
+                    w[4] = 0.0162162162;
+                    vec2 step = direction * texel * radius;
+                    vec3 sum = texture2D(tSrc, vUvQ).rgb * w[0];
+                    for (int i = 1; i < 5; i++) {
+                        vec2 o = step * float(i);
+                        sum += texture2D(tSrc, vUvQ + o).rgb * w[i];
+                        sum += texture2D(tSrc, vUvQ - o).rgb * w[i];
+                    }
+                    gl_FragColor = vec4(sum, 1.0);
+                }`
+        });
+
+        // Fullscreen triangle-pair in clip space; no camera transform needed.
+        this.blurScene = new THREE.Scene();
+        this.blurScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.blurMaterial));
+        this.blurCamera = new THREE.Camera();
+    }
+
+    /**
+     * Blur the reflector's render target into blurRT[1] and point the floor at it.
+     *
+     * Reads the target the reflector filled on the PREVIOUS frame, because the
+     * reflector only renders when the floor is drawn, which happens after this.
+     * One frame of latency on a reflection is not perceptible — and buying it
+     * avoids a second full reflection render per frame.
+     */
+    blurReflection() {
+        if (!this.blurRT || !this.floor) return;
+        const src = this.floor.getRenderTarget();
+        if (!src) return;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        const u = this.blurMaterial.uniforms;
+
+        u.tSrc.value = src.texture;
+        u.direction.value.set(1, 0);
+        this.renderer.setRenderTarget(this.blurRT[0]);
+        this.renderer.render(this.blurScene, this.blurCamera);
+
+        u.tSrc.value = this.blurRT[0].texture;
+        u.direction.value.set(0, 1);
+        this.renderer.setRenderTarget(this.blurRT[1]);
+        this.renderer.render(this.blurScene, this.blurCamera);
+
+        this.renderer.setRenderTarget(prevTarget);
+        this.floor.material.uniforms.tBlur.value = this.blurRT[1].texture;
     }
 
     /** Push the current stage settings into the live uniforms. */
@@ -1044,22 +1160,21 @@ class ThreeViewer {
             u.glowSpread.value = S.glowSpread;
             u.glowSoft.value = S.glowSoftness;
             u.glowGain.value = S.glowGain;
-            u.floorFade.value = S.domeFloorFade;
         }
         if (this.floor) {
             const u = this.floor.material.uniforms;
             u.color.value.set(S.floorColor);
             u.glowColor.value.set(S.glowColor);
             u.reflectStrength.value = S.reflectStrength;
-            u.blurAmount.value = S.reflectBlur;
-            u.blurGrowth.value = S.reflectBlurGrowth;
+            u.blurRamp.value = S.reflectBlurRamp;
             u.reflectFade.value = S.reflectFade;
             u.poolRadius.value = S.poolRadius;
             u.poolGain.value = S.poolGain;
-            u.edgeFade.value = S.edgeFade;
             u.fresnelGain.value = S.fresnelGain;
             u.horizonGain.value = S.horizonGain;
             u.horizonRange.value = S.horizonRange;
+            u.horizonStart.value = S.horizonStart;
+            u.horizonEnd.value = S.horizonEnd;
             this.floor.position.y = this.materialSettings.floor.positionY;
         }
     }
