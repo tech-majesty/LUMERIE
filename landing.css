@@ -1514,16 +1514,36 @@ html {
     text-align: inherit;
 }
 
+/*
+ *  align-self: start is load-bearing, not tidying.
+ *
+ *  A grid item defaults to stretching to its track, so every mask was as tall
+ *  as the LONGEST phrase. translateY(110%) is relative to the moving line's own
+ *  height, so a one-line phrase shifted about fifty pixels inside a mask nearly
+ *  a hundred tall: still inside the box, still painted, and all five stacked on
+ *  top of each other.
+ *
+ *  With align-self: start each mask is exactly as tall as the phrase it holds,
+ *  so 110% clears it completely.
+ */
 .rotator>b {
     grid-area: 1 / 1;
+    align-self: start;
     overflow: hidden;
     font-weight: 600;
     color: var(--text);
     /* Descenders sit below the baseline and the mask would cut them. No
        negative margin to claw the space back: that made the grid row shorter
-       than its own tallest phrase, so the descender room painted outside the
-       track it was measured into. */
+       than its own tallest phrase. */
     padding-bottom: 0.14em;
+    /* Belt and braces. The geometry above is what does the work, but a phrase
+       that is neither entering nor leaving has no business being paintable. */
+    visibility: hidden;
+}
+
+.rotator>b.is-on,
+.rotator>b.is-out {
+    visibility: visible;
 }
 
 .rotator>b>i {
