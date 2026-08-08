@@ -24,9 +24,9 @@
                 'to expose. The gradient is driven by world direction, so the halo ' +
                 'stays anchored behind the lamp instead of sliding with the camera.',
             fields: [
-                { key: 'backdropColor', section: 'Colour', section: 'Colour', label: 'Base colour', type: 'color', val: 0x080605 },
-                { key: 'glowColor', section: 'Colour', section: 'Colour', label: 'Halo colour', type: 'color', val: 0xffb463 },
-                { key: 'glowGain', section: 'Halo', section: 'Halo', label: 'Halo brightness', min: 0, max: 4, step: 0.01, val: 1.30, dp: 2 },
+                { key: 'backdropColor', section: 'Colour', label: 'Base colour', type: 'color', val: 0x080605 },
+                { key: 'glowColor', section: 'Colour', label: 'Halo colour', type: 'color', val: 0xffb463 },
+                { key: 'glowGain', section: 'Halo', label: 'Halo brightness', min: 0, max: 4, step: 0.01, val: 1.30, dp: 2 },
                 {
                     key: 'glowSpread', section: 'Halo', label: 'Halo size', min: 0.02, max: 1.6, step: 0.01, val: 0.32, dp: 2,
                     unit: ' rad',
@@ -45,15 +45,15 @@
                         'floor reflection matches the dome perfectly and the horizon ' +
                         'join becomes invisible.'
                 },
-                { key: 'domeScale', section: 'Geometry', section: 'Geometry', label: 'Dome size', min: 1.2, max: 12, step: 0.1, val: 3.0, dp: 1 },
-                { key: 'backdropDistance', section: 'Geometry', section: 'Geometry', label: 'Dome distance', min: 1, max: 20, step: 0.5, val: 6.0, dp: 1 },
+                { key: 'domeScale', section: 'Geometry', label: 'Dome size', min: 1.2, max: 12, step: 0.1, val: 3.0, dp: 1 },
+                { key: 'backdropDistance', section: 'Geometry', label: 'Dome distance', min: 1, max: 20, step: 0.5, val: 6.0, dp: 1 },
                 {
                     key: 'domeOffsetX', section: 'Position', label: 'Offset X', min: -20, max: 20, step: 0.01, val: 0, dp: 2,
                     hint: 'Set by the move gizmo when the backdrop is selected, so a ' +
                         'drag in the viewport survives into the JSON instead of being lost.'
                 },
-                { key: 'domeOffsetY', section: 'Position', section: 'Position', label: 'Offset Y', min: -20, max: 20, step: 0.01, val: 0, dp: 2 },
-                { key: 'domeOffsetZ', section: 'Position', section: 'Position', label: 'Offset Z', min: -20, max: 20, step: 0.01, val: 0, dp: 2 }
+                { key: 'domeOffsetY', section: 'Position', label: 'Offset Y', min: -20, max: 20, step: 0.01, val: 0, dp: 2 },
+                { key: 'domeOffsetZ', section: 'Position', label: 'Offset Z', min: -20, max: 20, step: 0.01, val: 0, dp: 2 }
             ]
         },
         {
@@ -75,8 +75,8 @@
                         'Planar reflection with a roughness blur is what actually works ' +
                         'here, and is what product configurators use.'
                 },
-                { key: 'floorColor', section: 'Type', section: 'Type', label: 'Floor colour', type: 'color', val: 0x090808 },
-                { key: 'reflectStrength', section: 'Reflection', section: 'Reflection', label: 'Reflection', min: 0, max: 1.5, step: 0.01, val: 0.50, dp: 2 },
+                { key: 'floorColor', section: 'Type', label: 'Floor colour', type: 'color', val: 0x090808 },
+                { key: 'reflectStrength', section: 'Reflection', label: 'Reflection', min: 0, max: 1.5, step: 0.01, val: 0.50, dp: 2 },
                 {
                     key: 'reflectFade', section: 'Reflection', label: 'Reflection falloff', min: 0, max: 14, step: 0.1, val: 3.2, dp: 1,
                     hint: 'How fast the lamp\'s own mirror image dies off with distance.'
@@ -94,25 +94,32 @@
                         'dissolves the way a real rough surface scatters over distance.'
                 },
                 {
-                    key: 'fresnelGain', section: 'Reflection', label: 'Grazing boost', min: 0, max: 1, step: 0.01, val: 0.90, dp: 2,
-                    hint: 'A glossy floor is nearly a full mirror at a grazing angle. ' +
-                        'Lowering this brings back a visible step at the horizon.'
+                    key: 'floorF0', section: 'Reflection', label: 'Base reflectance', min: 0, max: 1, step: 0.005, val: 0.05, dp: 3,
+                    hint: 'How much the floor reflects looking STRAIGHT DOWN. Real ' +
+                        'polished stone is about 0.05 — reflecting everything at every ' +
+                        'angle is what makes a reflection look washed out. It rises ' +
+                        'toward 1 at grazing angles on its own (Schlick).'
                 },
-                { key: 'poolRadius', section: 'Light pool', section: 'Light pool', label: 'Light pool size', min: 0.01, max: 1.5, step: 0.01, val: 0.20, dp: 2 },
-                { key: 'poolGain', section: 'Light pool', section: 'Light pool', label: 'Light pool strength', min: 0, max: 2, step: 0.01, val: 0.30, dp: 2 },
+                {
+                    key: 'fresnelGain', section: 'Reflection', label: 'Grazing boost', min: 0, max: 1, step: 0.01, val: 0.90, dp: 2,
+                    hint: '0 = flat reflectance at every angle (looks fake and washed), ' +
+                        '1 = full Fresnel curve up to a mirror at the horizon.'
+                },
+                { key: 'poolRadius', section: 'Light pool', label: 'Light pool size', min: 0.01, max: 1.5, step: 0.01, val: 0.20, dp: 2 },
+                { key: 'poolGain', section: 'Light pool', label: 'Light pool strength', min: 0, max: 2, step: 0.01, val: 0.30, dp: 2 },
                 {
                     key: 'horizonGain', section: 'Horizon blend', label: 'Backdrop bounce', min: 0, max: 1, step: 0.01, val: 0.0, dp: 2,
                     hint: 'Warmth added to the far floor. Measured as a 16 -> 39 luma ' +
                         'step across the horizon join at 0.14, which is why it is off.'
                 },
-                { key: 'horizonRange', section: 'Horizon blend', section: 'Horizon blend', label: 'Bounce reach', min: 0.05, max: 2, step: 0.01, val: 0.55, dp: 2 },
+                { key: 'horizonRange', section: 'Horizon blend', label: 'Bounce reach', min: 0.05, max: 2, step: 0.01, val: 0.55, dp: 2 },
                 {
                     key: 'horizonStart', section: 'Horizon blend', label: 'Mirror band start', min: 0, max: 3, step: 0.01, val: 1.00, dp: 2,
                     hint: 'Where the floor starts becoming a pure mirror so the join to ' +
                         'the dome is seamless.'
                 },
-                { key: 'horizonEnd', section: 'Horizon blend', section: 'Horizon blend', label: 'Mirror band end', min: 0, max: 4, step: 0.01, val: 1.80, dp: 2 },
-                { key: 'floorRadius', section: 'Geometry', section: 'Geometry', label: 'Falloff reference', min: 2, max: 40, step: 0.5, val: 14.0, dp: 1 },
+                { key: 'horizonEnd', section: 'Horizon blend', label: 'Mirror band end', min: 0, max: 4, step: 0.01, val: 1.80, dp: 2 },
+                { key: 'floorRadius', section: 'Geometry', label: 'Falloff reference', min: 2, max: 40, step: 0.5, val: 14.0, dp: 1 },
                 {
                     key: 'floorOffsetY', section: 'Geometry', label: 'Floor height', min: -5, max: 5, step: 0.005, val: 0, dp: 3,
                     hint: 'Relative to the base of the model. The gizmo writes this.'
@@ -247,6 +254,7 @@
         uniform float     poolGain;
         uniform float     floorRadius;
         uniform float     fresnelGain;
+        uniform float     floorF0;
         uniform float     horizonGain;
         uniform float     horizonRange;
         uniform float     horizonStart;
@@ -278,22 +286,34 @@
             vec3 vd = normalize(vWorld - cameraPosition);
             float grazing = pow(1.0 - abs(vd.y), 5.0);
 
-            float near = exp(-r * reflectFade);
+            // SCHLICK FRESNEL. The previous formulation was
+            //     mix(near, 1.0, grazing * fresnelGain)
+            // which collapses to 1 whenever reflectFade is 0 (near becomes 1), so
+            // the floor became a flat 100% mirror at every angle regardless of the
+            // other controls — a reflection as bright as the object itself, which
+            // is what reads as washed out.
+            //
+            // A real floor reflects only floorF0 looking straight down and climbs
+            // toward a mirror at grazing. That gradient is the whole look: subtle
+            // under the object, strong toward the horizon.
+            float cosTheta = abs(vd.y);                       // floor normal is +Y
+            float schlick  = pow(1.0 - cosTheta, 5.0);
+            float fres     = floorF0 + (1.0 - floorF0) * schlick * fresnelGain;
+
+            // Distance attenuation on top, so the mirror image concentrates near
+            // its source rather than staying equally strong to the rim.
+            float atten = exp(-r * reflectFade);
 
             // GUARDED: with horizonStart == horizonEnd this was smoothstep(0,0,r),
-            // a divide by zero that returns 1 everywhere — which pinned the whole
-            // floor at full mirror and made reflectStrength a no-op.
+            // a divide by zero returning 1 everywhere.
             float far = (horizonEnd > horizonStart)
                 ? smoothstep(horizonStart, horizonEnd, r)
                 : 0.0;
 
-            // reflectStrength is a MASTER gain on the lamp's reflection, so 0
-            // really means none. Fresnel alone cannot reach the horizon (the view
-            // ray is only exactly horizontal infinitely far away, so grazing peaks
-            // near 0.92 at the rim), which is why the horizon blend is a separate
-            // term rather than something reflectStrength scales — otherwise turning
-            // the reflection down would bring the dark seam back with it.
-            float lampK = reflectStrength * mix(near, 1.0, clamp(grazing * fresnelGain, 0.0, 1.0));
+            // The horizon band stays a separate max(), not something reflectStrength
+            // scales — otherwise turning the reflection down brings back the dark
+            // seam where the floor meets the dome.
+            float lampK = clamp(reflectStrength * fres * atten, 0.0, 1.0);
             float k = clamp(max(lampK, far), 0.0, 1.0);
 
             float pool = pow(max(0.0, 1.0 - r / max(poolRadius, 1e-3)), 2.2) * poolGain;
@@ -417,6 +437,7 @@
                         poolGain: { value: S.poolGain },
                         floorRadius: { value: refLen },
                         fresnelGain: { value: S.fresnelGain },
+                        floorF0: { value: S.floorF0 },
                         horizonGain: { value: S.horizonGain },
                         horizonRange: { value: S.horizonRange },
                         horizonStart: { value: S.horizonStart },
@@ -509,6 +530,7 @@
                 f.poolGain.value = n.poolGain;
                 f.floorRadius.value = span * n.floorRadius;
                 f.fresnelGain.value = n.fresnelGain;
+                f.floorF0.value = n.floorF0;
                 f.horizonGain.value = n.horizonGain;
                 f.horizonRange.value = n.horizonRange;
                 f.horizonStart.value = n.horizonStart;
@@ -597,6 +619,7 @@
         "reflectFade": 0,
         "reflectRoughness": 0,
         "reflectBlurRamp": 0,
+        "floorF0": 0.05,
         "fresnelGain": 1,
         "poolRadius": 0.23,
         "poolGain": 0.28,
