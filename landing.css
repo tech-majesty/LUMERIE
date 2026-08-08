@@ -1431,46 +1431,62 @@ html {
     }
 }
 
-/* ===== Logo rail ======================================================== */
+/* ===== Video panel ======================================================
+   Same treatment as a photograph panel. The element is decorative, so it is
+   aria-hidden and carries no controls; the file itself has no audio track. */
 
-.rail {
-    padding-block: clamp(2rem, 4vw, 3rem);
-    border-block: 1px solid var(--line);
-    background: var(--surface-1);
+.vp-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -2;
+    pointer-events: none;
 }
 
-.rail-inner {
-    display: flex;
-    align-items: center;
-    gap: clamp(1.8rem, 4.5vw, 4rem);
-    flex-wrap: wrap;
-    justify-content: center;
+/* ===== Logo grid ========================================================
+   A grid with real cells rather than a strip, so eleven marks of wildly
+   different aspect ratios each get the same optical space. */
+
+.logo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
 }
 
-.rail-label {
-    font-size: 0.8rem;
-    color: var(--text-3);
-    margin: 0;
+.logo-cell {
+    display: grid;
+    place-items: center;
+    padding: clamp(1.4rem, 2.6vw, 2.2rem) 1rem;
+    min-height: clamp(96px, 11vw, 132px);
+    background: var(--bg);
+    transition: background 0.5s var(--ease);
 }
 
-/* The source files are dark artwork baked onto white, which is why they were
-   sitting on white plates and looking like stickers. Inverting turns the white
-   ground black and the artwork light; screening against the dark page then
-   drops that black ground out entirely. Result is a clean white mark with no
-   plate, from an asset that has no transparency. */
-.rail img {
-    height: clamp(30px, 3.6vw, 46px);
+.logo-cell:hover {
+    background: var(--surface-2);
+}
+
+.logo-cell img {
+    max-height: clamp(30px, 3.4vw, 44px);
+    max-width: min(150px, 100%);
     width: auto;
-    max-width: 170px;
     object-fit: contain;
+    /* Dark artwork on a white ground with no alpha: inverting turns the ground
+       black and the mark light, screening drops the black out entirely. */
     filter: invert(1) grayscale(1) brightness(1.15);
     mix-blend-mode: screen;
-    opacity: 0.5;
+    opacity: 0.55;
     transition: opacity 0.4s var(--ease);
 }
 
-.rail img:hover {
-    opacity: 0.95;
+.logo-cell:hover img {
+    opacity: 1;
 }
 
 /* ===== Bento ============================================================
