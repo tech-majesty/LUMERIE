@@ -48,14 +48,23 @@ A premium, interactive product configurator website for the MAJESTY™ - AIoT Lu
 
 ```
 majesty-lamp/
-├── index.html          # Main HTML structure
-├── styles.css          # Styling, dark theme, and responsiveness
-├── script.js           # Logic, Three.js 3D viewer, and state management
+├── index.html          # Marketing landing page (3D hero + the story)
+├── landing.css         # Landing-page styling
+├── hero.js             # Hero camera sequence, wordmark, handoff to the configurator
+├── configurator.html   # The configurator itself
+├── styles.css          # Configurator styling, dark theme, and responsiveness
+├── viewer.js           # ThreeViewer — the shared 3D rig, used by both pages
+├── script.js           # Configurator UI, cart and state management
+├── stage.js            # Backdrop dome + glossy floor (shared with the studio)
+├── logo-light.js       # Light linked to the Logo mesh only
+├── pattern-engine.js   # Coded pattern recipes (shared with the studio)
+├── pattern-studio.html # Internal tool for authoring patterns and the stage
 ├── README.md           # Documentation
+├── assets/             # Landing-page photography and partner logos
 ├── 3D Model/           # Folder for local 3D assets (large files ignored by git)
 ├── env_texture/        # Environment maps for 3D lighting (EXR)
-└── renders/            # 2D Product render images (WebP format)
-    ├── Golden Ring/    
+└── renders/            # 2D product renders, no longer used by either page
+    ├── Golden Ring/
     ├── Silver Ring/
     └── Copper Ring/
 ```

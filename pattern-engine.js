@@ -1,7 +1,7 @@
 /* =============================================================================
  *  pattern-engine.js — Majesty procedural pattern engine.
  *
- *  ONE source of truth, loaded by BOTH the storefront (index.html) and the
+ *  ONE source of truth, loaded by BOTH the storefront (configurator.html) and the
  *  Pattern Studio. Patterns are CODE, not baked images: the pattern is computed
  *  in a fragment shader from the lamp's own surface coordinates, so adding one
  *  means adding a recipe object below — no texture bake, no GLB re-export, no
@@ -722,7 +722,7 @@
   // ===========================================================================
   // Every entry below is a verbatim paste of the studio's "Copy pattern recipe"
   // output, plus an `icon` for the storefront's pattern picker (same 100x100
-  // viewBox and currentColor convention as the buttons already in index.html).
+  // viewBox and currentColor convention as the buttons already in configurator.html).
   //
   // NOTE on `emission`: the storefront ignores it on purpose. applyCodedPattern
   // takes the emissive colour and intensity from materialSettings.patterns so a

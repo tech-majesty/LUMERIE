@@ -1,0 +1,1356 @@
+/* =============================================================================
+ *  MAJESTY — landing page
+ *
+ *  Design language: oversized grotesk display type set edge to edge, the
+ *  product layered in FRONT of the wordmark, and the page told as numbered
+ *  chapters that alternate between warm cream and espresso. Colour is almost
+ *  entirely absent — the lamp is the only saturated thing on the page — and
+ *  gold is used at the scale of a hairline, not a headline.
+ *
+ *  Scoped to index.html. styles.css belongs to the configurator; the two share
+ *  brand values but not layout.
+ * ========================================================================== */
+
+@font-face {
+    font-family: 'Georgia Pro';
+    src: url('fonts/GeorgiaPro-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    /* Espresso, not black. The lamp's own glow needs somewhere warm to sit. */
+    --ink: #14100e;
+    --ink-1: #1b1614;
+    --ink-2: #241d19;
+    --ink-3: #322822;
+
+    /* Cream, not white. Matches the wall the product is photographed against. */
+    --cream: #f1ece1;
+    --cream-2: #e6dfd1;
+
+    --text: #f0eae0;
+    --text-dim: #a29788;
+    --text-faint: #6d6459;
+
+    --on-cream: #191410;
+    --on-cream-dim: #6b6154;
+
+    --gold: #c9a227;
+    --gold-soft: #d9b65a;
+    --gold-line: rgba(201, 162, 39, 0.35);
+
+    --hairline: rgba(240, 234, 224, 0.13);
+    --hairline-ink: rgba(25, 20, 16, 0.16);
+
+    /* One grotesk for display, Inter for running text. The reference sets both
+       in the same family; Inter is kept for body because it holds up better at
+       14–17px than Archivo does. */
+    --font-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-stat: 'Archivo', 'Georgia Pro', Georgia, serif;
+
+    --shell: 1440px;
+    --gutter: clamp(1.25rem, 4vw, 4rem);
+
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+::selection {
+    background: rgba(201, 162, 39, 0.32);
+    color: #fff;
+}
+
+/* ===== Shared type ===================================================== */
+
+.shell {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding-inline: var(--gutter);
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    margin: 0;
+    line-height: 1;
+}
+
+/* The hero wordmark and the full-bleed statements. Sized off vw so it always
+   reaches for the edges of the viewport the way the reference does. */
+.h-mega {
+    font-size: clamp(3.4rem, 15.5vw, 15rem);
+    letter-spacing: -0.045em;
+    line-height: 0.86;
+    text-transform: uppercase;
+}
+
+/* Big, but sized so the longest word on the page — INTELLIGENCE, twelve
+   characters — still clears the gutters. .h-mega is for the hero wordmark,
+   where bleeding off the edge is the point; here it is not. */
+.h-big {
+    font-size: clamp(2.4rem, 10.2vw, 8.5rem);
+    letter-spacing: -0.045em;
+    line-height: 0.9;
+    text-transform: uppercase;
+}
+
+.h-chapter {
+    font-size: clamp(1.9rem, 3.6vw, 3.2rem);
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+}
+
+.h-lead {
+    font-size: clamp(1.5rem, 2.6vw, 2.4rem);
+    letter-spacing: -0.025em;
+    line-height: 1.12;
+}
+
+.body-lg {
+    font-size: clamp(0.98rem, 1.15vw, 1.1rem);
+    line-height: 1.72;
+    color: var(--text-dim);
+    max-width: 56ch;
+}
+
+.on-cream .body-lg {
+    color: var(--on-cream-dim);
+}
+
+.micro {
+    font-family: var(--font-body);
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.on-cream .micro {
+    color: var(--on-cream-dim);
+}
+
+.gold {
+    color: var(--gold-soft);
+}
+
+.on-cream .gold {
+    color: #9a7c17;
+}
+
+/* ===== Buttons =========================================================
+   The reference's control is a pill with a separate round arrow disc riding
+   inside it. Reproduced here rather than a plain rounded rectangle, because
+   that disc is most of what makes it read as considered. */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.5rem 0.5rem 0.5rem 1.5rem;
+    font-family: var(--font-body);
+    font-size: 0.74rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    background: none;
+    color: inherit;
+    transition: background 0.45s var(--ease), color 0.45s var(--ease),
+        border-color 0.45s var(--ease), transform 0.45s var(--ease);
+}
+
+.btn .disc {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    line-height: 1;
+    transition: transform 0.45s var(--ease), background 0.45s var(--ease),
+        color 0.45s var(--ease);
+}
+
+.btn-solid {
+    background: var(--cream);
+    color: var(--on-cream);
+}
+
+.btn-solid .disc {
+    background: var(--ink);
+    color: var(--cream);
+}
+
+.btn-solid:hover {
+    transform: translateY(-1px);
+}
+
+.btn-solid:hover .disc {
+    transform: translateX(3px);
+}
+
+.btn-dark {
+    background: var(--ink);
+    color: var(--cream);
+}
+
+.btn-dark .disc {
+    background: var(--cream);
+    color: var(--ink);
+}
+
+.btn-dark:hover .disc {
+    transform: translateX(3px);
+}
+
+.btn-line {
+    border-color: var(--hairline);
+    color: var(--text);
+    padding-right: 1.5rem;
+}
+
+.on-cream .btn-line {
+    border-color: var(--hairline-ink);
+    color: var(--on-cream);
+}
+
+.btn-line:hover {
+    border-color: var(--gold-line);
+    color: var(--gold-soft);
+}
+
+/* ===== Preloader ======================================================= */
+
+#preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: var(--ink);
+    display: grid;
+    place-items: center;
+    transition: opacity 0.9s var(--ease), visibility 0.9s;
+}
+
+#preloader.done {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.pre-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.6rem;
+    width: min(240px, 62vw);
+}
+
+.pre-inner svg {
+    width: 46px;
+    opacity: 0.85;
+}
+
+.pre-track {
+    width: 100%;
+    height: 1px;
+    background: var(--hairline);
+    overflow: hidden;
+}
+
+.pre-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--cream);
+    transition: width 0.35s var(--ease);
+}
+
+.pre-pct {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+    color: var(--text-faint);
+}
+
+/* ===== Navigation ====================================================== */
+
+.nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.15rem var(--gutter);
+    transition: background 0.5s var(--ease), border-color 0.5s var(--ease),
+        backdrop-filter 0.5s var(--ease);
+    border-bottom: 1px solid transparent;
+}
+
+.nav.stuck {
+    background: rgba(20, 16, 14, 0.78);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border-bottom-color: var(--hairline);
+}
+
+.nav-mark {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-shrink: 0;
+}
+
+.nav-mark svg {
+    width: 24px;
+    height: auto;
+}
+
+.nav-mark .wordmark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.92rem;
+    letter-spacing: 0.16em;
+    padding-left: 0.16em;
+}
+
+.nav-links {
+    display: flex;
+    gap: clamp(1rem, 2.1vw, 2.1rem);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links a {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    position: relative;
+    padding-block: 0.3rem;
+    transition: color 0.35s var(--ease);
+    white-space: nowrap;
+}
+
+.nav-links a:hover {
+    color: var(--text);
+}
+
+.nav-cta {
+    padding: 0.35rem 0.35rem 0.35rem 1.15rem;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.nav-cta .disc {
+    width: 26px;
+    height: 26px;
+    font-size: 0.72rem;
+}
+
+.nav-burger {
+    display: none;
+    background: none;
+    border: 0;
+    padding: 0.4rem;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.nav-burger span {
+    display: block;
+    width: 20px;
+    height: 1px;
+    background: var(--text);
+    transition: transform 0.4s var(--ease), opacity 0.3s;
+}
+
+.nav.open .nav-burger span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+
+.nav.open .nav-burger span:nth-child(2) {
+    opacity: 0;
+}
+
+.nav.open .nav-burger span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+
+/* ===== Hero ============================================================
+ *
+ *  Three stacked layers, and the order is the whole point:
+ *
+ *      1  .hero-word    the LUMERIE wordmark, edge to edge
+ *      2  the canvas    transparent above the horizon, so the lamp OCCLUDES
+ *                       the letters it passes in front of
+ *      3  .hero-foot    the strapline and spec list along the bottom
+ *
+ *  For layer 2 to be transparent the backdrop dome has to be off — hero.js
+ *  hides it. What is left is the glossy floor and the lamp, and the wall
+ *  behind them is this gradient, tuned to meet the floor at the horizon so
+ *  there is no visible seam.
+ */
+
+.hero {
+    position: relative;
+    min-height: 100svh;
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        radial-gradient(120% 85% at 50% 30%, #3a2f28 0%, #241c17 46%, #14100e 100%);
+}
+
+.hero-word {
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    top: 27%;
+    text-align: center;
+    pointer-events: none;
+    color: #efe6d7;
+    /* Not pure white: the wordmark is a surface behind the product, and at this
+       size full-strength white flattens everything in front of it. */
+    opacity: 0.93;
+    text-shadow: 0 0 90px rgba(0, 0, 0, 0.35);
+}
+
+.hero-word span {
+    display: block;
+    font-size: clamp(3.6rem, 21vw, 22rem);
+    letter-spacing: -0.05em;
+    line-height: 0.8;
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.hero-word sup {
+    font-size: 0.14em;
+    vertical-align: super;
+    letter-spacing: 0;
+    opacity: 0.75;
+}
+
+#threeCanvasContainer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+}
+
+#threeCanvasContainer canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+/* Darkens the extreme top and bottom only, so the nav and the footer text stay
+   legible without greying the middle of the frame. */
+.hero-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    /* The floor reflects the wordmark, so the lower third of the frame carries
+       a mirrored LUMERIE straight through the strapline and the spec list. The
+       bottom stops are heavy enough to bury it and leave only the glow. */
+    background: linear-gradient(to bottom,
+            rgba(20, 16, 14, 0.72) 0%,
+            rgba(20, 16, 14, 0) 15%,
+            rgba(20, 16, 14, 0) 50%,
+            rgba(20, 16, 14, 0.55) 70%,
+            rgba(20, 16, 14, 0.93) 88%,
+            var(--ink) 100%);
+}
+
+.hero-foot {
+    position: absolute;
+    z-index: 4;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 var(--gutter) clamp(1.5rem, 3.5vh, 2.75rem);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+    gap: 2rem;
+}
+
+.hero-strap {
+    max-width: 26ch;
+    font-size: clamp(0.95rem, 1.15vw, 1.08rem);
+    line-height: 1.5;
+    margin: 0 0 1.3rem;
+    color: var(--text);
+}
+
+.hero-strap em {
+    font-style: normal;
+    color: var(--text-dim);
+}
+
+.hero-specs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    justify-self: end;
+    text-align: right;
+}
+
+.hero-specs li {
+    font-size: 0.76rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    justify-content: flex-end;
+}
+
+.hero-specs li::before {
+    content: '';
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--gold);
+    order: 2;
+}
+
+.hero-scroll {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    padding-bottom: 0.2rem;
+}
+
+.hero-scroll i {
+    display: block;
+    width: 1px;
+    height: 38px;
+    background: rgba(240, 234, 224, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-scroll i::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    height: 11px;
+    background: var(--gold-soft);
+    animation: trickle 2.8s var(--ease) infinite;
+}
+
+@keyframes trickle {
+    0% {
+        transform: translateY(-12px);
+        opacity: 0;
+    }
+
+    35% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(38px);
+        opacity: 0;
+    }
+}
+
+/* The curtain the hero→configurator handoff fades up behind. Sits above
+   everything except the preloader; inert until hero.js arms it. */
+#curtain {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    background: var(--ink);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ===== Chapters ========================================================
+   A full-width rule with the chapter number hard left and the title centred —
+   the device the reference uses to break the page into numbered parts. */
+
+.section {
+    position: relative;
+    padding-block: clamp(4.5rem, 9vw, 9rem);
+}
+
+.section.on-cream {
+    background: var(--cream);
+    color: var(--on-cream);
+}
+
+.section.tint {
+    background: var(--ink-1);
+}
+
+.chapter-head {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr) 4rem;
+    align-items: baseline;
+    gap: 1rem;
+    padding-bottom: clamp(1.6rem, 3vw, 2.6rem);
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+    border-bottom: 1px solid var(--hairline);
+}
+
+.on-cream .chapter-head {
+    border-bottom-color: var(--hairline-ink);
+}
+
+.chapter-head .num {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.4vw, 2rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+}
+
+.chapter-head h2 {
+    text-align: center;
+}
+
+/* ===== Statement ======================================================= */
+
+.statement {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(2rem, 6vw, 6rem);
+    align-items: start;
+}
+
+.statement-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+}
+
+@media (max-width: 900px) {
+    .statement {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ===== Big figure ====================================================== */
+
+.figure-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 6vw, 6rem);
+    align-items: center;
+}
+
+.figure-num {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(5rem, 15vw, 13rem);
+    line-height: 0.82;
+    letter-spacing: -0.055em;
+}
+
+.figure-num small {
+    font-size: 0.4em;
+    letter-spacing: -0.03em;
+}
+
+.figure-cap {
+    margin: 1.2rem 0 0;
+    max-width: 26ch;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+
+@media (max-width: 900px) {
+    .figure-band {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ===== Lineage / cards ================================================= */
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+}
+
+.on-cream .cards,
+.on-cream .cards>* {
+    background-color: transparent;
+}
+
+.on-cream .cards {
+    background: var(--hairline-ink);
+    border-color: var(--hairline-ink);
+}
+
+.card {
+    background: var(--ink);
+    padding: clamp(1.6rem, 2.8vw, 2.4rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    transition: background 0.6s var(--ease);
+}
+
+.on-cream .card {
+    background: var(--cream);
+}
+
+.card:hover {
+    background: var(--ink-2);
+}
+
+.on-cream .card:hover {
+    background: var(--cream-2);
+}
+
+.card .n {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    color: var(--gold-soft);
+    margin-bottom: 0.9rem;
+}
+
+.on-cream .card .n {
+    color: #9a7c17;
+}
+
+.card h3 {
+    font-size: clamp(1.15rem, 1.7vw, 1.4rem);
+    letter-spacing: -0.02em;
+}
+
+.card p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--text-dim);
+}
+
+.on-cream .card p {
+    color: var(--on-cream-dim);
+}
+
+/* ===== Full-bleed scene with a floating info card ====================== */
+
+.scene {
+    position: relative;
+    min-height: clamp(420px, 62vh, 680px);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.scene>img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 62%;
+    z-index: -2;
+}
+
+.scene::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(90deg, rgba(20, 16, 14, 0.78) 0%, rgba(20, 16, 14, 0.15) 55%, rgba(20, 16, 14, 0.5) 100%);
+}
+
+.scene .shell {
+    width: 100%;
+}
+
+.info-card {
+    max-width: 27rem;
+    padding: clamp(1.5rem, 2.4vw, 2.1rem);
+    background: rgba(20, 16, 14, 0.62);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid var(--hairline);
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.info-card h3 {
+    font-size: clamp(1.25rem, 1.9vw, 1.6rem);
+}
+
+.info-card p {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--text-dim);
+}
+
+.info-card.right {
+    margin-left: auto;
+}
+
+/* Centred statement over a scene, for the big one-liners. */
+.scene.centred {
+    text-align: center;
+}
+
+.scene.centred::after {
+    background: linear-gradient(180deg, rgba(20, 16, 14, 0.6), rgba(20, 16, 14, 0.35) 50%, rgba(20, 16, 14, 0.85));
+}
+
+/* ===== Capability list ================================================= */
+
+.caps {
+    columns: 2;
+    column-gap: clamp(2rem, 5vw, 5rem);
+}
+
+@media (max-width: 760px) {
+    .caps {
+        columns: 1;
+    }
+}
+
+.cap {
+    break-inside: avoid;
+    display: flex;
+    align-items: baseline;
+    gap: 1.3rem;
+    padding-block: 1rem;
+    border-bottom: 1px solid var(--hairline);
+    transition: border-color 0.5s var(--ease);
+}
+
+.on-cream .cap {
+    border-bottom-color: var(--hairline-ink);
+}
+
+.cap:hover {
+    border-bottom-color: var(--gold-line);
+}
+
+.cap .n {
+    font-family: var(--font-display);
+    font-size: 0.74rem;
+    color: var(--gold-soft);
+    flex-shrink: 0;
+    min-width: 2.4ch;
+}
+
+.on-cream .cap .n {
+    color: #9a7c17;
+}
+
+.cap p {
+    margin: 0;
+    font-size: 0.98rem;
+}
+
+/* ===== Quotes ========================================================== */
+
+.quotes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 1px;
+    background: var(--hairline-ink);
+    border: 1px solid var(--hairline-ink);
+}
+
+.quote {
+    margin: 0;
+    background: var(--cream);
+    padding: clamp(1.6rem, 2.6vw, 2.3rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+    transition: background 0.6s var(--ease);
+}
+
+.quote:hover {
+    background: var(--cream-2);
+}
+
+.quote p {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.02rem, 1.35vw, 1.2rem);
+    line-height: 1.4;
+    letter-spacing: -0.018em;
+    color: var(--on-cream);
+    flex-grow: 1;
+}
+
+.quote cite {
+    font-style: normal;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--on-cream-dim);
+    line-height: 1.8;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--hairline-ink);
+}
+
+/* ===== Gallery ========================================================= */
+
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: clamp(130px, 13vw, 210px);
+    gap: 8px;
+}
+
+.gallery figure {
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    background: var(--ink-2);
+}
+
+.gallery img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(0.82) contrast(1.02);
+    transition: transform 1.4s var(--ease), filter 1.1s var(--ease);
+}
+
+.gallery figure:hover img {
+    transform: scale(1.06);
+    filter: saturate(1);
+}
+
+.gallery .tall {
+    grid-row: span 2;
+}
+
+.gallery .wide {
+    grid-column: span 2;
+}
+
+/* ===== Configure card ==================================================
+   The reference puts its order panel on top of a lifestyle photograph rather
+   than on a page of its own, so the product is never out of sight while you
+   are choosing. Same idea here — except the real configurator is a whole 3D
+   application, so this panel is the doorway into it. */
+
+.configure {
+    position: relative;
+    padding-block: clamp(4rem, 8vw, 7rem);
+    overflow: hidden;
+}
+
+.configure>img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 60%;
+    z-index: -2;
+}
+
+.configure::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(90deg, rgba(20, 16, 14, 0.3), rgba(20, 16, 14, 0.7));
+}
+
+.configure-card {
+    max-width: 30rem;
+    margin-left: auto;
+    background: var(--cream);
+    color: var(--on-cream);
+    padding: clamp(1.8rem, 3vw, 2.6rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+}
+
+.configure-card h2 {
+    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+}
+
+.configure-card p {
+    margin: 0;
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: var(--on-cream-dim);
+}
+
+.swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    padding-block: 0.3rem;
+}
+
+.swatch {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--on-cream-dim);
+}
+
+.swatch i {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: block;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+.swatch.is-on {
+    color: var(--on-cream);
+    font-weight: 500;
+}
+
+.swatch.is-on i {
+    box-shadow: 0 0 0 1px var(--cream), 0 0 0 2px var(--on-cream);
+}
+
+.configure-note {
+    font-size: 0.72rem;
+    color: var(--on-cream-dim);
+    border-top: 1px solid var(--hairline-ink);
+    padding-top: 1.1rem;
+    margin: 0;
+}
+
+/* ===== Partners ======================================================== */
+
+.partners {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.8rem, 1.8vw, 1.6rem);
+}
+
+/* Mixed sources: dark marks on transparent PNG and colour artwork baked onto
+   white JPEG. A single filter fails half of them, so every mark gets the light
+   plate it was drawn for and the row reads as one strip. */
+.partners img {
+    height: clamp(42px, 4.6vw, 58px);
+    width: auto;
+    max-width: 140px;
+    object-fit: contain;
+    padding: 0.5rem 0.85rem;
+    background: #fff;
+    filter: grayscale(1) contrast(1.04);
+    opacity: 0.5;
+    transition: opacity 0.5s var(--ease), filter 0.5s var(--ease);
+}
+
+.partners img:hover {
+    opacity: 1;
+    filter: none;
+}
+
+/* ===== Closing ========================================================= */
+
+.closing {
+    text-align: center;
+    padding-block: clamp(5rem, 11vw, 10rem);
+    position: relative;
+    overflow: hidden;
+}
+
+.closing::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(70% 90% at 50% 110%, rgba(201, 162, 39, 0.16), transparent 68%);
+}
+
+.closing>* {
+    position: relative;
+}
+
+.closing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    justify-content: center;
+    margin-top: 2.4rem;
+}
+
+/* ===== Footer ========================================================== */
+
+.footer {
+    border-top: 1px solid var(--hairline);
+    padding-block: clamp(3rem, 6vw, 5rem) 2rem;
+    background: var(--ink-1);
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
+    gap: clamp(2rem, 5vw, 4rem);
+}
+
+.footer-mark {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.2rem;
+}
+
+.footer-mark svg {
+    width: 26px;
+}
+
+.footer-mark span {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.16em;
+}
+
+.footer h4 {
+    font-family: var(--font-body);
+    font-size: 0.64rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 1.2rem;
+}
+
+.footer ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.footer a,
+.footer address {
+    font-size: 0.88rem;
+    font-style: normal;
+    color: var(--text-dim);
+    line-height: 1.75;
+    transition: color 0.35s var(--ease);
+}
+
+.footer a:hover {
+    color: var(--gold-soft);
+}
+
+.socials {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 1.2rem !important;
+    margin-top: 1.4rem !important;
+}
+
+.socials a {
+    font-size: 0.72rem;
+}
+
+.footer-base {
+    margin-top: clamp(2.5rem, 5vw, 4rem);
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+}
+
+/* ===== Scroll reveal =================================================== */
+
+.js .reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.9s var(--ease), transform 0.9s var(--ease);
+    transition-delay: var(--d, 0ms);
+}
+
+.js .reveal.in {
+    opacity: 1;
+    transform: none;
+}
+
+/* ===== Responsive ====================================================== */
+
+@media (max-width: 1080px) {
+    .footer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .nav-links {
+        position: fixed;
+        inset: 0 0 auto;
+        padding: 5.5rem var(--gutter) 2.5rem;
+        flex-direction: column;
+        gap: 1.4rem;
+        background: rgba(20, 16, 14, 0.97);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--hairline);
+        transform: translateY(-100%);
+        transition: transform 0.55s var(--ease);
+        z-index: -1;
+    }
+
+    .nav.open .nav-links {
+        transform: none;
+    }
+
+    .nav-links a {
+        font-size: 0.95rem;
+    }
+
+    .nav-burger {
+        display: flex;
+        order: 3;
+    }
+
+    .nav-cta {
+        margin-left: auto;
+    }
+
+    .gallery {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .chapter-head {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .chapter-head h2 {
+        text-align: left;
+    }
+
+    .chapter-head .spacer {
+        display: none;
+    }
+
+    /* Stacked hero: the wordmark rides high and the lamp is panned below it by
+       computeFraming, so the veil only has to protect the bottom strip where
+       the strapline sits. */
+    .hero-veil {
+        background: linear-gradient(to bottom,
+                rgba(20, 16, 14, 0.6) 0%,
+                rgba(20, 16, 14, 0) 14%,
+                rgba(20, 16, 14, 0) 55%,
+                rgba(20, 16, 14, 0.8) 76%,
+                rgba(20, 16, 14, 0.97) 90%,
+                var(--ink) 100%);
+    }
+
+    .hero-strap {
+        max-width: none;
+    }
+
+    .hero-foot {
+        grid-template-columns: minmax(0, 1fr);
+        text-align: left;
+    }
+
+    .hero-specs {
+        display: none;
+    }
+
+    .hero-scroll {
+        display: none;
+    }
+
+    .configure-card {
+        margin-inline: 0;
+    }
+}
+
+@media (max-width: 560px) {
+    .footer-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .gallery .tall {
+        grid-row: span 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .js .reveal {
+        opacity: 1;
+        transform: none;
+    }
+}
