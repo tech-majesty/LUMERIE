@@ -96,12 +96,53 @@
 
     /* ---------------------------------------------------------------------- */
 
-    /** Park the camera on the hero pose. Straight on, no roll, no offset. */
+    /* -------------------------------------------------------------------------
+     *  Scroll parallax
+     *
+     *  Scrolling down drops the whole view, which sends the lamp UP the frame —
+     *  faster than the page itself is moving, so it reads as depth rather than
+     *  as the section simply leaving.
+     *
+     *  The wordmark comes along for free and correctly. It is a world object
+     *  0.9 units further back, so the same camera pan moves it less on screen
+     *  than it moves the lamp. That difference IS the parallax; nothing has to
+     *  be animated separately.
+     * ---------------------------------------------------------------------- */
+    const PARALLAX_RISE = 0.6;   // share of a half-frame-height at full scroll
+    let scrollProgress = 0;
+
+    function parallaxDrop() {
+        if (!viewer || !viewer.camera) return 0;
+        const halfHeight = framing.dist * Math.tan((viewer.camera.fov * Math.PI) / 360);
+        return scrollProgress * PARALLAX_RISE * halfHeight;
+    }
+
+    /** Park the camera on the hero pose. Straight on, no roll, no lateral offset. */
     function applyHeroCamera() {
         if (!viewer || !viewer.camera) return;
         const c = viewer.camera;
-        c.position.set(framing.panX, framing.aimY, framing.dist);
-        c.lookAt(framing.panX, framing.aimY, 0);
+        const y = framing.aimY - parallaxDrop();
+        c.position.set(framing.panX, y, framing.dist);
+        c.lookAt(framing.panX, y, 0);
+    }
+
+    function initScrollParallax() {
+        let queued = false;
+        const onScroll = function () {
+            if (queued) return;
+            queued = true;
+            requestAnimationFrame(function () {
+                queued = false;
+                if (cfgOpen || animating) return;
+                const h = window.innerHeight || 1;
+                const next = Math.min(1, Math.max(0, window.scrollY / h));
+                if (Math.abs(next - scrollProgress) < 0.0005) return;
+                scrollProgress = next;
+                applyHeroCamera();
+            });
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
     }
 
     /**
@@ -516,7 +557,11 @@
         }
 
         claimCamera();
-        const target = { y: framing.aimY, z: framing.dist };
+        const aimFrom = currentAim();
+        const rig = {
+            py: framing.aimY, pz: framing.dist,
+            ax: aimFrom.x, ay: aimFrom.y, az: aimFrom.z
+        };
         const tl = gsap.timeline({
             onComplete: function () { animating = false; }
         });
@@ -528,13 +573,14 @@
 
         // A straight dolly out from the close-up: x stays at 0 the whole way,
         // so nothing in the frame slides sideways.
-        tl.to(target, {
-            y: 0, z: cfgZ,
-            duration: 1.1,
+        tl.to(rig, {
+            py: 0, pz: cfgZ,
+            ax: 0, ay: 0, az: 0,
+            duration: 1.25,
             ease: 'power2.inOut',
             onUpdate: function () {
-                viewer.camera.position.set(0, target.y, target.z);
-                viewer.camera.lookAt(0, target.y, 0);
+                viewer.camera.position.set(0, rig.py, rig.pz);
+                viewer.camera.lookAt(rig.ax, rig.ay, rig.az);
             }
         }, 0);
 
@@ -571,23 +617,54 @@
         }
 
         claimCamera();
-        const from = viewer.camera.position;
-        const target = { x: from.x, y: from.y, z: from.z };
+
+        // The AIM has to travel too, not just the position.
+        //
+        // This is what made the exit feel abrupt while the entrance felt fine.
+        // The old tween interpolated camera.position but called lookAt() on a
+        // constant — the hero's aim — so on the very first frame the camera
+        // snapped its tilt from the configurator's target (the middle of the
+        // lamp) to the hero's (the top of it), and then slid smoothly for the
+        // remaining second. All of the jerk was in frame one.
+        const p = viewer.camera.position;
+        const aimFrom = currentAim();
+        const rig = {
+            px: p.x, py: p.y, pz: p.z,
+            ax: aimFrom.x, ay: aimFrom.y, az: aimFrom.z
+        };
+
         const tl = gsap.timeline({ onComplete: done });
 
-        tl.to(target, {
-            x: framing.panX, y: framing.aimY, z: framing.dist,
-            duration: 1.0,
+        tl.to(rig, {
+            px: framing.panX, py: framing.aimY - parallaxDrop(), pz: framing.dist,
+            ax: framing.panX, ay: framing.aimY - parallaxDrop(), az: 0,
+            duration: 1.25,
+            // Out-weighted rather than symmetric: leaving should ease off into
+            // the hero pose rather than decelerate hard at the end.
             ease: 'power2.inOut',
             onUpdate: function () {
-                viewer.camera.position.set(target.x, target.y, target.z);
-                viewer.camera.lookAt(framing.panX, framing.aimY, 0);
+                viewer.camera.position.set(rig.px, rig.py, rig.pz);
+                viewer.camera.lookAt(rig.ax, rig.ay, rig.az);
             }
         }, 0);
 
         if (wordPlane) {
-            tl.to(wordPlane.material, { opacity: 0.95, duration: 0.7, ease: 'power2.out' }, 0.3);
+            tl.to(wordPlane.material, { opacity: 0.95, duration: 0.8, ease: 'power2.out' }, 0.35);
         }
+    }
+
+    /**
+     * Where the camera is currently looking, as a world point on the z = 0 plane
+     * through the model. Read off the camera's own orientation rather than the
+     * last preset, so an exit part-way through a FRONT→LEFT move still starts
+     * from where the camera actually is.
+     */
+    function currentAim() {
+        const c = viewer.camera;
+        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(c.quaternion);
+        // Distance along the view ray to the plane z = 0.
+        const t = Math.abs(dir.z) > 1e-4 ? -c.position.z / dir.z : 0;
+        return c.position.clone().add(dir.multiplyScalar(t));
     }
 
     /* -------------------------------------------------------------------------
@@ -758,11 +835,13 @@
 
         // quickTo keeps a single tween alive instead of allocating one per move,
         // which is what makes the trail smooth rather than steppy.
+        // Half a second of easing reads as lag rather than as smoothing. Short
+        // enough to feel attached, long enough not to be a hard cursor swap.
         const toX = window.gsap
-            ? gsap.quickTo(node, 'x', { duration: 0.5, ease: 'power3' })
+            ? gsap.quickTo(node, 'x', { duration: 0.16, ease: 'power2.out' })
             : null;
         const toY = window.gsap
-            ? gsap.quickTo(node, 'y', { duration: 0.5, ease: 'power3' })
+            ? gsap.quickTo(node, 'y', { duration: 0.16, ease: 'power2.out' })
             : null;
 
         let placed = false;
@@ -845,21 +924,120 @@
         });
     }
 
+    /* -------------------------------------------------------------------------
+     *  Text reveals
+     *
+     *  Every word in a [data-split] heading is wrapped in its own mask so it can
+     *  rise into place on a stagger. The splitter walks TEXT NODES rather than
+     *  innerHTML, so the inline markup inside a heading — the italic clause, the
+     *  gold span, a <br> — survives intact and the words inside it inherit it.
+     * ---------------------------------------------------------------------- */
+    const WORD_STAGGER = 34;   // ms between words
+
+    function splitWords(root) {
+        if (root.dataset.splitDone) return;
+        root.dataset.splitDone = '1';
+
+        const texts = [];
+        const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        while (walk.nextNode()) texts.push(walk.currentNode);
+
+        let index = 0;
+        texts.forEach(function (node) {
+            if (!node.nodeValue.trim()) return;
+            const frag = document.createDocumentFragment();
+            // Keep the whitespace: splitting on it and throwing it away collapses
+            // "Intelligent Care" into "IntelligentCare".
+            node.nodeValue.split(/(\s+)/).forEach(function (chunk) {
+                if (!chunk) return;
+                if (!chunk.trim()) { frag.appendChild(document.createTextNode(chunk)); return; }
+                const mask = document.createElement('span');
+                mask.className = 'w';
+                const inner = document.createElement('i');
+                inner.textContent = chunk;
+                inner.style.setProperty('--wd', (index++ * WORD_STAGGER) + 'ms');
+                mask.appendChild(inner);
+                frag.appendChild(mask);
+            });
+            node.parentNode.replaceChild(frag, node);
+        });
+    }
+
+    /**
+     * Count a figure up to its final value as it arrives.
+     *
+     * The markup holds the real number so it is correct with scripting off; the
+     * animation only replaces the text while it runs.
+     */
+    function countUp(node) {
+        if (node.dataset.counted) return;
+        node.dataset.counted = '1';
+        const target = parseFloat(node.textContent.replace(/[^0-9.]/g, ''));
+        if (!isFinite(target) || !window.gsap) return;
+
+        const decimals = (node.textContent.split('.')[1] || '').replace(/\D/g, '').length;
+        const proxy = { v: 0 };
+        gsap.to(proxy, {
+            v: target,
+            duration: 1.6,
+            ease: 'power2.out',
+            onUpdate: function () { node.textContent = proxy.v.toFixed(decimals); },
+            onComplete: function () { node.textContent = target.toFixed(decimals); }
+        });
+    }
+
     function initReveals() {
-        const items = document.querySelectorAll('.reveal');
+        // Split first, so the masks exist before anything can be observed.
+        document.querySelectorAll('[data-split]').forEach(splitWords);
+
+        const items = document.querySelectorAll('.reveal, [data-split], .chapter-head');
+
         if (!('IntersectionObserver' in window)) {
             items.forEach(function (n) { n.classList.add('in'); });
+            document.querySelectorAll('[data-count]').forEach(function (n) {
+                n.classList.add('in');
+            });
             return;
         }
+
         const io = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (!entry.isIntersecting) return;
-                entry.target.classList.add('in');
-                io.unobserve(entry.target);
+                const node = entry.target;
+                node.classList.add('in');
+                node.querySelectorAll('[data-count]').forEach(countUp);
+                if (node.hasAttribute('data-count')) countUp(node);
+                io.unobserve(node);
             });
-        }, { rootMargin: '0px 0px -10% 0px', threshold: 0.06 });
+        }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
 
         items.forEach(function (n) { io.observe(n); });
+
+        // Figures that are not inside a revealed block still need watching.
+        document.querySelectorAll('[data-count]').forEach(function (n) { io.observe(n); });
+
+        // SAFETY NET
+        //
+        // IntersectionObserver does not fire while the document is hidden, and
+        // everything here starts invisible. Load the page in a background tab
+        // and come back and, without this, the first screenful stays blank
+        // until you scroll. Sweep whatever is already on screen instead.
+        const sweep = function () {
+            items.forEach(function (n) {
+                if (n.classList.contains('in')) return;
+                const b = n.getBoundingClientRect();
+                if (b.top < window.innerHeight && b.bottom > 0) {
+                    n.classList.add('in');
+                    n.querySelectorAll('[data-count]').forEach(countUp);
+                    io.unobserve(n);
+                }
+            });
+        };
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) sweep();
+        });
+        window.addEventListener('load', sweep);
+        window.__revealSweep = sweep;
     }
 
     function initYear() {
@@ -875,6 +1053,7 @@
         initReveals();
         initYear();
         initCursorCta();
+        initScrollParallax();
         armConfigurator();
         mountViewer();
 

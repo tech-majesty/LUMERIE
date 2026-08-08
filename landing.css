@@ -44,12 +44,22 @@
     --hairline: rgba(240, 234, 224, 0.13);
     --hairline-ink: rgba(25, 20, 16, 0.16);
 
-    /* One grotesk for display, Inter for running text. The reference sets both
-       in the same family; Inter is kept for body because it holds up better at
-       14–17px than Archivo does. */
+    /* THREE VOICES, each with one job.
+       --font-display  Archivo. The product's own voice: the LUMERIE wordmark
+                       and anything that behaves like industrial signage.
+       --font-serif    Instrument Serif. The editorial voice — chapter titles,
+                       statements, quotes, figures. High contrast, a real
+                       italic, and not Playfair, which is on every luxury
+                       template in existence.
+       --font-body     Inter. Running text and UI, where neither of the other
+                       two holds up at 14–17px.
+       The tension between the first two is the point. A page set entirely in
+       one grotesk reads as a template; a page set entirely in a display serif
+       reads as a wedding invitation. */
     --font-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-stat: 'Archivo', 'Georgia Pro', Georgia, serif;
+    --font-stat: 'Instrument Serif', Georgia, serif;
 
     --shell: 1440px;
     --gutter: clamp(1.25rem, 4vw, 4rem);
@@ -119,42 +129,55 @@ a {
 h1,
 h2,
 h3 {
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.035em;
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
     margin: 0;
     line-height: 1;
 }
 
-/* The hero wordmark and the full-bleed statements. Sized off vw so it always
-   reaches for the edges of the viewport the way the reference does. */
+/* Accent clauses inside a heading. Instrument Serif's italic is a genuine
+   cursive cut rather than a slant, so it carries emphasis on its own and does
+   not need a colour change as well — though the two together are the house
+   move for the one phrase per section that matters. */
+h1 em,
+h2 em,
+h3 em,
+.h-lead em,
+.h-chapter em {
+    font-style: italic;
+    font-weight: 400;
+}
+
+/* Signage, not prose: the one place the grotesk goes big. */
 .h-mega {
+    font-family: var(--font-display);
+    font-weight: 600;
     font-size: clamp(3.4rem, 15.5vw, 15rem);
     letter-spacing: -0.045em;
     line-height: 0.86;
     text-transform: uppercase;
 }
 
-/* Big, but sized so the longest word on the page — INTELLIGENCE, twelve
-   characters — still clears the gutters. .h-mega is for the hero wordmark,
-   where bleeding off the edge is the point; here it is not. */
+/* The closing line. Mixed case in the serif rather than uppercase grotesk —
+   uppercase at this size is the single most template-looking thing a landing
+   page can do, and the serif's italic gives the second half somewhere to go. */
 .h-big {
-    font-size: clamp(2.4rem, 10.2vw, 8.5rem);
-    letter-spacing: -0.045em;
-    line-height: 0.9;
-    text-transform: uppercase;
+    font-size: clamp(2.6rem, 9vw, 7.5rem);
+    letter-spacing: -0.02em;
+    line-height: 0.98;
 }
 
 .h-chapter {
-    font-size: clamp(1.9rem, 3.6vw, 3.2rem);
-    letter-spacing: -0.03em;
-    line-height: 1.04;
+    font-size: clamp(2rem, 4vw, 3.6rem);
+    letter-spacing: -0.012em;
+    line-height: 1.02;
 }
 
 .h-lead {
-    font-size: clamp(1.5rem, 2.6vw, 2.4rem);
-    letter-spacing: -0.025em;
-    line-height: 1.12;
+    font-size: clamp(1.6rem, 2.9vw, 2.7rem);
+    letter-spacing: -0.008em;
+    line-height: 1.14;
 }
 
 .body-lg {
@@ -1089,29 +1112,75 @@ body.cfg-open .cfg-back {
     background: var(--ink-1);
 }
 
+/* Number hard left at display size, title set against it, and a rule that
+   draws itself out to the right margin. Deliberately not the centred title bar
+   this started as — a centred label between two gutters is the most copied
+   section header on the internet. */
 .chapter-head {
     display: grid;
-    grid-template-columns: 4rem minmax(0, 1fr) 4rem;
-    align-items: baseline;
-    gap: 1rem;
-    padding-bottom: clamp(1.6rem, 3vw, 2.6rem);
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: end;
+    column-gap: clamp(1.2rem, 3vw, 2.6rem);
+    padding-bottom: clamp(1.2rem, 2.4vw, 2rem);
     margin-bottom: clamp(2.5rem, 5vw, 4rem);
-    border-bottom: 1px solid var(--hairline);
+    position: relative;
 }
 
-.on-cream .chapter-head {
-    border-bottom-color: var(--hairline-ink);
+/* The rule is a pseudo-element so it can be scaled independently of the grid. */
+.chapter-head::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--hairline);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.3s var(--ease) 0.15s;
 }
 
+.on-cream .chapter-head::after {
+    background: var(--hairline-ink);
+}
+
+.chapter-head.in::after,
+html:not(.js) .chapter-head::after {
+    transform: none;
+}
+
+/* Outlined rather than filled: at this size a solid numeral competes with the
+   title, and the outline reads as a plate number on an editorial spread. */
 .chapter-head .num {
     font-family: var(--font-display);
-    font-size: clamp(1.4rem, 2.4vw, 2rem);
-    font-weight: 500;
-    letter-spacing: -0.02em;
+    font-size: clamp(2.6rem, 6vw, 5rem);
+    font-weight: 600;
+    line-height: 0.8;
+    letter-spacing: -0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--gold-line);
+    padding-bottom: 0.06em;
+}
+
+.on-cream .chapter-head .num {
+    -webkit-text-stroke-color: rgba(154, 124, 23, 0.5);
 }
 
 .chapter-head h2 {
-    text-align: center;
+    text-align: left;
+    padding-bottom: 0.1em;
+}
+
+.chapter-head .spacer {
+    display: none;
+}
+
+@media (max-width: 620px) {
+    .chapter-head {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 0.6rem;
+        align-items: start;
+    }
 }
 
 /* ===== Statement ======================================================= */
@@ -1145,11 +1214,12 @@ body.cfg-open .cfg-back {
 }
 
 .figure-num {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(5rem, 15vw, 13rem);
-    line-height: 0.82;
-    letter-spacing: -0.055em;
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(5.5rem, 16vw, 14rem);
+    line-height: 0.8;
+    letter-spacing: -0.03em;
+    font-variant-numeric: lining-nums;
 }
 
 .figure-num small {
@@ -1209,8 +1279,8 @@ body.cfg-open .cfg-back {
 }
 
 .col h3 {
-    font-size: clamp(1.15rem, 1.7vw, 1.4rem);
-    letter-spacing: -0.02em;
+    font-size: clamp(1.3rem, 1.9vw, 1.6rem);
+    letter-spacing: -0.005em;
 }
 
 .col p {
@@ -1364,10 +1434,10 @@ body.cfg-open .cfg-back {
 
 .quote p {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.02rem, 1.35vw, 1.2rem);
-    line-height: 1.4;
-    letter-spacing: -0.018em;
+    font-family: var(--font-serif);
+    font-size: clamp(1.2rem, 1.6vw, 1.45rem);
+    line-height: 1.34;
+    letter-spacing: -0.005em;
     color: var(--on-cream);
     flex-grow: 1;
 }
@@ -1657,7 +1727,19 @@ body.cfg-open .cfg-back {
     color: var(--text-faint);
 }
 
-/* ===== Scroll reveal =================================================== */
+/* ===== Scroll reveal ===================================================
+ *
+ *  Two kinds, used for different things.
+ *
+ *  .reveal      blocks — a short rise and fade. Quiet, for paragraphs and
+ *               images, where per-word animation would be noise.
+ *
+ *  [data-split] headings — each word rides up out of its own mask on a
+ *               stagger. hero.js does the splitting; the mask is the wrapper,
+ *               the moving part is the inner span. Words rather than lines
+ *               because line detection breaks the moment the text rewraps,
+ *               and a word stagger reads as a line reveal anyway.
+ */
 
 .js .reveal {
     opacity: 0;
@@ -1669,6 +1751,51 @@ body.cfg-open .cfg-back {
 .js .reveal.in {
     opacity: 1;
     transform: none;
+}
+
+.js .w {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    /* Descenders and the serif's italic swashes sit below the baseline; without
+       the extra room the mask clips the tail of every g, y and j. */
+    padding-bottom: 0.12em;
+    margin-bottom: -0.12em;
+}
+
+.js .w>i {
+    display: inline-block;
+    font-style: inherit;
+    transform: translateY(115%);
+    transition: transform 1s var(--ease);
+    transition-delay: var(--wd, 0ms);
+}
+
+.js .in .w>i,
+.js .w.in>i {
+    transform: none;
+}
+
+/* A hairline that draws itself across the section as the chapter arrives. */
+.js .rule-draw {
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.2s var(--ease) 0.1s;
+}
+
+.js .in .rule-draw {
+    transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .js .w>i {
+        transform: none;
+    }
+
+    .js .rule-draw {
+        transform: none;
+    }
 }
 
 /* ===== Responsive ====================================================== */
