@@ -887,18 +887,27 @@ class ThreeViewer {
         this.reflectionDim = 1;
         const viewer = this;
         const original = reflector.onBeforeRender;
-        const saved = [];
+
+        // Keyed by MATERIAL, not by mesh. Several meshes share one material —
+        // Rim, Ring and BaseRim_1 are all 'Gold Cap' — so a per-mesh list would
+        // scale the same material once per mesh on the way in and then restore
+        // it in list order on the way out, leaving it at original × f^(n-1).
+        // Every frame. The gold parts went black over a couple of seconds.
+        const saved = new Map();
 
         reflector.onBeforeRender = function (renderer, scene, camera) {
             const f = viewer.reflectionDim;
             const dim = viewer.model && f < 0.999;
 
             if (dim) {
-                saved.length = 0;
                 viewer.model.traverse(function (n) {
                     if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
                     const m = n.material;
-                    saved.push([m, m.color && m.color.clone(), m.emissiveIntensity]);
+                    if (saved.has(m)) return;
+                    saved.set(m, {
+                        color: m.color ? m.color.clone() : null,
+                        emissiveIntensity: m.emissiveIntensity
+                    });
                     if (m.color) m.color.multiplyScalar(f);
                     if (m.emissiveIntensity !== undefined) m.emissiveIntensity *= f;
                 });
@@ -906,12 +915,11 @@ class ThreeViewer {
 
             original.call(this, renderer, scene, camera);
 
-            for (let i = 0; i < saved.length; i++) {
-                const m = saved[i][0];
-                if (saved[i][1]) m.color.copy(saved[i][1]);
-                m.emissiveIntensity = saved[i][2];
-            }
-            saved.length = 0;
+            saved.forEach(function (was, m) {
+                if (was.color) m.color.copy(was.color);
+                if (was.emissiveIntensity !== undefined) m.emissiveIntensity = was.emissiveIntensity;
+            });
+            saved.clear();
         };
     }
 

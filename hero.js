@@ -47,7 +47,7 @@
     const FINISH = { base: 'Red', rim: 'Golden Ring', pattern: 'Triangle' };
 
     // How much of the lamp goes into the floor's reflection. 1 is untouched.
-    const REFLECTION_DIM = 0.72;
+    const REFLECTION_DIM = 0.35;
 
     const CONFIGURATOR_Z = 3;     // ThreeViewer.cameraAngles.front.pos.z
     const framing = { dist: 2.3, aimY: 0.075, panX: 0 };
