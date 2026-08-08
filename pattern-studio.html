@@ -1016,8 +1016,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
-    <!-- SSR's reflector variant is a plain Object3D, so it can load here -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/ReflectorForSSRPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
@@ -1041,10 +1039,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAARenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/TAARenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/LUTPass.js"></script>
-    <!-- SSRPass extends THREE.Pass, so it must come AFTER EffectComposer.js —
-         loaded before it, the class body throws and SSRPass never registers. -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSRShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSRPass.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SAOShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SMAAShader.js"></script>
@@ -1201,7 +1196,9 @@
 
             scene = new THREE.Scene();
             // same 10-degree product lens and start position as the storefront
-            camera = new THREE.PerspectiveCamera(10, view.clientWidth / view.clientHeight, 0.1, 1000);
+            // far = 1000 for a 0.4-unit subject left bokeh and AO with almost no
+            // usable depth precision. 40 comfortably encloses the dome.
+            camera = new THREE.PerspectiveCamera(10, view.clientWidth / view.clientHeight, 0.5, 40);
             camera.position.set(0, 0, 3);
             camera.layers.enable(LAYER_LOGO);
 
@@ -1293,7 +1290,15 @@
 
         // Selective bloom: darken everything that shouldn't glow, bloom, restore, composite.
         function darkenNonGlow(obj) {
+            // Never touch the gizmo's own meshes: it owns its materials and
+            // reassigns them per frame, so swapping them here just fights it.
+            if (gizmo && (obj === gizmo || isDescendantOf(obj, gizmo))) return;
             if (obj.isMesh && obj !== state.sleeve) { savedMats[obj.uuid] = obj.material; obj.material = darkMat; }
+        }
+
+        function isDescendantOf(obj, root) {
+            for (let p = obj.parent; p; p = p.parent) if (p === root) return true;
+            return false;
         }
         function restoreMats(obj) {
             if (savedMats[obj.uuid]) { obj.material = savedMats[obj.uuid]; delete savedMats[obj.uuid]; }
@@ -1308,8 +1313,16 @@
             // nothing. Hiding it halves the reflector's per-frame cost with no
             // visual change.
             if (state.stage) state.stage.setVisible(false);
+            // The gizmo has to be HIDDEN, not just darkened. TransformControls
+            // reassigns its handle materials inside updateMatrixWorld(), which runs
+            // during render — so it undoes darkenNonGlow() mid-pass, its bright
+            // unlit handles land in the bloom buffer, and the whole frame blows out
+            // white. Hiding it is the only way to keep it out.
+            const gizmoWasVisible = gizmo ? gizmo.visible : false;
+            if (gizmo) gizmo.visible = false;
             bloomComposer.render();
             scene.traverse(restoreMats);
+            if (gizmo) gizmo.visible = gizmoWasVisible;
             // blur() AFTER the restore: darkenNonGlow swaps the floor's material
             // for the flat dark one, and that material has no uniforms to write
             // the blurred reflection into.
@@ -2454,7 +2467,7 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             aoIntensity: 0.5,
             aa: 'fxaa',           // fxaa | smaa | taa | off
             taaLevel: 2,
-            dof: false, dofFocus: 3.0, dofAperture: 0.6, dofMaxblur: 0.008,
+            dof: false, dofFocus: 3.2, dofAperture: 0.35, dofMaxblur: 0.004,
             grade: false, brightness: 0, contrast: 0, hue: 0, saturation: 0,
             chroma: false, chromaAmount: 0.0025,
             vignette: false, vignetteOffset: 1.1, vignetteDarkness: 1.2,
@@ -2519,27 +2532,6 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 p.params.saoKernelRadius = Math.max(1, POST.aoRadius * 200);
                 p.params.saoBlur = true;
                 add('ao', p);
-            } else if (state.stage && state.stage.mode === 'ssr' && THREE.SSRPass) {
-                // SSR renders the scene itself (beauty + normal + metalness
-                // buffers) so, like AO, it stands in for the base render pass
-                // rather than following it.
-                const S = state.stageSettings || {};
-                // selects = the floor, and NO groundReflector. r128's SSRPass
-                // hides the groundReflector before its normal pass, so that path
-                // excludes the ground from SSR and mirrors it instead. Marking the
-                // floor as a select is what actually traces the lamp onto it.
-                const p = new THREE.SSRPass({
-                    renderer: renderer, scene: scene, camera: camera,
-                    width: w * dpr, height: h * dpr,
-                    groundReflector: null,
-                    selects: state.stage.ssrTargets || []
-                });
-                p.opacity = S.ssrOpacity != null ? S.ssrOpacity : 0.5;
-                p.maxDistance = S.ssrMaxDistance != null ? S.ssrMaxDistance : 0.4;
-                p.thickness = S.ssrThickness != null ? S.ssrThickness : 0.018;
-                p.blur = !!(S.ssrBlur == null ? 1 : S.ssrBlur);
-                p.distanceAttenuation = !!(S.ssrFalloff == null ? 1 : S.ssrFalloff);
-                add('ssr', p);
             } else if (POST.aa === 'taa' && THREE.TAARenderPass) {
                 // TAA is itself a render pass; it accumulates jittered frames.
                 const p = new THREE.TAARenderPass(scene, camera);
@@ -2900,10 +2892,12 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
 
             // --- ambient occlusion ---
             const ao = UI.group(host, 'po-ao', 'Ambient occlusion',
-                'Darkens creases and contact points. GTAOPass does not exist in ' +
-                'r128 — SAO is the higher-quality algorithm r128 does have, and it ' +
-                'is the closest equivalent. Both REPLACE the base render pass, which ' +
-                'is why switching rebuilds the chain.');
+                'KNOWN LIMITATION in this scene: AO is computed from the depth ' +
+                'buffer, and the three surfaces that would receive it barely write ' +
+                'depth — the dome and the emissive pattern are both depthWrite:false ' +
+                'for blending, and the floor is a Reflector. So AO has very little ' +
+                'real geometry to read and mostly just darkens the lamp body. ' +
+                'GTAOPass does not exist in r128; SAO is the best AO it has.');
             UI.select(ao, { id: 'ao_mode', label: 'Mode', val: 'off',
                 options: [
                     { value: 'off', label: 'Off' },
@@ -2938,11 +2932,13 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 'lamp sits around 3.');
             UI.toggle(d, { id: 'dof_on', label: 'Enable', val: false,
                 onChange: on => { POST.dof = on; chain(); } });
-            UI.num(d, { id: 'dof_focus', label: 'Focus distance', min: 0.2, max: 12, step: 0.01, val: POST.dofFocus, dp: 2,
+            UI.num(d, { id: 'dof_focus', label: 'Focus distance', min: 0.5, max: 14, step: 0.01, val: POST.dofFocus, dp: 2,
                 onChange: v => { POST.dofFocus = v; if (postPasses.dof) postPasses.dof.uniforms.focus.value = v; } });
-            UI.num(d, { id: 'dof_ap', label: 'Aperture', min: 0, max: 10, step: 0.01, val: POST.dofAperture, dp: 2,
+            UI.num(d, { id: 'dof_ap', label: 'Aperture', min: 0, max: 3, step: 0.005, val: POST.dofAperture, dp: 3,
+                hint: 'Small numbers here. The old range went to 10, which pushed the ' +
+                    'blur so far that the backdrop smeared across the floor as a white sheet.',
                 onChange: v => { POST.dofAperture = v; if (postPasses.dof) postPasses.dof.uniforms.aperture.value = v * 0.0001; } });
-            UI.num(d, { id: 'dof_blur', label: 'Max blur', min: 0, max: 0.05, step: 0.001, val: POST.dofMaxblur, dp: 3,
+            UI.num(d, { id: 'dof_blur', label: 'Max blur', min: 0, max: 0.02, step: 0.0005, val: POST.dofMaxblur, dp: 4,
                 onChange: v => { POST.dofMaxblur = v; if (postPasses.dof) postPasses.dof.uniforms.maxblur.value = v; } });
 
             // --- colour grading ---

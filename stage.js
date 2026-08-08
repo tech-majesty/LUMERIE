@@ -65,16 +65,15 @@
                 {
                     key: 'floorMode', label: 'Reflection type', type: 'select', val: 'planar',
                     options: [
-                        { value: 'planar', label: 'Planar mirror + blur' },
-                        { value: 'ssr', label: 'SSR (screen-space)' },
-                        { value: 'none', label: 'None (matte floor)' }
+                        { value: 'planar', label: 'Polished (reflective)' },
+                        { value: 'none', label: 'Matte (no reflection)' }
                     ],
                     rebuild: true,
-                    hint: 'PLANAR re-renders the scene from a mirrored camera: a true ' +
-                        'mirror, geometrically exact and perfectly sharp, so roughness ' +
-                        'has to be faked by blurring it. SSR traces the real scene in ' +
-                        'screen space and varies with angle properly — but it can only ' +
-                        'reflect what is on screen. Changing this rebuilds the stage.'
+                    hint: 'SSR was removed rather than left in the menu broken: r128\'s ' +
+                        'SSRPass hides its groundReflector before the normal pass, so ' +
+                        'it EXCLUDES the ground from screen-space reflection by design. ' +
+                        'Planar reflection with a roughness blur is what actually works ' +
+                        'here, and is what product configurators use.'
                 },
                 { key: 'floorColor', label: 'Floor colour', type: 'color', val: 0x090808 },
                 { key: 'reflectStrength', label: 'Reflection', min: 0, max: 1.5, step: 0.01, val: 0.50, dp: 2 },
@@ -114,28 +113,6 @@
                 {
                     key: 'floorOffsetY', label: 'Floor height', min: -5, max: 5, step: 0.005, val: 0, dp: 3,
                     hint: 'Relative to the base of the model. The gizmo writes this.'
-                },
-                {
-                    key: 'ssrOpacity', label: 'SSR opacity', min: 0, max: 1, step: 0.01, val: 0.5, dp: 2,
-                    hint: 'SSR mode only.'
-                },
-                {
-                    key: 'ssrMaxDistance', label: 'SSR distance', min: 0.01, max: 5, step: 0.01, val: 0.4, dp: 2,
-                    hint: 'How far a ray marches. Too short and the reflection stops ' +
-                        'abruptly; too long costs performance for little gain.'
-                },
-                {
-                    key: 'ssrThickness', label: 'SSR thickness', min: 0, max: 0.5, step: 0.001, val: 0.018, dp: 3,
-                    hint: 'Assumed depth of surfaces. Too small drops reflections, too ' +
-                        'large smears them behind objects.'
-                },
-                {
-                    key: 'ssrBlur', label: 'SSR blur', min: 0, max: 1, step: 1, val: 1, dp: 0,
-                    hint: 'SSR\'s own roughness blur — this is the physically right one, ' +
-                        'unlike the planar mode\'s fake.'
-                },
-                {
-                    key: 'ssrFalloff', label: 'SSR distance falloff', min: 0, max: 1, step: 1, val: 1, dp: 0
                 },
                 {
                     key: 'floorRoughness', label: 'Floor roughness', min: 0, max: 1, step: 0.01, val: 0.25, dp: 2,
@@ -399,24 +376,7 @@
         const floorGeo = new THREE.CircleGeometry(radius, 128);
         let floor, groundReflector = null, ssrTargets = null;
 
-        if (S.floorMode === 'ssr') {
-            // SSR: a REAL material, and SSRPass is told to reflect onto it
-            // selectively. Deliberately NOT SSRPass's groundReflector path —
-            // r128's SSRPass does `groundReflector.visible = false` before the
-            // normal pass, i.e. it EXCLUDES the ground from screen-space
-            // reflection and lets a ReflectorForSSRPass mirror it instead. That
-            // path is a planar mirror wearing an SSR badge. Marking the floor as
-            // an SSR target instead is what actually traces the lamp through the
-            // depth and normal buffers, so the blur follows roughness and view
-            // angle rather than being one uniform smear.
-            floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({
-                color: new THREE.Color(S.floorColor),
-                roughness: S.floorRoughness,
-                metalness: S.floorMetalness
-            }));
-            ssrTargets = [floor];
-
-        } else if (S.floorMode === 'none') {
+        if (S.floorMode === 'none') {
             // Matte floor: a real PBR surface with no reflection pass at all. This
             // is what "reflection off" should have looked like.
             floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({
