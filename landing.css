@@ -2093,19 +2093,37 @@ html {
                 var(--bg) 100%);
     }
 
+    /* A sheet above the bottom bar, cleared by the bar's MEASURED height rather
+       than a guessed offset. The bar stacks its name, spec line and two
+       full-width buttons on a narrow screen, and how tall that comes out
+       depends on the finish name, so a fixed inset put the swatches straight
+       over the MAJESTY wordmark. hero.js writes --cfg-bar-h. */
     .hs-pop,
     .hs-pop.to-left {
         left: 0.75rem;
         right: 0.75rem;
         top: auto;
-        bottom: 5.5rem;
+        bottom: calc(var(--cfg-bar-h, 6rem) + 0.75rem);
         max-width: none;
+        /* Never taller than the space between the bar and the camera buttons;
+           a long pattern list scrolls inside the sheet instead of climbing over
+           the product. */
+        max-height: calc(100svh - var(--cfg-bar-h, 6rem) - 7.5rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
         transform: translateY(0.6rem);
         transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0.35s;
     }
 
     .hs-pop.is-open {
         transform: none;
+    }
+
+    /* The dots sit on the lamp, and on a phone the lamp is behind the sheet.
+       The markers stay for orientation but the labels would collide. */
+    .hs span {
+        display: none;
     }
 
     .cfg .product-info-bar {

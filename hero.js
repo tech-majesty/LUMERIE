@@ -551,6 +551,7 @@
             document.body.classList.add('cfg-open');
             const cfg = el('cfg');
             if (cfg) cfg.setAttribute('aria-hidden', 'false');
+            syncBarHeight();
         };
 
         if (!window.gsap) {
@@ -785,6 +786,23 @@
         return null;
     }
 
+    /**
+     * Publish the configurator bottom bar's height as --cfg-bar-h.
+     *
+     * On a phone the bar stacks the product name, the spec line and two
+     * full-width buttons, and its height depends on how long the current finish
+     * name is, so the popover cannot clear it with a fixed inset: at "RED
+     * METALLIC" the swatches landed on top of the MAJESTY wordmark. Measured
+     * whenever it can change.
+     */
+    function syncBarHeight() {
+        const cfg = el('cfg');
+        const bar = cfg && cfg.querySelector('.bottom-bar');
+        if (!cfg || !bar) return;
+        const h = Math.round(bar.getBoundingClientRect().height);
+        if (h > 0) cfg.style.setProperty('--cfg-bar-h', h + 'px');
+    }
+
     function initHotspots() {
         hsLayer = el('hsLayer');
         if (!hsLayer) return;
@@ -804,6 +822,13 @@
             p.addEventListener('click', function (e) { e.stopPropagation(); });
             p.addEventListener('pointerdown', killFinishTweens, true);
         });
+
+        syncBarHeight();
+        window.addEventListener('resize', syncBarHeight);
+        if ('ResizeObserver' in window) {
+            const bar = el('cfg').querySelector('.bottom-bar');
+            if (bar) new ResizeObserver(syncBarHeight).observe(bar);
+        }
 
         const canvas = viewer.renderer.domElement;
 

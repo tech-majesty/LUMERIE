@@ -239,22 +239,14 @@ function setupEventListeners() {
             // Update configuration
             config[type] = value;
 
-            // Handle Copper Base Conditional Visibility
-            if (type === 'rim') {
-                const copperBaseBtn = document.getElementById('copper-base-btn');
-                if (value === 'Copper Ring') {
-                    copperBaseBtn.style.display = 'flex';
-                } else {
-                    copperBaseBtn.style.display = 'none';
-                    if (config.base === 'Copper') {
-                        config.base = 'Red';
-                        // Update UI Active State for Base
-                        const baseButtons = document.querySelectorAll('[data-type="base"]');
-                        baseButtons.forEach(btn => btn.classList.remove('active'));
-                        document.querySelector('[data-type="base"][data-value="Red"]').classList.add('active');
-                    }
-                }
-            }
+            // COPPER USED TO BE HIDDEN unless the rim was Copper Ring, and only the
+            // BUTTON was hidden, not the .control-item around it. So its label sat
+            // in the grid with nothing above it, which is the stray "COPPER" under
+            // the swatches. The page advertises seven finishes, and the material is
+            // defined for every ring, so it is simply always offered now.
+            //
+            // If copper body should be restricted to the copper ring again, hide
+            // the .control-item, not the button, or the label orphans a second time.
 
             updateProduct();
         });
