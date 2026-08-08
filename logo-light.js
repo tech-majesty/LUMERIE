@@ -220,7 +220,22 @@ uniform float uLogoLightDecay;
     }
 
     // Paste the studio's "Copy logo light JSON" output here; null uses defaults.
-    const PRESET = null;
+    const PRESET = {
+        "majestyLogoLight": 1,
+        "enabled": true,
+        "color": "#fff0d8",
+        "intensity": 18,
+        "posX": 0,
+        "posY": -0.12,
+        "posZ": 0.3,
+        "targetX": -0.002,
+        "targetY": -0.146,
+        "targetZ": 0.068,
+        "angle": 0.7,
+        "penumbra": 0.9,
+        "distance": 0.75,
+        "decay": 1
+    };
 
     global.MajestyLogoLight = {
         version: 1,
