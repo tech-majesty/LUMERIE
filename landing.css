@@ -466,6 +466,9 @@ h4 strong {
 
 /* ===== Navigation ======================================================= */
 
+/* The bar itself is gone. A full-width strip with a bottom edge cuts a hard
+   rectangle across the top of a full-bleed hero; the three elements float
+   instead, and only the links carry a surface. */
 .nav {
     position: fixed;
     top: 0;
@@ -476,17 +479,9 @@ h4 strong {
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
-    padding: 1rem var(--gutter);
-    transition: background 0.5s var(--ease), border-color 0.5s var(--ease),
-        backdrop-filter 0.5s var(--ease);
-    border-bottom: 1px solid transparent;
-}
-
-.nav.stuck {
-    background: rgba(14, 12, 11, 0.72);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border-bottom-color: var(--line);
+    padding: clamp(0.9rem, 1.8vh, 1.4rem) var(--gutter);
+    background: none;
+    border: 0;
 }
 
 .nav-mark {
@@ -509,44 +504,41 @@ h4 strong {
 
 /* Nav links sit in their own recessed track, the way every one of the
    references groups them, rather than floating loose across the bar. */
-/* No container. The rounded track around these read as a second, competing
-   pill next to the Customize button. */
+/* The links are the one thing on the bar that needs a ground, so they get a
+   floating pill of their own rather than a strip across the whole viewport. */
 .nav-links {
     display: flex;
     align-items: center;
-    gap: clamp(1rem, 2.2vw, 2.1rem);
+    gap: 0.15rem;
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0.3rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(14, 12, 11, 0.5);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    transition: background 0.5s var(--ease), border-color 0.5s var(--ease);
+}
+
+.nav.stuck .nav-links {
+    background: rgba(14, 12, 11, 0.78);
+    border-color: var(--line-strong);
 }
 
 .nav-links a {
     display: block;
-    position: relative;
-    padding-block: 0.3rem;
+    padding: 0.42rem 0.9rem;
+    border-radius: 999px;
     font-size: 0.85rem;
     color: var(--text-2);
     white-space: nowrap;
-    transition: color 0.3s var(--ease);
-}
-
-.nav-links a::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 1px;
-    width: 0;
-    background: var(--gold);
-    transition: width 0.4s var(--ease);
+    transition: color 0.3s var(--ease), background 0.3s var(--ease);
 }
 
 .nav-links a:hover {
     color: var(--text);
-}
-
-.nav-links a:hover::after {
-    width: 100%;
+    background: rgba(255, 252, 248, 0.07);
 }
 
 .nav-cta {
@@ -1152,6 +1144,33 @@ html {
     background: rgba(14, 12, 11, 0.62);
 }
 
+/* Mirror of the default, for the panels whose copy sits on the right. */
+.vp.scrim-right::after {
+    background: linear-gradient(260deg,
+            rgba(14, 12, 11, 0.92) 0%,
+            rgba(14, 12, 11, 0.6) 34%,
+            rgba(14, 12, 11, 0.1) 64%,
+            rgba(14, 12, 11, 0.35) 100%);
+}
+
+/* Shifts the subject of a centred render off to one side so the copy on the
+   other side is not sitting on top of the product. */
+.vp.push-right>img {
+    transform: scale(1.16) translateX(9%);
+}
+
+.vp.push-right.in>img {
+    transform: scale(1.12) translateX(9%);
+}
+
+.vp.push-left>img {
+    transform: scale(1.16) translateX(-9%);
+}
+
+.vp.push-left.in>img {
+    transform: scale(1.12) translateX(-9%);
+}
+
 /* A panel with no photograph: the type is the image. */
 .vp.plain::after {
     background: none;
@@ -1182,6 +1201,16 @@ html {
 
 .vp.bottom {
     align-items: end;
+}
+
+/* Vertically centred, still left aligned. Copy pinned to the bottom corner of
+   a tall photograph reads as an afterthought. */
+.vp.middle {
+    align-items: center;
+}
+
+.vp.middle .vp-copy {
+    padding-block: clamp(7rem, 14vh, 10rem);
 }
 
 .vp.bottom .vp-copy {
@@ -1413,7 +1442,7 @@ html {
 .rail-inner {
     display: flex;
     align-items: center;
-    gap: clamp(1.5rem, 4vw, 3.5rem);
+    gap: clamp(1.8rem, 4.5vw, 4rem);
     flex-wrap: wrap;
     justify-content: center;
 }
@@ -1430,9 +1459,9 @@ html {
    drops that black ground out entirely. Result is a clean white mark with no
    plate, from an asset that has no transparency. */
 .rail img {
-    height: clamp(20px, 2.4vw, 28px);
+    height: clamp(30px, 3.6vw, 46px);
     width: auto;
-    max-width: 108px;
+    max-width: 170px;
     object-fit: contain;
     filter: invert(1) grayscale(1) brightness(1.15);
     mix-blend-mode: screen;
