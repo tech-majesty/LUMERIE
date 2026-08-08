@@ -109,12 +109,25 @@ let threeViewer = null;
  * preset describes is the same look, just sampled less finely.
  */
 function majestyQuality() {
-    const w = window.innerWidth;
+    // Keyed to the DEVICE, not the window.
+    //
+    // An earlier version read window.innerWidth at construction and got this
+    // wrong twice over: a desktop window dragged narrow was handed phone
+    // quality on a desktop GPU, and a viewport resized after load kept whatever
+    // tier it happened to boot with. Caught it on the deployed site reporting
+    // 'phone' for a 768x1024 window.
+    //
+    // screen dimensions and pointer type do not change when a window is
+    // resized, so this is stable for the life of the page and needs no
+    // recalculation. A rotated phone is still a phone.
     const coarse = window.matchMedia('(pointer: coarse)').matches;
+    if (!coarse) return { tier: 'desktop', pixelRatio: 2, reflection: null };
 
-    if (w <= 700) return { tier: 'phone', pixelRatio: 1.5, reflection: 512 };
-    if (w <= 1180 || coarse) return { tier: 'tablet', pixelRatio: 1.75, reflection: 1024 };
-    return { tier: 'desktop', pixelRatio: 2, reflection: null };  // null = keep the preset
+    const shortest = Math.min(screen.width || 0, screen.height || 0);
+    if (shortest && shortest <= 500) {
+        return { tier: 'phone', pixelRatio: 1.5, reflection: 512 };
+    }
+    return { tier: 'tablet', pixelRatio: 1.75, reflection: 1024 };
 }
 
 // Three.js Viewer Class
