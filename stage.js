@@ -344,7 +344,12 @@
             new THREE.SphereGeometry(domeR, 48, 32),
             new THREE.ShaderMaterial({
                 side: THREE.BackSide,
-                depthWrite: false,               // nothing is ever behind the dome
+                // Depth WRITE is on. Nothing is ever behind the dome, so this costs
+                // nothing visually, but AO reads the depth buffer — with the dome
+                // writing nothing, AO had no far surface to occlude against and
+                // produced garbage. It also correctly stops the far half of the
+                // floor painting over the backdrop.
+                depthWrite: true,
                 uniforms: {
                     glowColor: { value: new THREE.Color(S.glowColor) },
                     baseColor: { value: new THREE.Color(S.backdropColor) },
