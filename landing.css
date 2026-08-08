@@ -66,6 +66,11 @@
 html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /* Opening the configurator locks the document. Without a reserved gutter
+       that removes the scrollbar, which narrows the viewport, which fires a
+       resize, which reallocates both composers' render targets mid-transition —
+       a visible hitch on the way in and, worse, on the way back out. */
+    scrollbar-gutter: stable;
 }
 
 /* styles.css is loaded first, for the configurator chrome this page opens over
@@ -611,6 +616,87 @@ h3 {
     }
 }
 
+/* ===== Cursor CTA ======================================================
+ *
+ *  Over the hero the Customize control is the pointer. The outer element is
+ *  positioned by gsap (it writes a transform), so scale and fade live on the
+ *  inner pill — otherwise the two would fight over the same property.
+ *
+ *  Pointer-driven, so it only exists where there is a pointer; on touch the
+ *  nav button stays put instead.
+ */
+
+#cursorCta {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 80;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.cta-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.55rem 0.55rem 1.3rem;
+    border-radius: 999px;
+    background: var(--cream);
+    color: var(--on-cream);
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    transform: translate(-50%, -50%) scale(0.35);
+    opacity: 0;
+    transition: transform 0.5s var(--ease), opacity 0.35s var(--ease);
+}
+
+.cta-pill i {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--ink);
+    color: var(--cream);
+    font-style: normal;
+    font-size: 0.72rem;
+}
+
+body.cursor-cta .cta-pill {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+    /* The pointer IS the button while the hero is on screen, so the one in the
+       nav would be the second Customize again. It comes back on scroll. */
+    body.hero-in-view:not(.cfg-open) .nav-cta {
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+    }
+
+    body.cursor-cta .hero {
+        cursor: none;
+    }
+}
+
+.nav-cta {
+    transition: opacity 0.45s var(--ease), transform 0.45s var(--ease),
+        background 0.45s var(--ease), color 0.45s var(--ease);
+}
+
+@media (hover: none),
+(pointer: coarse) {
+    #cursorCta {
+        display: none;
+    }
+}
+
 /* ===== Configurator overlay ============================================
  *
  *  The configurator is not another page. Its chrome is a fixed layer over this
@@ -652,10 +738,21 @@ body.cfg-open .hero-veil {
     pointer-events: none;
 }
 
+/* Asymmetric on purpose. Going in, the page furniture clears immediately and
+   the camera follows. Coming back it has to WAIT for the camera, or the
+   headline and the nav are fully back while the lamp is still flying — which is
+   what made the exit feel rougher than the entrance even though the camera move
+   itself is the same tween in reverse. */
 .nav,
 .hero-foot,
 .hero-veil {
-    transition: opacity 0.5s var(--ease);
+    transition: opacity 0.5s var(--ease) 0.5s;
+}
+
+body.cfg-open .nav,
+body.cfg-open .hero-foot,
+body.cfg-open .hero-veil {
+    transition-delay: 0s;
 }
 
 /* The hero canvas is absolute inside .hero, which is only as tall as the

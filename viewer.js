@@ -851,8 +851,73 @@ class ThreeViewer {
         this.backdrop = this.stage.dome;
         this.floor = this.stage.floor;
 
+        this.installReflectionDimmer();
+
         console.log(`Stage built — floor y=${box.min.y.toFixed(4)} r=${this.stage.radius.toFixed(2)}, ` +
             `dome r=${this.stage.domeRadius.toFixed(2)}, reflection ${this.stage.resolution}px`);
+    }
+
+    /**
+     * Dim the LAMP's reflection in the floor without touching anything else.
+     *
+     * WHY THIS AND NOT A FLOOR SETTING
+     *
+     * The floor's reflection texture holds the dome, the halo and the lamp in
+     * one image, so every control in stage.js — reflectStrength, floorColor,
+     * fresnelGain — moves all three together. Turning the reflection down to
+     * calm the lamp also flattens the halo and brings back the dark seam where
+     * the floor meets the dome, which is exactly what the tuned preset exists
+     * to avoid.
+     *
+     * So the dimming happens a level earlier. The Reflector re-renders the
+     * scene from the mirrored camera inside its own onBeforeRender; wrapping
+     * that lets the model be darkened for the duration of that pass and put
+     * back immediately after. The dome and the halo are rendered at full
+     * strength in the same pass, the floor shader is untouched, and no value
+     * in the stage preset changes.
+     *
+     * Factor of 1 is a no-op, so the pattern studio is unaffected.
+     */
+    installReflectionDimmer() {
+        const reflector = this.stage && this.stage.floor;
+        if (!reflector || typeof reflector.onBeforeRender !== 'function') return;
+        if (reflector.__majestyDimmed) return;
+        reflector.__majestyDimmed = true;
+
+        this.reflectionDim = 1;
+        const viewer = this;
+        const original = reflector.onBeforeRender;
+        const saved = [];
+
+        reflector.onBeforeRender = function (renderer, scene, camera) {
+            const f = viewer.reflectionDim;
+            const dim = viewer.model && f < 0.999;
+
+            if (dim) {
+                saved.length = 0;
+                viewer.model.traverse(function (n) {
+                    if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
+                    const m = n.material;
+                    saved.push([m, m.color && m.color.clone(), m.emissiveIntensity]);
+                    if (m.color) m.color.multiplyScalar(f);
+                    if (m.emissiveIntensity !== undefined) m.emissiveIntensity *= f;
+                });
+            }
+
+            original.call(this, renderer, scene, camera);
+
+            for (let i = 0; i < saved.length; i++) {
+                const m = saved[i][0];
+                if (saved[i][1]) m.color.copy(saved[i][1]);
+                m.emissiveIntensity = saved[i][2];
+            }
+            saved.length = 0;
+        };
+    }
+
+    /** 1 leaves the reflection alone; lower values darken the lamp's mirror image. */
+    setReflectionDim(factor) {
+        this.reflectionDim = Math.max(0, Math.min(1, factor));
     }
 
     updateFloorMaterial() {

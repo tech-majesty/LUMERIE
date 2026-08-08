@@ -46,6 +46,9 @@
 
     const FINISH = { base: 'Red', rim: 'Golden Ring', pattern: 'Triangle' };
 
+    // How much of the lamp goes into the floor's reflection. 1 is untouched.
+    const REFLECTION_DIM = 0.72;
+
     const CONFIGURATOR_Z = 3;     // ThreeViewer.cameraAngles.front.pos.z
     const framing = { dist: 2.3, aimY: 0.075, panX: 0 };
 
@@ -249,6 +252,12 @@
                     config.pattern = FINISH.pattern;
                     viewer.updateMaterials();
                 }
+                // The lamp's mirror image in the floor reads a stop hot once the
+                // camera pulls back far enough to show much floor. This dims only
+                // that — the dome, the halo and every value in the stage preset
+                // are untouched. See installReflectionDimmer in viewer.js.
+                viewer.setReflectionDim(REFLECTION_DIM);
+
                 computeFraming();
                 buildWordmark();
                 claimCamera();
@@ -297,6 +306,7 @@
         if (hero && 'IntersectionObserver' in window) {
             new IntersectionObserver(function (entries) {
                 heroVisible = entries[0].isIntersecting;
+                document.body.classList.toggle('hero-in-view', heroVisible);
             }, { threshold: 0 }).observe(hero);
         }
     }
@@ -384,6 +394,90 @@
         syncControlButtons();
     }
 
+    /**
+     * Change finish over `duration` instead of instantly.
+     *
+     * Leaving the configurator used to snap the lamp from whatever was selected
+     * straight back to red and gold on the first frame of the exit, which was
+     * the biggest reason the way out felt worse than the way in — a hard colour
+     * cut at the exact moment the camera starts moving.
+     *
+     * The materials are the same objects before and after, so the values can be
+     * read on both sides of the change, put back, and tweened across. Only the
+     * pattern sleeve is a mesh swap rather than a value change; it is left to
+     * happen at the start, where the camera is accelerating and it reads far
+     * less than the body colour did.
+     */
+    // Live crossfade tweens. They write material colours every frame, so
+    // anything that changes a material has to stop them first — otherwise a
+    // swatch clicked while a fade is still running is immediately painted over
+    // by the fade's next onUpdate, and the lamp ignores the click.
+    let finishTweens = [];
+
+    function killFinishTweens() {
+        finishTweens.forEach(function (t) { t.kill(); });
+        finishTweens = [];
+    }
+
+    function crossfadeFinish(next, duration) {
+        killFinishTweens();
+        if (!window.gsap || !viewer || !viewer.model) { applyFinish(next); return; }
+
+        const read = function () {
+            const out = new Map();
+            viewer.model.traverse(function (n) {
+                if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
+                const m = n.material;
+                out.set(m, {
+                    color: m.color ? m.color.clone() : null,
+                    metalness: m.metalness,
+                    roughness: m.roughness,
+                    envMapIntensity: m.envMapIntensity
+                });
+            });
+            return out;
+        };
+
+        const before = read();
+        applyFinish(next);
+        const after = read();
+
+        after.forEach(function (to, m) {
+            const from = before.get(m);
+            if (!from) return;                       // new material, nothing to fade from
+
+            const proxy = { t: 0 };
+            if (from.color && to.color) m.color.copy(from.color);
+            if (from.metalness !== undefined) m.metalness = from.metalness;
+            if (from.roughness !== undefined) m.roughness = from.roughness;
+            if (from.envMapIntensity !== undefined) m.envMapIntensity = from.envMapIntensity;
+
+            finishTweens.push(gsap.to(proxy, {
+                t: 1,
+                duration: duration,
+                ease: 'power2.inOut',
+                overwrite: true,
+                onUpdate: function () {
+                    const t = proxy.t;
+                    if (from.color && to.color) m.color.copy(from.color).lerp(to.color, t);
+                    if (to.metalness !== undefined) m.metalness = from.metalness + (to.metalness - from.metalness) * t;
+                    if (to.roughness !== undefined) m.roughness = from.roughness + (to.roughness - from.roughness) * t;
+                    if (to.envMapIntensity !== undefined) {
+                        m.envMapIntensity = from.envMapIntensity + (to.envMapIntensity - from.envMapIntensity) * t;
+                    }
+                },
+                // Land on the exact target rather than the last interpolated
+                // step, or repeated open/close cycles drift a unit at a time.
+                onComplete: function () {
+                    if (to.color) m.color.copy(to.color);
+                    if (to.metalness !== undefined) m.metalness = to.metalness;
+                    if (to.roughness !== undefined) m.roughness = to.roughness;
+                    if (to.envMapIntensity !== undefined) m.envMapIntensity = to.envMapIntensity;
+                }
+            }));
+        });
+    }
+
     /** Move the sidebar's active states onto whatever config now holds. */
     function syncControlButtons() {
         [['base', config.base], ['rim', config.rim], ['pattern', config.pattern]]
@@ -400,7 +494,7 @@
         cfgOpen = true;
         animating = true;
 
-        if (savedFinish) applyFinish(savedFinish);
+        if (savedFinish) crossfadeFinish(savedFinish, 0.9);
 
         // The canvas is pinned to the hero, so the hero has to be the viewport.
         window.scrollTo({ top: 0, behavior: 'instant' });
@@ -458,7 +552,7 @@
         if (typeof config !== 'undefined') {
             savedFinish = { base: config.base, rim: config.rim, pattern: config.pattern };
         }
-        applyFinish(FINISH);
+        crossfadeFinish(FINISH, 0.9);
 
         document.body.classList.remove('cfg-open');
         const cfg = el('cfg');
@@ -612,9 +706,12 @@
             });
         });
 
-        // Clicking inside a popover must not count as clicking away from it.
+        // Clicking inside a popover must not count as clicking away from it —
+        // and it must cancel any finish crossfade still in flight, or the fade
+        // paints over the choice on its very next frame.
         hsLayer.querySelectorAll('.hs-pop').forEach(function (p) {
             p.addEventListener('click', function (e) { e.stopPropagation(); });
+            p.addEventListener('pointerdown', killFinishTweens, true);
         });
 
         const canvas = viewer.renderer.domElement;
@@ -641,6 +738,64 @@
         // by gsap tweens the render loop knows nothing about, so this rides the
         // same ticker rather than hooking renderFrame.
         if (window.gsap) gsap.ticker.add(positionHotspots);
+    }
+
+    /* -------------------------------------------------------------------------
+     *  Cursor CTA
+     *
+     *  While the pointer is over the hero it becomes the Customize button and
+     *  the whole hero is the hit area. The nav's copy hides for as long as the
+     *  hero is on screen, so there is still only ever one of them.
+     *
+     *  Pointer-driven by definition, so it is skipped on touch — the nav button
+     *  stays visible there instead (see the hover media queries in the CSS).
+     * ---------------------------------------------------------------------- */
+    function initCursorCta() {
+        const node = el('cursorCta');
+        const hero = document.querySelector('.hero');
+        if (!node || !hero) return;
+        if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+        // quickTo keeps a single tween alive instead of allocating one per move,
+        // which is what makes the trail smooth rather than steppy.
+        const toX = window.gsap
+            ? gsap.quickTo(node, 'x', { duration: 0.5, ease: 'power3' })
+            : null;
+        const toY = window.gsap
+            ? gsap.quickTo(node, 'y', { duration: 0.5, ease: 'power3' })
+            : null;
+
+        let placed = false;
+
+        window.addEventListener('pointermove', function (e) {
+            if (e.pointerType === 'touch') return;
+
+            const overHero = !cfgOpen && !animating &&
+                hero.contains(document.elementFromPoint(e.clientX, e.clientY) || document.body);
+
+            if (toX) {
+                // The first placement jumps rather than flying in from 0,0.
+                if (!placed) { gsap.set(node, { x: e.clientX, y: e.clientY }); placed = true; }
+                toX(e.clientX);
+                toY(e.clientY);
+            } else {
+                node.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)';
+            }
+
+            document.body.classList.toggle('cursor-cta', overHero);
+        }, { passive: true });
+
+        document.addEventListener('pointerleave', function () {
+            document.body.classList.remove('cursor-cta');
+        });
+
+        // The hero itself is the button. The nav sits outside it, so its own
+        // links are unaffected.
+        hero.addEventListener('click', function () {
+            if (cfgOpen || animating) return;
+            document.body.classList.remove('cursor-cta');
+            openConfigurator();
+        });
     }
 
     function armConfigurator() {
@@ -719,6 +874,7 @@
         initNav();
         initReveals();
         initYear();
+        initCursorCta();
         armConfigurator();
         mountViewer();
 
