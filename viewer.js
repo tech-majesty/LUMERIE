@@ -166,7 +166,10 @@ class ThreeViewer {
     init() {
         // Renderer setup
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        // Capped. Every pass below is fragment-bound, and the cost scales with
+        // the SQUARE of this: a 3x display would quadruple the work of a 1.5x one
+        // for a difference nobody can see on a lamp this size.
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
         this.container.appendChild(this.renderer.domElement);
@@ -341,6 +344,7 @@ class ThreeViewer {
             ease: "power2.inOut",
             onUpdate: () => {
                 this.camera.lookAt(angle.lookAt.x, angle.lookAt.y, angle.lookAt.z);
+                this.requestRender();
             }
         });
 
@@ -437,6 +441,7 @@ class ThreeViewer {
 
     updateMaterials() {
         if (!this.model) return;
+        this.requestRender();
 
         // Material Name Mapping based on GLB file
         const rimMaterialMap = {
@@ -677,6 +682,7 @@ class ThreeViewer {
     }
 
     onWindowResize() {
+        this.requestRender();
         this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
@@ -706,13 +712,35 @@ class ThreeViewer {
         }
     }
 
+    /*
+     *  RENDER ON DEMAND
+     *
+     *  A frame here is not cheap. renderFrame() does three full scene renders —
+     *  the bloom pass, the final pass, and the Reflector's mirrored pass — plus
+     *  mipmap generation over a 2048 square reflection target and two whole-scene
+     *  traversals that swap every material and put it back. Measured on a 1440
+     *  by 900 window at devicePixelRatio 2 that is about 14.6 million pixels of
+     *  scene rendering per frame.
+     *
+     *  Doing that sixty times a second only makes sense if the frame changes.
+     *  Nothing in this scene animates on its own: no orbit, no idle drift, no
+     *  shader clock. The hero camera is a fixed pose and the configurator's only
+     *  moves when a button is pressed. So the loop now renders when something
+     *  asks it to and otherwise costs one early return.
+     *
+     *  Anything that changes what the scene looks like has to call
+     *  requestRender(): camera writes, material updates, resizes. They all do.
+     */
+    requestRender(frames) {
+        this._renderRequests = Math.max(this._renderRequests || 0, frames || 2);
+    }
+
     animate() {
         requestAnimationFrame(() => this.animate());
 
-        // PERF: this loop is expensive — two full composer passes plus a
-        // whole-scene material swap, every frame. The viewer is always on screen
-        // now, so the only thing worth skipping is a backgrounded tab.
         if (document.hidden) return;
+        if (!(this._renderRequests > 0)) return;
+        this._renderRequests--;
 
         this.renderFrame();
     }

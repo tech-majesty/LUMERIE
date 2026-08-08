@@ -124,6 +124,7 @@
         const y = framing.aimY - parallaxDrop();
         c.position.set(framing.panX, y, framing.dist);
         c.lookAt(framing.panX, y, 0);
+        viewer.requestRender();
     }
 
     function initScrollParallax() {
@@ -241,6 +242,7 @@
                 if (!wordPlane) return;
                 wordPlane.material.map.image = drawWordTexture();
                 wordPlane.material.map.needsUpdate = true;
+                viewer.requestRender();
             });
         }
     }
@@ -265,6 +267,7 @@
         const width = 2 * halfWidth * (wide ? 0.94 : 0.86);
         wordPlane.scale.set(width, width * (WORD_TEX.h / WORD_TEX.w), 1);
         wordPlane.position.x = framing.panX;
+        if (viewer) viewer.requestRender();
 
         // 0 is the top of the frame, 1 the bottom. The camera aims at the top
         // of the lamp, so the frame centre is already high on the product and
@@ -322,6 +325,8 @@
         // Skip the render entirely while the hero is scrolled away. Two composer
         // passes and a whole-scene material swap per frame is not something to
         // keep paying for behind eight sections of copy.
+        // Belt to requestRender's braces: even a requested frame is skipped if
+        // the hero is scrolled away and the configurator is shut.
         const originalRender = viewer.renderFrame.bind(viewer);
         viewer.renderFrame = function () {
             if (heroVisible || cfgOpen || animating) originalRender();
@@ -506,6 +511,7 @@
                     if (to.envMapIntensity !== undefined) {
                         m.envMapIntensity = from.envMapIntensity + (to.envMapIntensity - from.envMapIntensity) * t;
                     }
+                    viewer.requestRender();
                 },
                 // Land on the exact target rather than the last interpolated
                 // step, or repeated open/close cycles drift a unit at a time.
@@ -568,7 +574,10 @@
 
         // The wordmark is a scene object, so it fades with its material.
         if (wordPlane) {
-            tl.to(wordPlane.material, { opacity: 0, duration: 0.6, ease: 'power2.inOut' }, 0);
+            tl.to(wordPlane.material, {
+                opacity: 0, duration: 0.6, ease: 'power2.inOut',
+                onUpdate: function () { viewer.requestRender(); }
+            }, 0);
         }
 
         // A straight dolly out from the close-up: x stays at 0 the whole way,
@@ -581,6 +590,7 @@
             onUpdate: function () {
                 viewer.camera.position.set(0, rig.py, rig.pz);
                 viewer.camera.lookAt(rig.ax, rig.ay, rig.az);
+                viewer.requestRender();
             }
         }, 0);
 
@@ -645,11 +655,15 @@
             onUpdate: function () {
                 viewer.camera.position.set(rig.px, rig.py, rig.pz);
                 viewer.camera.lookAt(rig.ax, rig.ay, rig.az);
+                viewer.requestRender();
             }
         }, 0);
 
         if (wordPlane) {
-            tl.to(wordPlane.material, { opacity: 0.95, duration: 0.8, ease: 'power2.out' }, 0.35);
+            tl.to(wordPlane.material, {
+                opacity: 0.95, duration: 0.8, ease: 'power2.out',
+                onUpdate: function () { viewer.requestRender(); }
+            }, 0.35);
         }
     }
 
