@@ -1016,6 +1016,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
+    <!-- SSR's reflector variant is a plain Object3D, so it can load here -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/ReflectorForSSRPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
@@ -1039,6 +1041,10 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAARenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/TAARenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/LUTPass.js"></script>
+    <!-- SSRPass extends THREE.Pass, so it must come AFTER EffectComposer.js —
+         loaded before it, the class body throws and SSRPass never registers. -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSRShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSRPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SAOShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SMAAShader.js"></script>
@@ -2513,6 +2519,27 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 p.params.saoKernelRadius = Math.max(1, POST.aoRadius * 200);
                 p.params.saoBlur = true;
                 add('ao', p);
+            } else if (state.stage && state.stage.mode === 'ssr' && THREE.SSRPass) {
+                // SSR renders the scene itself (beauty + normal + metalness
+                // buffers) so, like AO, it stands in for the base render pass
+                // rather than following it.
+                const S = state.stageSettings || {};
+                // selects = the floor, and NO groundReflector. r128's SSRPass
+                // hides the groundReflector before its normal pass, so that path
+                // excludes the ground from SSR and mirrors it instead. Marking the
+                // floor as a select is what actually traces the lamp onto it.
+                const p = new THREE.SSRPass({
+                    renderer: renderer, scene: scene, camera: camera,
+                    width: w * dpr, height: h * dpr,
+                    groundReflector: null,
+                    selects: state.stage.ssrTargets || []
+                });
+                p.opacity = S.ssrOpacity != null ? S.ssrOpacity : 0.5;
+                p.maxDistance = S.ssrMaxDistance != null ? S.ssrMaxDistance : 0.4;
+                p.thickness = S.ssrThickness != null ? S.ssrThickness : 0.018;
+                p.blur = !!(S.ssrBlur == null ? 1 : S.ssrBlur);
+                p.distanceAttenuation = !!(S.ssrFalloff == null ? 1 : S.ssrFalloff);
+                add('ssr', p);
             } else if (POST.aa === 'taa' && THREE.TAARenderPass) {
                 // TAA is itself a render pass; it accumulates jittered frames.
                 const p = new THREE.TAARenderPass(scene, camera);
@@ -3389,6 +3416,8 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
         function rebuildStudioStage() {
             if (state.stage) { state.stage.dispose(); state.stage = null; floorMesh = null; }
             buildStudioStage();
+            // SSR mode swaps the chain's base pass, so the chain has to follow.
+            if (typeof rebuildPostChain === 'function' && finalComposer) rebuildPostChain();
         }
 
         function updateHud() {

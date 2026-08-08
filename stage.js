@@ -62,6 +62,20 @@
                 'floor height. Anything smaller leaves a rim in open space, and fading ' +
                 'that rim out is what used to draw a dark band along the horizon.',
             fields: [
+                {
+                    key: 'floorMode', label: 'Reflection type', type: 'select', val: 'planar',
+                    options: [
+                        { value: 'planar', label: 'Planar mirror + blur' },
+                        { value: 'ssr', label: 'SSR (screen-space)' },
+                        { value: 'none', label: 'None (matte floor)' }
+                    ],
+                    rebuild: true,
+                    hint: 'PLANAR re-renders the scene from a mirrored camera: a true ' +
+                        'mirror, geometrically exact and perfectly sharp, so roughness ' +
+                        'has to be faked by blurring it. SSR traces the real scene in ' +
+                        'screen space and varies with angle properly — but it can only ' +
+                        'reflect what is on screen. Changing this rebuilds the stage.'
+                },
                 { key: 'floorColor', label: 'Floor colour', type: 'color', val: 0x090808 },
                 { key: 'reflectStrength', label: 'Reflection', min: 0, max: 1.5, step: 0.01, val: 0.50, dp: 2 },
                 {
@@ -102,6 +116,36 @@
                     hint: 'Relative to the base of the model. The gizmo writes this.'
                 },
                 {
+                    key: 'ssrOpacity', label: 'SSR opacity', min: 0, max: 1, step: 0.01, val: 0.5, dp: 2,
+                    hint: 'SSR mode only.'
+                },
+                {
+                    key: 'ssrMaxDistance', label: 'SSR distance', min: 0.01, max: 5, step: 0.01, val: 0.4, dp: 2,
+                    hint: 'How far a ray marches. Too short and the reflection stops ' +
+                        'abruptly; too long costs performance for little gain.'
+                },
+                {
+                    key: 'ssrThickness', label: 'SSR thickness', min: 0, max: 0.5, step: 0.001, val: 0.018, dp: 3,
+                    hint: 'Assumed depth of surfaces. Too small drops reflections, too ' +
+                        'large smears them behind objects.'
+                },
+                {
+                    key: 'ssrBlur', label: 'SSR blur', min: 0, max: 1, step: 1, val: 1, dp: 0,
+                    hint: 'SSR\'s own roughness blur — this is the physically right one, ' +
+                        'unlike the planar mode\'s fake.'
+                },
+                {
+                    key: 'ssrFalloff', label: 'SSR distance falloff', min: 0, max: 1, step: 1, val: 1, dp: 0
+                },
+                {
+                    key: 'floorRoughness', label: 'Floor roughness', min: 0, max: 1, step: 0.01, val: 0.25, dp: 2,
+                    hint: 'Used by SSR and matte modes. This is a real material ' +
+                        'roughness, not a screen-space blur.'
+                },
+                {
+                    key: 'floorMetalness', label: 'Floor metalness', min: 0, max: 1, step: 0.01, val: 0.6, dp: 2
+                },
+                {
                     key: 'reflectionResolution', label: 'Reflection buffer', type: 'select', val: 512,
                     options: [256, 512, 1024, 2048],
                     rebuild: true,
@@ -136,6 +180,10 @@
             if (!f) continue;
             if (f.type === 'color') {
                 out[k] = (typeof v === 'string') ? parseInt(v.replace('#', ''), 16) : v;
+            } else if (f.type === 'select' && typeof f.val === 'string') {
+                // enum: only accept a value the schema actually offers
+                const allowed = (f.options || []).map(o => (o && o.value !== undefined) ? o.value : o);
+                if (allowed.indexOf(v) !== -1) out[k] = v;
             } else if (typeof v === 'number' && isFinite(v)) {
                 out[k] = v;
             }
@@ -148,7 +196,7 @@
         const out = { majestyStage: 1 };
         SCHEMA.forEach(g => g.fields.forEach(f => {
             const v = settings[f.key];
-            out[f.key] = (f.type === 'color')
+            out[f.key] = (f.type === 'color' && typeof v === 'number')
                 ? '#' + ('000000' + (v >>> 0).toString(16)).slice(-6)
                 : v;
         }));
@@ -239,12 +287,21 @@
 
             float near = exp(-r * reflectFade);
 
-            // Fresnel alone cannot finish it: the view ray is only exactly
-            // horizontal at an infinitely distant horizon, so grazing peaks near
-            // 0.92 at the rim and that last 8% of dark floor colour still showed.
-            float far = smoothstep(horizonStart, horizonEnd, r);
-            float k = mix(reflectStrength * near, 1.0,
-                          clamp(max(grazing * fresnelGain, far), 0.0, 1.0));
+            // GUARDED: with horizonStart == horizonEnd this was smoothstep(0,0,r),
+            // a divide by zero that returns 1 everywhere — which pinned the whole
+            // floor at full mirror and made reflectStrength a no-op.
+            float far = (horizonEnd > horizonStart)
+                ? smoothstep(horizonStart, horizonEnd, r)
+                : 0.0;
+
+            // reflectStrength is a MASTER gain on the lamp's reflection, so 0
+            // really means none. Fresnel alone cannot reach the horizon (the view
+            // ray is only exactly horizontal infinitely far away, so grazing peaks
+            // near 0.92 at the rim), which is why the horizon blend is a separate
+            // term rather than something reflectStrength scales — otherwise turning
+            // the reflection down would bring the dark seam back with it.
+            float lampK = reflectStrength * mix(near, 1.0, clamp(grazing * fresnelGain, 0.0, 1.0));
+            float k = clamp(max(lampK, far), 0.0, 1.0);
 
             float pool = pow(max(0.0, 1.0 - r / max(poolRadius, 1e-3)), 2.2) * poolGain;
 
@@ -339,35 +396,69 @@
         const refLen = span * S.floorRadius;
         const res = S.reflectionResolution;
 
-        const floor = new THREE.Reflector(new THREE.CircleGeometry(radius, 128), {
-            clipBias: 0.003,
-            textureWidth: res,
-            textureHeight: res,
-            color: new THREE.Color(S.floorColor),
-            recursion: 0,
-            shader: {
-                uniforms: {
-                    color: { value: null },
-                    tDiffuse: { value: null },
-                    textureMatrix: { value: null },
-                    tBlur: { value: null },
-                    glowColor: { value: new THREE.Color(S.glowColor) },
-                    reflectStrength: { value: S.reflectStrength },
-                    blurRamp: { value: S.reflectBlurRamp },
-                    reflectFade: { value: S.reflectFade },
-                    poolRadius: { value: S.poolRadius },
-                    poolGain: { value: S.poolGain },
-                    floorRadius: { value: refLen },
-                    fresnelGain: { value: S.fresnelGain },
-                    horizonGain: { value: S.horizonGain },
-                    horizonRange: { value: S.horizonRange },
-                    horizonStart: { value: S.horizonStart },
-                    horizonEnd: { value: S.horizonEnd }
-                },
-                vertexShader: FLOOR_VERT,
-                fragmentShader: FLOOR_FRAG
-            }
-        });
+        const floorGeo = new THREE.CircleGeometry(radius, 128);
+        let floor, groundReflector = null, ssrTargets = null;
+
+        if (S.floorMode === 'ssr') {
+            // SSR: a REAL material, and SSRPass is told to reflect onto it
+            // selectively. Deliberately NOT SSRPass's groundReflector path —
+            // r128's SSRPass does `groundReflector.visible = false` before the
+            // normal pass, i.e. it EXCLUDES the ground from screen-space
+            // reflection and lets a ReflectorForSSRPass mirror it instead. That
+            // path is a planar mirror wearing an SSR badge. Marking the floor as
+            // an SSR target instead is what actually traces the lamp through the
+            // depth and normal buffers, so the blur follows roughness and view
+            // angle rather than being one uniform smear.
+            floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({
+                color: new THREE.Color(S.floorColor),
+                roughness: S.floorRoughness,
+                metalness: S.floorMetalness
+            }));
+            ssrTargets = [floor];
+
+        } else if (S.floorMode === 'none') {
+            // Matte floor: a real PBR surface with no reflection pass at all. This
+            // is what "reflection off" should have looked like.
+            floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({
+                color: new THREE.Color(S.floorColor),
+                roughness: S.floorRoughness,
+                metalness: S.floorMetalness
+            }));
+
+        } else {
+            // assign, do not re-declare: `const floor` here would shadow the outer
+            // `let floor` and leave it undefined outside this block
+            floor = new THREE.Reflector(floorGeo, {
+                clipBias: 0.003,
+                textureWidth: res,
+                textureHeight: res,
+                color: new THREE.Color(S.floorColor),
+                recursion: 0,
+                shader: {
+                    uniforms: {
+                        color: { value: null },
+                        tDiffuse: { value: null },
+                        textureMatrix: { value: null },
+                        tBlur: { value: null },
+                        glowColor: { value: new THREE.Color(S.glowColor) },
+                        reflectStrength: { value: S.reflectStrength },
+                        blurRamp: { value: S.reflectBlurRamp },
+                        reflectFade: { value: S.reflectFade },
+                        poolRadius: { value: S.poolRadius },
+                        poolGain: { value: S.poolGain },
+                        floorRadius: { value: refLen },
+                        fresnelGain: { value: S.fresnelGain },
+                        horizonGain: { value: S.horizonGain },
+                        horizonRange: { value: S.horizonRange },
+                        horizonStart: { value: S.horizonStart },
+                        horizonEnd: { value: S.horizonEnd }
+                    },
+                    vertexShader: FLOOR_VERT,
+                    fragmentShader: FLOOR_FRAG
+                }
+            });
+        }
+
         floor.rotateX(-Math.PI / 2);
         floor.position.y = floorY + S.floorOffsetY;
         floor.renderOrder = -5;
@@ -412,6 +503,9 @@
         const api = {
             dome: dome,
             floor: floor,
+            groundReflector: groundReflector,
+            ssrTargets: ssrTargets,
+            mode: S.floorMode,
             settings: S,
             radius: radius,
             domeRadius: domeR,
@@ -430,6 +524,16 @@
                 d.glowSpread.value = n.glowSpread;
                 d.glowSoft.value = n.glowSoftness;
                 d.glowGain.value = n.glowGain;
+
+                // Mode changes are structural — the caller has to rebuild.
+                if (n.floorMode !== S.floorMode) return true;
+
+                if (api.mode === 'ssr' || api.mode === 'none') {
+                    floor.material.color.set(n.floorColor);
+                    floor.material.roughness = n.floorRoughness;
+                    floor.material.metalness = n.floorMetalness;
+                    return needsRebuild;
+                }
 
                 const f = floor.material.uniforms;
                 f.color.value.set(n.floorColor);
@@ -466,6 +570,9 @@
              * and buying it avoids a second full reflection render per frame.
              */
             blur: function () {
+                // Planar only. SSR does its own, physically-correct blur inside
+                // SSRPass, and the matte floor has nothing to blur.
+                if (api.mode !== 'planar') return;
                 const src = floor.getRenderTarget && floor.getRenderTarget();
                 if (!src) return;
                 // A host's selective-bloom pass swaps meshes to a flat dark
@@ -526,7 +633,39 @@
     //  Live preset — paste the studio's "Copy stage JSON" output here and BOTH
     //  the storefront and the studio pick it up. Null means use the defaults.
     // -------------------------------------------------------------------------
-    const STAGE_PRESET = null;
+    // Pasted from the studio. NOTE: reflectStrength is 0 here, which was set
+    // while the override bug made it a no-op — now that it is a real master gain,
+    // 0 genuinely means the floor has no lamp reflection at all. Raise it (or
+    // switch floorMode) when you want the reflection back.
+    const STAGE_PRESET = {
+        "majestyStage": 1,
+        "backdropColor": "#080605",
+        "glowColor": "#ffb463",
+        "glowGain": 1.3,
+        "glowSpread": 0.32,
+        "glowSoftness": 5,
+        "glowElevation": 0.12,
+        "domeScale": 3,
+        "backdropDistance": 6,
+        "domeOffsetX": 0,
+        "domeOffsetY": 0,
+        "domeOffsetZ": 0,
+        "floorColor": "#090808",
+        "reflectStrength": 0,
+        "reflectFade": 0,
+        "reflectBlurRadius": 0,
+        "reflectBlurRamp": 6,
+        "fresnelGain": 1,
+        "poolRadius": 0.23,
+        "poolGain": 0.28,
+        "horizonGain": 0,
+        "horizonRange": 0.55,
+        "horizonStart": 0,
+        "horizonEnd": 0,
+        "floorRadius": 40,
+        "floorOffsetY": 0,
+        "reflectionResolution": 1024
+    };
 
     global.MajestyStage = {
         version: 1,
