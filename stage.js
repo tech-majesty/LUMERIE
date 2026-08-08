@@ -46,7 +46,14 @@
                         'join becomes invisible.'
                 },
                 { key: 'domeScale', label: 'Dome size', min: 1.2, max: 12, step: 0.1, val: 3.0, dp: 1 },
-                { key: 'backdropDistance', label: 'Dome distance', min: 1, max: 20, step: 0.5, val: 6.0, dp: 1 }
+                { key: 'backdropDistance', label: 'Dome distance', min: 1, max: 20, step: 0.5, val: 6.0, dp: 1 },
+                {
+                    key: 'domeOffsetX', label: 'Offset X', min: -20, max: 20, step: 0.01, val: 0, dp: 2,
+                    hint: 'Set by the move gizmo when the backdrop is selected, so a ' +
+                        'drag in the viewport survives into the JSON instead of being lost.'
+                },
+                { key: 'domeOffsetY', label: 'Offset Y', min: -20, max: 20, step: 0.01, val: 0, dp: 2 },
+                { key: 'domeOffsetZ', label: 'Offset Z', min: -20, max: 20, step: 0.01, val: 0, dp: 2 }
             ]
         },
         {
@@ -90,6 +97,10 @@
                 },
                 { key: 'horizonEnd', label: 'Mirror band end', min: 0, max: 4, step: 0.01, val: 1.80, dp: 2 },
                 { key: 'floorRadius', label: 'Falloff reference', min: 2, max: 40, step: 0.5, val: 14.0, dp: 1 },
+                {
+                    key: 'floorOffsetY', label: 'Floor height', min: -5, max: 5, step: 0.005, val: 0, dp: 3,
+                    hint: 'Relative to the base of the model. The gizmo writes this.'
+                },
                 {
                     key: 'reflectionResolution', label: 'Reflection buffer', type: 'select', val: 512,
                     options: [256, 512, 1024, 2048],
@@ -313,7 +324,7 @@
                 fragmentShader: DOME_FRAG
             })
         );
-        dome.position.set(0, centreY, 0);
+        dome.position.set(S.domeOffsetX, centreY + S.domeOffsetY, S.domeOffsetZ);
         dome.renderOrder = -10;
         dome.frustumCulled = false;
         scene.add(dome);
@@ -358,7 +369,7 @@
             }
         });
         floor.rotateX(-Math.PI / 2);
-        floor.position.y = floorY;
+        floor.position.y = floorY + S.floorOffsetY;
         floor.renderOrder = -5;
         scene.add(floor);
 
@@ -437,6 +448,9 @@
 
                 blurMat.uniforms.radius.value = n.reflectBlurRadius;
 
+                dome.position.set(n.domeOffsetX, centreY + n.domeOffsetY, n.domeOffsetZ);
+                floor.position.y = floorY + n.floorOffsetY;
+
                 // Dome geometry depends on these, so they cannot be a uniform tweak.
                 return needsRebuild ||
                     n.domeScale !== S.domeScale ||
@@ -474,6 +488,18 @@
 
                 renderer.setRenderTarget(prev);
                 mat.uniforms.tBlur.value = blurRT[1].texture;
+            },
+
+            /**
+             * Read the live transforms back into settings, so a gizmo drag becomes
+             * a value that Copy stage JSON will actually capture.
+             */
+            syncFromTransforms: function () {
+                api.settings.domeOffsetX = +dome.position.x.toFixed(4);
+                api.settings.domeOffsetY = +(dome.position.y - centreY).toFixed(4);
+                api.settings.domeOffsetZ = +dome.position.z.toFixed(4);
+                api.settings.floorOffsetY = +(floor.position.y - floorY).toFixed(4);
+                return api.settings;
             },
 
             setVisible: function (on) {

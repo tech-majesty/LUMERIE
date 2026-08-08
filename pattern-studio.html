@@ -1022,6 +1022,33 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <!-- gizmo -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <!-- post-processing: everything below ships with r128. GTAOPass and
+         OutputPass do NOT exist in r128, and r128 is pinned because r155+
+         redefined light intensity units — SAOPass and the renderer's own
+         tonemapping are the equivalents. -->
+    <!-- SSAOPass samples a noise texture built from SimplexNoise -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SAOPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SMAAPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/FilmPass.js"></script>
+    <!-- TAARenderPass extends SSAARenderPass, so that has to load first -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAARenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/TAARenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/LUTPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SAOShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SMAAShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FilmShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/VignetteShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BrightnessContrastShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/HueSaturationShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/DepthLimitedBlurShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/UnpackDepthRGBAShader.js"></script>
 
     <!-- shared procedural pattern engine (same file the storefront loads) -->
     <script src="pattern-engine.js"></script>
@@ -1129,6 +1156,8 @@
         //  three.js scene — mirrors production settings so the preview is honest
         // ---------------------------------------------------------------------
         let renderer, scene, camera, controls, bloomComposer, finalComposer, bloomPass, renderPass;
+        // held so the post chain can be rebuilt around them
+        let mixPass, fxaaPass;
         // held so the Scene panel can drive the rig live
         let ambientLight, mainLight, rimLight;
         let logoLight = null, floorMesh = null;
@@ -1223,13 +1252,13 @@
 
             finalComposer = new THREE.EffectComposer(renderer);
             finalComposer.addPass(renderPass);
-            const mix = new THREE.ShaderPass(new THREE.ShaderMaterial({
+            mixPass = new THREE.ShaderPass(new THREE.ShaderMaterial({
                 uniforms: { baseTexture: { value: null }, bloomTexture: { value: bloomComposer.renderTarget2.texture } },
                 vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
                 fragmentShader: 'uniform sampler2D baseTexture; uniform sampler2D bloomTexture; varying vec2 vUv; void main(){ gl_FragColor = texture2D(baseTexture,vUv) + texture2D(bloomTexture,vUv); }'
             }), 'baseTexture');
-            mix.needsSwap = true;
-            finalComposer.addPass(mix);
+            mixPass.needsSwap = true;
+            finalComposer.addPass(mixPass);
 
             darkMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
@@ -1243,6 +1272,17 @@
             renderer.setSize(v.clientWidth, v.clientHeight);
             bloomComposer.setSize(v.clientWidth, v.clientHeight);
             finalComposer.setSize(v.clientWidth, v.clientHeight);
+            // FXAA works in texel units, so it has to be retold the size or it
+            // over/under-blurs after a panel resize.
+            if (fxaaPass && fxaaPass.material) {
+                const dpr = renderer.getPixelRatio();
+                fxaaPass.material.uniforms.resolution.value.set(
+                    1 / (v.clientWidth * dpr), 1 / (v.clientHeight * dpr));
+            }
+            if (postPasses && postPasses.aa && postPasses.aa.setSize) {
+                postPasses.aa.setSize(v.clientWidth * renderer.getPixelRatio(),
+                                      v.clientHeight * renderer.getPixelRatio());
+            }
         }
 
         // Selective bloom: darken everything that shouldn't glow, bloom, restore, composite.
@@ -1273,7 +1313,7 @@
 
         // Live fps / cost readout. The 3D view here is heavy enough that it is
         // worth being able to see, rather than guess, when something is stalling.
-        const perf = { frames: 0, fps: 0, last: performance.now(), reflector: '-' };
+        const perf = { frames: 0, fps: 0, last: performance.now(), reflector: '-', chain: '-' };
 
         function animate() {
             requestAnimationFrame(animate);
@@ -2387,6 +2427,281 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
         })();
 
 
+
+
+        // =====================================================================
+        //  POST-PROCESSING CHAIN
+        //
+        //  Rebuilt from POST rather than toggled in place, because the order of
+        //  passes matters and some of them (AO, anti-aliasing) have to REPLACE
+        //  the base render pass rather than sit after it. A declarative chain is
+        //  the only way that stays correct as things are switched on and off.
+        //
+        //  Not available in r128, which is pinned because r155+ redefined light
+        //  intensity units and moving would change the lamp's whole rig:
+        //    GTAOPass   -> SAOPass is the higher-quality AO r128 does have
+        //    OutputPass -> tonemapping lives on the renderer (Post > Tonemapping)
+        // =====================================================================
+        const POST = {
+            ao: 'off',            // off | ssao | sao
+            aoRadius: 0.08,
+            aoIntensity: 0.5,
+            aa: 'fxaa',           // fxaa | smaa | taa | off
+            taaLevel: 2,
+            dof: false, dofFocus: 3.0, dofAperture: 0.6, dofMaxblur: 0.008,
+            grade: false, brightness: 0, contrast: 0, hue: 0, saturation: 0,
+            chroma: false, chromaAmount: 0.0025,
+            vignette: false, vignetteOffset: 1.1, vignetteDarkness: 1.2,
+            grain: false, grainIntensity: 0.35, grainScanlines: 0,
+            lut: false
+        };
+
+        let postPasses = {};   // built by rebuildPostChain
+
+        /** Chromatic aberration — r128 has no built-in pass, so this is ours. */
+        const ChromaticShader = {
+            uniforms: {
+                tDiffuse: { value: null },
+                amount: { value: 0.0025 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float amount;
+                varying vec2 vUv;
+                void main() {
+                    // Offset grows with distance from centre, the way a real lens
+                    // disperses — uniform splitting looks like a mistake instead.
+                    vec2 dir = vUv - 0.5;
+                    float d = length(dir) * 2.0;
+                    vec2 off = dir * amount * d;
+                    float r = texture2D(tDiffuse, vUv + off).r;
+                    vec2  g = texture2D(tDiffuse, vUv).ga;
+                    float b = texture2D(tDiffuse, vUv - off).b;
+                    gl_FragColor = vec4(r, g.x, b, g.y);
+                }`
+        };
+
+        function rebuildPostChain() {
+            if (!finalComposer) return;
+            const w = $('#view').clientWidth || 960;
+            const h = $('#view').clientHeight || 720;
+            const dpr = renderer.getPixelRatio();
+
+            // Drop the old chain. Passes own render targets, so disposing matters.
+            finalComposer.passes.forEach(pass => { if (pass.dispose) try { pass.dispose(); } catch (e) { } });
+            finalComposer.passes = [];
+            postPasses = {};
+
+            const add = (name, pass) => { postPasses[name] = pass; finalComposer.addPass(pass); return pass; };
+
+            // --- base: AO passes render the scene themselves, so they stand in
+            //     for the plain render pass rather than following it.
+            if (POST.ao === 'ssao' && THREE.SSAOPass) {
+                const p = new THREE.SSAOPass(scene, camera, w * dpr, h * dpr);
+                p.kernelRadius = POST.aoRadius * 100;
+                p.minDistance = 0.0005;
+                p.maxDistance = 0.15;
+                add('ao', p);
+            } else if (POST.ao === 'sao' && THREE.SAOPass) {
+                const p = new THREE.SAOPass(scene, camera, false, true);
+                p.params.saoBias = 0.5;
+                p.params.saoIntensity = POST.aoIntensity * 0.2;
+                p.params.saoScale = 1;
+                p.params.saoKernelRadius = Math.max(1, POST.aoRadius * 200);
+                p.params.saoBlur = true;
+                add('ao', p);
+            } else if (POST.aa === 'taa' && THREE.TAARenderPass) {
+                // TAA is itself a render pass; it accumulates jittered frames.
+                const p = new THREE.TAARenderPass(scene, camera);
+                p.unbiased = false;
+                p.sampleLevel = POST.taaLevel;
+                add('taa', p);
+            } else {
+                add('render', new THREE.RenderPass(scene, camera));
+            }
+
+            // --- selective bloom is composited here, exactly as before
+            add('mix', mixPass);
+
+            // --- depth of field
+            if (POST.dof && THREE.BokehPass) {
+                add('dof', new THREE.BokehPass(scene, camera, {
+                    focus: POST.dofFocus,
+                    aperture: POST.dofAperture * 0.0001,
+                    maxblur: POST.dofMaxblur,
+                    width: w * dpr, height: h * dpr
+                }));
+            }
+
+            // --- colour grading, before the lens effects so grain and vignette
+            //     are not themselves graded
+            if (POST.grade) {
+                if (THREE.BrightnessContrastShader) {
+                    const bc = new THREE.ShaderPass(THREE.BrightnessContrastShader);
+                    bc.uniforms.brightness.value = POST.brightness;
+                    bc.uniforms.contrast.value = POST.contrast;
+                    add('bc', bc);
+                }
+                if (THREE.HueSaturationShader) {
+                    const hs = new THREE.ShaderPass(THREE.HueSaturationShader);
+                    hs.uniforms.hue.value = POST.hue;
+                    hs.uniforms.saturation.value = POST.saturation;
+                    add('hs', hs);
+                }
+            }
+
+            if (POST.lut && THREE.LUTPass && state.lut) {
+                const lp = new THREE.LUTPass({ lut: state.lut, intensity: 1 });
+                add('lut', lp);
+            }
+
+            // --- lens character
+            if (POST.chroma) {
+                const cp = new THREE.ShaderPass(ChromaticShader);
+                cp.uniforms.amount.value = POST.chromaAmount;
+                add('chroma', cp);
+            }
+            if (POST.vignette && THREE.VignetteShader) {
+                const vp = new THREE.ShaderPass(THREE.VignetteShader);
+                vp.uniforms.offset.value = POST.vignetteOffset;
+                vp.uniforms.darkness.value = POST.vignetteDarkness;
+                add('vignette', vp);
+            }
+            if (POST.grain && THREE.FilmPass) {
+                add('grain', new THREE.FilmPass(POST.grainIntensity, 0.02, POST.grainScanlines, false));
+            }
+
+            // --- anti-aliasing last, so it smooths the finished image
+            if (POST.aa === 'smaa' && THREE.SMAAPass) {
+                add('aa', new THREE.SMAAPass(w * dpr, h * dpr));
+            } else if (POST.aa === 'fxaa' && THREE.FXAAShader) {
+                const fx = new THREE.ShaderPass(THREE.FXAAShader);
+                fx.material.uniforms.resolution.value.set(1 / (w * dpr), 1 / (h * dpr));
+                add('aa', fx);
+                fxaaPass = fx;
+            }
+
+            // Whatever ends up last has to be the one that writes to the screen.
+            const last = finalComposer.passes[finalComposer.passes.length - 1];
+            finalComposer.passes.forEach(p => { p.renderToScreen = (p === last); });
+
+            perf.chain = Object.keys(postPasses).join(' → ');
+            const ci = document.getElementById('chainInfo');
+            if (ci) ci.textContent = perf.chain;
+        }
+
+        // =====================================================================
+        //  SELECTION + GIZMO
+        //
+        //  Click anything to select it, drag the gizmo to move it. For the
+        //  backdrop and floor the transform is read back into the stage settings
+        //  when the drag ends, so "Copy stage JSON" captures the new position
+        //  instead of the drag being a preview that evaporates on reload.
+        // =====================================================================
+        let gizmo = null, selected = null;
+        const raycaster = new THREE.Raycaster();
+
+        function initGizmo() {
+            gizmo = new THREE.TransformControls(camera, renderer.domElement);
+            gizmo.setSize(0.85);
+            scene.add(gizmo);
+
+            // OrbitControls and the gizmo both want the pointer; hand over while dragging.
+            gizmo.addEventListener('dragging-changed', e => {
+                controls.enabled = !e.value;
+                if (!e.value) commitGizmo();
+            });
+            gizmo.addEventListener('objectChange', () => updateSelectionReadout());
+
+            renderer.domElement.addEventListener('pointerdown', onPickDown);
+            renderer.domElement.addEventListener('pointerup', onPickUp);
+
+            document.addEventListener('keydown', e => {
+                if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+                if (e.key === 'w' || e.key === 'W') setGizmoMode('translate');
+                if (e.key === 'e' || e.key === 'E') setGizmoMode('rotate');
+                if (e.key === 'r' || e.key === 'R') setGizmoMode('scale');
+                if (e.key === 'Escape') select(null);
+            });
+        }
+
+        let pickStart = null;
+        function onPickDown(e) { pickStart = { x: e.clientX, y: e.clientY, t: performance.now() }; }
+
+        function onPickUp(e) {
+            if (!pickStart) return;
+            const moved = Math.hypot(e.clientX - pickStart.x, e.clientY - pickStart.y);
+            const quick = performance.now() - pickStart.t < 400;
+            pickStart = null;
+            // Ignore orbit drags and gizmo drags — only a genuine click selects.
+            if (moved > 4 || !quick) return;
+            if (gizmo && gizmo.dragging) return;
+
+            const r = renderer.domElement.getBoundingClientRect();
+            const ndc = new THREE.Vector2(
+                ((e.clientX - r.left) / r.width) * 2 - 1,
+                -((e.clientY - r.top) / r.height) * 2 + 1
+            );
+            raycaster.setFromCamera(ndc, camera);
+
+            // Candidates: the model's meshes plus the stage. The dome is excluded —
+            // it encloses the camera, so it would swallow every click.
+            const targets = [];
+            if (state.model) state.model.traverse(o => { if (o.isMesh && o.visible) targets.push(o); });
+            if (state.stage && state.stage.floor.visible) targets.push(state.stage.floor);
+
+            const hits = raycaster.intersectObjects(targets, false);
+            select(hits.length ? hits[0].object : null);
+        }
+
+        function select(obj) {
+            selected = obj;
+            if (!gizmo) return;
+            if (obj) gizmo.attach(obj); else gizmo.detach();
+            updateSelectionReadout();
+        }
+
+        function setGizmoMode(mode) {
+            if (!gizmo) return;
+            gizmo.setMode(mode);
+            document.querySelectorAll('#segGizmo button').forEach(b =>
+                b.classList.toggle('on', b.dataset.gizmo === mode));
+        }
+
+        /** Read a finished drag back into the stage settings. */
+        function commitGizmo() {
+            if (!selected || !state.stage) return;
+            if (selected === state.stage.floor || selected === state.stage.dome) {
+                state.stageSettings = state.stage.syncFromTransforms();
+                // refresh the offset widgets so the panel agrees with the viewport
+                ['domeOffsetX', 'domeOffsetY', 'domeOffsetZ', 'floorOffsetY'].forEach(k => {
+                    const el = $('#st_' + k);
+                    if (el) { el.value = state.stageSettings[k]; el.dispatchEvent(new Event('input')); }
+                });
+                status('Stage transform captured — Copy stage JSON to keep it.', 'ok');
+            }
+        }
+
+        function updateSelectionReadout() {
+            const el = $('#selInfo');
+            if (!el) return;
+            if (!selected) { el.innerHTML = '<span style="color:var(--panel-text-dim)">Nothing selected — click an object in the viewport.</span>'; return; }
+            const name = selected === (state.stage && state.stage.floor) ? 'Floor (stage)'
+                : selected === (state.stage && state.stage.dome) ? 'Backdrop (stage)'
+                : (selected.name || selected.type);
+            const p = selected.position;
+            el.innerHTML = `<b>${name}</b><br>x ${p.x.toFixed(3)} · y ${p.y.toFixed(3)} · z ${p.z.toFixed(3)}`;
+        }
+
+        /** The dome cannot be picked by clicking, so it needs an explicit way in. */
+        function selectStagePart(which) {
+            if (!state.stage) return status('Load the model first.', 'warn');
+            select(which === 'dome' ? state.stage.dome : state.stage.floor);
+        }
+
         // =====================================================================
         //  Panel builders
         // =====================================================================
@@ -2480,6 +2795,31 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 onChange: v => { if (typeof logoLight !== 'undefined' && logoLight) logoLight.intensity = v; }
             });
 
+            const selBody = UI.group(host, 'sc-sel', 'Selection & gizmo',
+                'Click any object in the viewport to select it, then drag the gizmo. ' +
+                'W / E / R switch move, rotate, scale; Esc deselects. Moving the ' +
+                'backdrop or floor writes the offset into the stage settings, so ' +
+                'Copy stage JSON keeps it.');
+            const selInfo = document.createElement('div');
+            selInfo.className = 'note'; selInfo.id = 'selInfo';
+            selBody.appendChild(selInfo);
+            const seg = document.createElement('div');
+            seg.className = 'seg'; seg.id = 'segGizmo';
+            seg.innerHTML = '<button data-gizmo="translate" class="on">Move</button>' +
+                '<button data-gizmo="rotate">Rotate</button>' +
+                '<button data-gizmo="scale">Scale</button>';
+            selBody.appendChild(seg);
+            seg.querySelectorAll('button').forEach(b =>
+                b.addEventListener('click', () => setGizmoMode(b.dataset.gizmo)));
+            const pick = document.createElement('div');
+            pick.className = 'seg';
+            pick.innerHTML = '<button data-pick="dome">Select backdrop</button>' +
+                '<button data-pick="floor">Select floor</button>';
+            selBody.appendChild(pick);
+            pick.querySelectorAll('button').forEach(b =>
+                b.addEventListener('click', () => selectStagePart(b.dataset.pick)));
+            updateSelectionReadout();
+
             const lensBody = UI.group(host, 'sc-lens', 'Lens');
             UI.num(lensBody, {
                 id: 'ln_fov', label: 'Field of view', min: 4, max: 60, step: 0.5, val: 10, dp: 1, unit: '°',
@@ -2493,33 +2833,30 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             });
         }
 
-        /** Post panel — bloom and tonemapping. */
+        /** Post panel — the full effect chain. */
         function buildPostPanel() {
             const host = $('#postGen');
             host.innerHTML = '';
+            const chain = () => rebuildPostChain();
 
+            // --- bloom (already wired into the selective-bloom composer) ---
             const b = UI.group(host, 'po-bloom', 'Bloom',
-                'Selective bloom: only the pattern is allowed to glow. Everything ' +
-                'else is blacked out for the bloom pass, so the gold rim can still ' +
-                'occlude the glow instead of being washed over by it.');
-            UI.num(b, {
-                id: 'bl_str', label: 'Strength', min: 0, max: 4, step: 0.01, val: 0.5, dp: 2,
-                onChange: v => { if (bloomPass) bloomPass.strength = v; }
-            });
-            UI.num(b, {
-                id: 'bl_rad', label: 'Radius', min: 0, max: 3, step: 0.01, val: 1, dp: 2,
-                onChange: v => { if (bloomPass) bloomPass.radius = v; }
-            });
-            UI.num(b, {
-                id: 'bl_thr', label: 'Threshold', min: 0, max: 1, step: 0.01, val: 0.5, dp: 2,
-                onChange: v => { if (bloomPass) bloomPass.threshold = v; }
-            });
+                'Selective: only the pattern glows. Everything else is blacked out ' +
+                'for the bloom pass, so the gold rim still occludes the glow instead ' +
+                'of being washed over by it.');
+            UI.num(b, { id: 'bl_str', label: 'Strength', min: 0, max: 4, step: 0.01, val: 0.5, dp: 2,
+                onChange: v => { if (bloomPass) bloomPass.strength = v; } });
+            UI.num(b, { id: 'bl_rad', label: 'Radius', min: 0, max: 3, step: 0.01, val: 1, dp: 2,
+                onChange: v => { if (bloomPass) bloomPass.radius = v; } });
+            UI.num(b, { id: 'bl_thr', label: 'Threshold', min: 0, max: 1, step: 0.01, val: 0.5, dp: 2,
+                onChange: v => { if (bloomPass) bloomPass.threshold = v; } });
 
-            const t = UI.group(host, 'po-tone', 'Tonemapping',
-                'ACES is what the storefront ships. The others are here to compare ' +
-                'against — they will not match the live site.');
-            UI.select(t, {
-                id: 'tn_mode', label: 'Curve', val: 'aces',
+            // --- tonemapping (r128 has no OutputPass; this lives on the renderer) ---
+            const t = UI.group(host, 'po-tone', 'Tonemapping / exposure',
+                'r128 has no OutputPass, so this is the renderer\'s own tonemapping — ' +
+                'same result. ACES is what the storefront ships; the others are for ' +
+                'comparison and will not match the live site.');
+            UI.select(t, { id: 'tn_mode', label: 'Curve', val: 'aces',
                 options: [
                     { value: 'aces', label: 'ACES Filmic (site)' },
                     { value: 'reinhard', label: 'Reinhard' },
@@ -2528,17 +2865,166 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                     { value: 'none', label: 'None' }
                 ],
                 onChange: v => {
-                    const map = {
-                        aces: THREE.ACESFilmicToneMapping,
-                        reinhard: THREE.ReinhardToneMapping,
-                        cineon: THREE.CineonToneMapping,
-                        linear: THREE.LinearToneMapping,
-                        none: THREE.NoToneMapping
-                    };
+                    const map = { aces: THREE.ACESFilmicToneMapping, reinhard: THREE.ReinhardToneMapping,
+                        cineon: THREE.CineonToneMapping, linear: THREE.LinearToneMapping, none: THREE.NoToneMapping };
                     renderer.toneMapping = map[v];
-                    // Tonemapping is compiled into every material's shader.
                     scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+                } });
+
+            // --- ambient occlusion ---
+            const ao = UI.group(host, 'po-ao', 'Ambient occlusion',
+                'Darkens creases and contact points. GTAOPass does not exist in ' +
+                'r128 — SAO is the higher-quality algorithm r128 does have, and it ' +
+                'is the closest equivalent. Both REPLACE the base render pass, which ' +
+                'is why switching rebuilds the chain.');
+            UI.select(ao, { id: 'ao_mode', label: 'Mode', val: 'off',
+                options: [
+                    { value: 'off', label: 'Off' },
+                    { value: 'sao', label: 'SAO (better)' },
+                    { value: 'ssao', label: 'SSAO' }
+                ],
+                onChange: v => { POST.ao = v; chain(); } });
+            UI.num(ao, { id: 'ao_rad', label: 'Radius', min: 0.005, max: 0.5, step: 0.005, val: POST.aoRadius, dp: 3,
+                onChange: v => { POST.aoRadius = v; chain(); } });
+            UI.num(ao, { id: 'ao_int', label: 'Intensity', min: 0, max: 2, step: 0.01, val: POST.aoIntensity, dp: 2,
+                onChange: v => { POST.aoIntensity = v; chain(); } });
+
+            // --- anti-aliasing ---
+            const aa = UI.group(host, 'po-aa', 'Anti-aliasing',
+                'TAA accumulates jittered frames, so it is the cleanest on still ' +
+                'geometry but smears while you orbit. SMAA is the better default if ' +
+                'you are moving the camera.');
+            UI.select(aa, { id: 'aa_mode', label: 'Mode', val: 'fxaa',
+                options: [
+                    { value: 'fxaa', label: 'FXAA (cheap)' },
+                    { value: 'smaa', label: 'SMAA (better)' },
+                    { value: 'taa', label: 'TAA (stills)' },
+                    { value: 'off', label: 'Off' }
+                ],
+                onChange: v => { POST.aa = v; chain(); } });
+            UI.num(aa, { id: 'aa_taa', label: 'TAA samples', min: 0, max: 5, step: 1, val: POST.taaLevel,
+                onChange: v => { POST.taaLevel = v; chain(); } });
+
+            // --- depth of field ---
+            const d = UI.group(host, 'po-dof', 'Depth of field',
+                'BokehPass. Focus is a distance in world units from the camera; the ' +
+                'lamp sits around 3.');
+            UI.toggle(d, { id: 'dof_on', label: 'Enable', val: false,
+                onChange: on => { POST.dof = on; chain(); } });
+            UI.num(d, { id: 'dof_focus', label: 'Focus distance', min: 0.2, max: 12, step: 0.01, val: POST.dofFocus, dp: 2,
+                onChange: v => { POST.dofFocus = v; if (postPasses.dof) postPasses.dof.uniforms.focus.value = v; } });
+            UI.num(d, { id: 'dof_ap', label: 'Aperture', min: 0, max: 10, step: 0.01, val: POST.dofAperture, dp: 2,
+                onChange: v => { POST.dofAperture = v; if (postPasses.dof) postPasses.dof.uniforms.aperture.value = v * 0.0001; } });
+            UI.num(d, { id: 'dof_blur', label: 'Max blur', min: 0, max: 0.05, step: 0.001, val: POST.dofMaxblur, dp: 3,
+                onChange: v => { POST.dofMaxblur = v; if (postPasses.dof) postPasses.dof.uniforms.maxblur.value = v; } });
+
+            // --- colour grading ---
+            const g = UI.group(host, 'po-grade', 'Colour grading');
+            UI.toggle(g, { id: 'gr_on', label: 'Enable', val: false,
+                onChange: on => { POST.grade = on; chain(); } });
+            UI.num(g, { id: 'gr_bri', label: 'Brightness', min: -0.5, max: 0.5, step: 0.005, val: 0, dp: 3,
+                onChange: v => { POST.brightness = v; if (postPasses.bc) postPasses.bc.uniforms.brightness.value = v; } });
+            UI.num(g, { id: 'gr_con', label: 'Contrast', min: -0.5, max: 0.5, step: 0.005, val: 0, dp: 3,
+                onChange: v => { POST.contrast = v; if (postPasses.bc) postPasses.bc.uniforms.contrast.value = v; } });
+            UI.num(g, { id: 'gr_hue', label: 'Hue', min: -1, max: 1, step: 0.01, val: 0, dp: 2,
+                onChange: v => { POST.hue = v; if (postPasses.hs) postPasses.hs.uniforms.hue.value = v; } });
+            UI.num(g, { id: 'gr_sat', label: 'Saturation', min: -1, max: 1, step: 0.01, val: 0, dp: 2,
+                onChange: v => { POST.saturation = v; if (postPasses.hs) postPasses.hs.uniforms.saturation.value = v; } });
+
+            const l = UI.group(host, 'po-lut', 'LUT',
+                'Drop a .cube LUT to grade with it. LUTPass needs WebGL2 for 3D ' +
+                'textures; if the badge below says unsupported, use the sliders above.');
+            const drop = document.createElement('div');
+            drop.className = 'drop'; drop.id = 'lutDrop';
+            drop.innerHTML = 'drop a <code>.cube</code> LUT';
+            l.appendChild(drop);
+            const lutNote = document.createElement('div');
+            lutNote.className = 'note'; lutNote.id = 'lutInfo';
+            lutNote.textContent = renderer.capabilities.isWebGL2
+                ? 'WebGL2 available — LUTs supported.'
+                : 'WebGL2 unavailable — LUTPass cannot run here.';
+            l.appendChild(lutNote);
+            UI.toggle(l, { id: 'lut_on', label: 'Enable', val: false,
+                onChange: on => { POST.lut = on; chain(); } });
+            setupLutDrop(drop);
+
+            // --- lens character ---
+            const lens = UI.group(host, 'po-lens', 'Lens character');
+            UI.toggle(lens, { id: 'ch_on', label: 'Chromatic aberration', val: false,
+                onChange: on => { POST.chroma = on; chain(); } });
+            UI.num(lens, { id: 'ch_amt', label: 'Amount', min: 0, max: 0.02, step: 0.0005, val: POST.chromaAmount, dp: 4,
+                onChange: v => { POST.chromaAmount = v; if (postPasses.chroma) postPasses.chroma.uniforms.amount.value = v; } });
+            UI.toggle(lens, { id: 'vi_on', label: 'Vignette', val: false,
+                onChange: on => { POST.vignette = on; chain(); } });
+            UI.num(lens, { id: 'vi_off', label: 'Vignette offset', min: 0, max: 3, step: 0.01, val: POST.vignetteOffset, dp: 2,
+                onChange: v => { POST.vignetteOffset = v; if (postPasses.vignette) postPasses.vignette.uniforms.offset.value = v; } });
+            UI.num(lens, { id: 'vi_dark', label: 'Vignette darkness', min: 0, max: 3, step: 0.01, val: POST.vignetteDarkness, dp: 2,
+                onChange: v => { POST.vignetteDarkness = v; if (postPasses.vignette) postPasses.vignette.uniforms.darkness.value = v; } });
+            UI.toggle(lens, { id: 'fg_on', label: 'Film grain', val: false,
+                onChange: on => { POST.grain = on; chain(); } });
+            UI.num(lens, { id: 'fg_amt', label: 'Grain amount', min: 0, max: 2, step: 0.01, val: POST.grainIntensity, dp: 2,
+                onChange: v => { POST.grainIntensity = v; chain(); } });
+            UI.num(lens, { id: 'fg_scan', label: 'Scanlines', min: 0, max: 2, step: 0.01, val: 0, dp: 2,
+                onChange: v => { POST.grainScanlines = v; chain(); } });
+
+            const info = UI.group(host, 'po-chain', 'Active chain');
+            const pre = document.createElement('div');
+            pre.className = 'note'; pre.id = 'chainInfo';
+            info.appendChild(pre);
+        }
+
+        /** .cube LUT loading, for the LUT pass. */
+        function setupLutDrop(drop) {
+            const parse = (text) => {
+                // Minimal .cube reader: LUT_3D_SIZE plus size^3 rgb triplets.
+                const lines = text.split(/\r?\n/);
+                let size = 0; const data = [];
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line || line.startsWith('#')) continue;
+                    const m = /^LUT_3D_SIZE\s+(\d+)/i.exec(line);
+                    if (m) { size = +m[1]; continue; }
+                    const p = line.split(/\s+/).map(Number);
+                    if (p.length === 3 && p.every(n => isFinite(n))) data.push(p);
                 }
+                if (!size || data.length !== size * size * size) {
+                    throw new Error(`expected ${size ? size ** 3 : '?'} entries, found ${data.length}`);
+                }
+                const arr = new Uint8Array(size * size * size * 4);
+                data.forEach((p, i) => {
+                    arr[i * 4] = Math.round(p[0] * 255);
+                    arr[i * 4 + 1] = Math.round(p[1] * 255);
+                    arr[i * 4 + 2] = Math.round(p[2] * 255);
+                    arr[i * 4 + 3] = 255;
+                });
+                const tex = new THREE.DataTexture3D(arr, size, size, size);
+                tex.format = THREE.RGBAFormat;
+                tex.type = THREE.UnsignedByteType;
+                tex.minFilter = tex.magFilter = THREE.LinearFilter;
+                tex.wrapS = tex.wrapT = tex.wrapR = THREE.ClampToEdgeWrapping;
+                tex.needsUpdate = true;
+                return tex;
+            };
+            const load = (file) => {
+                const fr = new FileReader();
+                fr.onload = () => {
+                    try {
+                        state.lut = parse(String(fr.result));
+                        $('#lutInfo').textContent = `LUT loaded: ${file.name}`;
+                        POST.lut = true;
+                        const t = $('#lut_on'); if (t && !t.classList.contains('on')) t.click(); else rebuildPostChain();
+                    } catch (e) {
+                        $('#lutInfo').textContent = 'Could not read that .cube: ' + e.message;
+                    }
+                };
+                fr.readAsText(file);
+            };
+            drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+            drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+            drop.addEventListener('drop', e => {
+                e.preventDefault(); drop.classList.remove('over');
+                const f = e.dataTransfer.files && e.dataTransfer.files[0];
+                if (f) load(f);
             });
         }
 
@@ -2934,10 +3420,12 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
 
             // The panel shell must exist before any of the wiring below looks up
             // a generated control by id.
+            initGizmo();
             buildFixedFields();
             buildStagePanel();
             buildScenePanel();
             buildPostPanel();
+            rebuildPostChain();
             buildTabs();
             setupSearch();
             setupResizer();
