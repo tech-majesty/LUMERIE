@@ -562,28 +562,41 @@
     //  Live preset — paste the studio's "Copy stage JSON" output here and BOTH
     //  the storefront and the studio pick it up. Null means use the defaults.
     // -------------------------------------------------------------------------
-    // Pasted from the studio. NOTE: reflectStrength is 0 here, which was set
-    // while the override bug made it a no-op — now that it is a real master gain,
-    // 0 genuinely means the floor has no lamp reflection at all. Raise it (or
-    // switch floorMode) when you want the reflection back.
+    // Pasted from the studio.
+    //
+    // Worth knowing what this particular set asks for, since several values sit at
+    // the end of their range on purpose:
+    //   reflectRoughness 0 + reflectBlurRamp 0 -> a SHARP mirror, no mip blur
+    //   reflectStrength 1.5                    -> the reflection is pushed past 1:1
+    //   glowElevation 0                        -> halo centred on the horizon, the
+    //                                             one value where the floor's
+    //                                             reflection matches the dome and
+    //                                             the join disappears entirely
+    //   domeScale 1.2 + backdropDistance 20    -> a tight dome; the camera far
+    //                                             plane is derived from it, so this
+    //                                             is safe
+    //   reflectionResolution 2048              -> 4x the pixels of 1024. Sharp
+    //                                             reflection has no blur to hide
+    //                                             behind, so it needs them.
     const STAGE_PRESET = {
         "majestyStage": 1,
         "backdropColor": "#080605",
         "glowColor": "#ffb463",
         "glowGain": 1.3,
-        "glowSpread": 0.32,
-        "glowSoftness": 5,
-        "glowElevation": 0.12,
-        "domeScale": 3,
-        "backdropDistance": 6,
+        "glowSpread": 0.2,
+        "glowSoftness": 4,
+        "glowElevation": 0,
+        "domeScale": 1.2,
+        "backdropDistance": 20,
         "domeOffsetX": 0,
         "domeOffsetY": 0,
         "domeOffsetZ": 0,
+        "floorMode": "planar",
         "floorColor": "#090808",
-        "reflectStrength": 0,
+        "reflectStrength": 1.5,
         "reflectFade": 0,
-        "reflectRoughness": 0.35,
-        "reflectBlurRamp": 0.45,
+        "reflectRoughness": 0,
+        "reflectBlurRamp": 0,
         "fresnelGain": 1,
         "poolRadius": 0.23,
         "poolGain": 0.28,
@@ -593,7 +606,9 @@
         "horizonEnd": 0,
         "floorRadius": 40,
         "floorOffsetY": 0,
-        "reflectionResolution": 1024
+        "floorRoughness": 0,
+        "floorMetalness": 1,
+        "reflectionResolution": 2048
     };
 
     global.MajestyStage = {
