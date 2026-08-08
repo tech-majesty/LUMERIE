@@ -1031,27 +1031,28 @@ body.cfg-open .hs-layer {
     opacity: 0;
 }
 
+/* Anchored to its dot on EVERY platform. hero.js writes --px / --py as final
+   viewport coordinates, having already measured the card and clamped it inside
+   the screen, so there is no separate phone layout to keep in step and no
+   fixed inset to be wrong when the bar changes height. */
 .hs-pop {
     position: absolute;
-    left: var(--x, 50%);
-    top: var(--y, 50%);
-    transform: translate(1.75rem, -50%);
-    min-width: 15rem;
-    max-width: min(20rem, 78vw);
-    padding: 1.1rem 1.2rem 1.2rem;
-    background: rgba(14, 12, 11, 0.84);
+    left: 0;
+    top: 0;
+    transform: translate(var(--px, 0px), var(--py, 0px));
+    width: max-content;
+    max-width: min(19rem, calc(100vw - 1.5rem));
+    padding: 0.8rem 0.85rem 0.9rem;
+    background: rgba(14, 12, 11, 0.86);
     backdrop-filter: blur(22px) saturate(150%);
     -webkit-backdrop-filter: blur(22px) saturate(150%);
     border: 1px solid var(--line-strong);
     border-radius: var(--r-sm);
+    box-shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.9);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.35s var(--ease), visibility 0.35s;
-}
-
-.hs-pop.to-left {
-    transform: translate(calc(-100% - 1.75rem), -50%);
+    transition: opacity 0.28s var(--ease), visibility 0.28s;
 }
 
 .hs-pop.is-open {
@@ -1061,8 +1062,8 @@ body.cfg-open .hs-layer {
 }
 
 .hs-pop-title {
-    margin: 0 0 0.85rem;
-    font-size: 0.78rem;
+    margin: 0 0 0.7rem;
+    font-size: 0.72rem;
     font-weight: 500;
     color: var(--text-2);
 }
@@ -1073,6 +1074,54 @@ body.cfg-open .hs-layer {
 
 .hs-pop .control-section {
     margin: 0;
+}
+
+/* The swatches are 44px in styles.css, sized for a 320px sidebar that no longer
+   exists. In a card floating beside the product they only have to be tappable,
+   and 34 clears the 24px minimum comfortably while making the card far smaller.
+   The grid is fixed at five columns so the card's width does not change as the
+   pattern list grows. */
+/* Five fixed columns, so the card is the same width whether it holds three ring
+   finishes or twelve patterns. The cell is wider than the 34px button because
+   the NAME has to fit in it: at button width, break-word split TRIANGLE into
+   "TRIANG LE". The button is centred in the cell and the label wraps between
+   words instead of through them. */
+.hs-pop .control-options {
+    display: grid;
+    grid-template-columns: repeat(5, 42px);
+    gap: 0.45rem 0.4rem;
+    justify-content: start;
+}
+
+.hs-pop .control-btn {
+    width: 34px;
+    height: 34px;
+    border-width: 1.5px;
+}
+
+.hs-pop .control-item {
+    width: 42px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Names under each swatch: the card is away from the sidebar that used to carry
+   them in a list, so without these it is a row of unlabelled circles. */
+.hs-pop .mobile-label {
+    display: block;
+    font-size: 8px;
+    line-height: 1.25;
+    margin-top: 0.28rem;
+    color: var(--text-3);
+    text-align: center;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+}
+
+.hs-pop .control-btn.active+.mobile-label {
+    color: var(--text);
 }
 
 /* ===== Viewport panels ==================================================
@@ -2093,35 +2142,7 @@ html {
                 var(--bg) 100%);
     }
 
-    /* A sheet above the bottom bar, cleared by the bar's MEASURED height rather
-       than a guessed offset. The bar stacks its name, spec line and two
-       full-width buttons on a narrow screen, and how tall that comes out
-       depends on the finish name, so a fixed inset put the swatches straight
-       over the MAJESTY wordmark. hero.js writes --cfg-bar-h. */
-    .hs-pop,
-    .hs-pop.to-left {
-        left: 0.75rem;
-        right: 0.75rem;
-        top: auto;
-        bottom: calc(var(--cfg-bar-h, 6rem) + 0.75rem);
-        max-width: none;
-        /* Never taller than the space between the bar and the camera buttons;
-           a long pattern list scrolls inside the sheet instead of climbing over
-           the product. */
-        max-height: calc(100svh - var(--cfg-bar-h, 6rem) - 7.5rem);
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
-        transform: translateY(0.6rem);
-        transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0.35s;
-    }
-
-    .hs-pop.is-open {
-        transform: none;
-    }
-
-    /* The dots sit on the lamp, and on a phone the lamp is behind the sheet.
-       The markers stay for orientation but the labels would collide. */
+    /* The dot labels would sit under the card on a small screen. */
     .hs span {
         display: none;
     }

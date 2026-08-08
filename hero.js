@@ -551,7 +551,6 @@
             document.body.classList.add('cfg-open');
             const cfg = el('cfg');
             if (cfg) cfg.setAttribute('aria-hidden', 'false');
-            syncBarHeight();
         };
 
         if (!window.gsap) {
@@ -744,6 +743,84 @@
         });
     }
 
+    /**
+     * Project each anchor to screen space, then place its card beside it.
+     *
+     * The card is positioned by MEASURING it and clamping the result into the
+     * viewport, rather than by a CSS rule per breakpoint. One behaviour on every
+     * screen: it prefers the side of the dot with more room, and if neither side
+     * fits it goes under the dot instead, always inset from the edges.
+     *
+     * This replaced a phone-only bottom sheet. The sheet had to clear a bar whose
+     * height changes with the length of the finish name, and it detached the
+     * options from the part they belong to, which is the whole idea of hotspots.
+     */
+    const EDGE = 12;   // px kept clear of every viewport edge
+    const GAP = 16;   // px between the dot and its card
+
+    /**
+     * The band the card is allowed to occupy.
+     *
+     * Clamping to the viewport alone is not enough: the camera buttons sit at the
+     * top and the product bar at the bottom, and the bar's height changes with
+     * the length of the finish name. Both are measured so the card is clamped to
+     * the space actually free, not to the screen.
+     */
+    function safeBand(rect) {
+        const cfg = el('cfg');
+        let top = EDGE;
+        let bottom = rect.height - EDGE;
+        if (cfg) {
+            const cam = cfg.querySelector('.camera-controls');
+            const bar = cfg.querySelector('.bottom-bar');
+            if (cam) {
+                const b = cam.getBoundingClientRect();
+                if (b.height) top = Math.max(top, b.bottom - rect.top + EDGE);
+            }
+            if (bar) {
+                const b = bar.getBoundingClientRect();
+                if (b.height) bottom = Math.min(bottom, b.top - rect.top - EDGE);
+            }
+        }
+        return { top: top, bottom: Math.max(bottom, top + 40) };
+    }
+
+    function placePopover(pop, x, y, rect) {
+        // Measured while open; a hidden card still reports its box because it is
+        // visibility:hidden rather than display:none.
+        const w = pop.offsetWidth;
+        const h = pop.offsetHeight;
+
+        const roomRight = rect.width - x - GAP - EDGE;
+        const roomLeft = x - GAP - EDGE;
+
+        let left;
+        if (w <= roomRight) {
+            left = x + GAP;                       // preferred
+        } else if (w <= roomLeft) {
+            left = x - GAP - w;                   // flip
+        } else {
+            left = (rect.width - w) / 2;          // neither side fits: centre it
+        }
+
+        // Vertically centred on the dot, then clamped into the free band.
+        const band = safeBand(rect);
+        let top = y - h / 2;
+
+        // If the card had to centre horizontally it is now over the dot, so move
+        // it clear: below when the band allows, above when it does not.
+        if (w > roomRight && w > roomLeft) {
+            top = (y + GAP + h <= band.bottom) ? y + GAP : y - GAP - h;
+        }
+
+        top = Math.min(Math.max(top, band.top), Math.max(band.top, band.bottom - h));
+
+        left = Math.min(Math.max(left, EDGE), Math.max(EDGE, rect.width - w - EDGE));
+
+        pop.style.setProperty('--px', Math.round(left) + 'px');
+        pop.style.setProperty('--py', Math.round(top) + 'px');
+    }
+
     /** Project each anchor to screen space and write it onto the marker. */
     function positionHotspots() {
         if (!hsLayer || !viewer || !viewer.model || !cfgOpen) return;
@@ -759,14 +836,14 @@
             const x = (anchor.x * 0.5 + 0.5) * rect.width;
             const y = (-anchor.y * 0.5 + 0.5) * rect.height;
 
-            hsLayer.querySelectorAll('[data-part="' + h.part + '"]').forEach(function (n) {
-                n.style.setProperty('--x', x.toFixed(1) + 'px');
-                n.style.setProperty('--y', y.toFixed(1) + 'px');
-                if (n.classList.contains('hs-pop')) {
-                    // Flip to the other side of the dot rather than overflow.
-                    n.classList.toggle('to-left', x + 20 * 16 > rect.width);
-                }
-            });
+            const dot = hsLayer.querySelector('.hs[data-part="' + h.part + '"]');
+            if (dot) {
+                dot.style.setProperty('--x', x.toFixed(1) + 'px');
+                dot.style.setProperty('--y', y.toFixed(1) + 'px');
+            }
+
+            const pop = hsLayer.querySelector('.hs-pop[data-part="' + h.part + '"]');
+            if (pop) placePopover(pop, x, y, rect);
         });
     }
 
@@ -784,23 +861,6 @@
             if (part) return part;
         }
         return null;
-    }
-
-    /**
-     * Publish the configurator bottom bar's height as --cfg-bar-h.
-     *
-     * On a phone the bar stacks the product name, the spec line and two
-     * full-width buttons, and its height depends on how long the current finish
-     * name is, so the popover cannot clear it with a fixed inset: at "RED
-     * METALLIC" the swatches landed on top of the MAJESTY wordmark. Measured
-     * whenever it can change.
-     */
-    function syncBarHeight() {
-        const cfg = el('cfg');
-        const bar = cfg && cfg.querySelector('.bottom-bar');
-        if (!cfg || !bar) return;
-        const h = Math.round(bar.getBoundingClientRect().height);
-        if (h > 0) cfg.style.setProperty('--cfg-bar-h', h + 'px');
     }
 
     function initHotspots() {
@@ -822,13 +882,6 @@
             p.addEventListener('click', function (e) { e.stopPropagation(); });
             p.addEventListener('pointerdown', killFinishTweens, true);
         });
-
-        syncBarHeight();
-        window.addEventListener('resize', syncBarHeight);
-        if ('ResizeObserver' in window) {
-            const bar = el('cfg').querySelector('.bottom-bar');
-            if (bar) new ResizeObserver(syncBarHeight).observe(bar);
-        }
 
         const canvas = viewer.renderer.domElement;
 
