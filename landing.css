@@ -1221,6 +1221,16 @@ html {
     text-align: center;
 }
 
+/* Copy toward the top of the panel so the content below it gets the room. */
+.vp.top-copy {
+    align-items: start;
+}
+
+.vp.top-copy .vp-copy {
+    padding-top: clamp(7rem, 16vh, 11rem);
+    padding-bottom: clamp(3rem, 6vh, 4rem);
+}
+
 .vp.centre .t-body,
 .vp.centre .t-fade {
     margin-inline: auto;
@@ -1448,32 +1458,40 @@ html {
 /* ===== Logo wall ========================================================
    No grid, no cells, no borders. A grid needs its last row filled or it hangs
    an empty box off the end, and every divider it draws is another rectangle on
-   a page that is trying not to have any. Wrapping flex centres each row on its
-   own and simply stops when it runs out of marks.
+   a page trying not to have any. Wrapping flex centres each row on its own and
+   stops when it runs out of marks.
 
-   The files are dark artwork on a white ground with no alpha: inverting turns
-   the ground black and the mark light, and screening drops that black out
-   against the page, so each one sits on nothing at all. */
+   SIZING. Every file is pre-trimmed to its ink bounds, which is the whole
+   trick: before that, ai-campus was a 225x225 file holding a 169x27 mark, so
+   a shared CSS height was sizing 88% padding and the row looked random. With
+   the padding gone, one height genuinely means one height.
+
+   The width cap is for the horizontal lockups. A 6:1 wordmark set to the same
+   height as a square emblem would be six times wider and swallow the row, so
+   it hits the cap and sits slightly shorter instead. Ten of the eleven land on
+   the exact same height; only the longest lockup does not.
+
+   The artwork is keyed to alpha at build time, so brightness(0) invert(1)
+   turns each mark pure white with no blend mode and nothing behind it. */
 
 .logo-wall {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    column-gap: clamp(2.5rem, 6vw, 5.5rem);
-    row-gap: clamp(2.5rem, 5vw, 4.5rem);
-    max-width: 74rem;
+    column-gap: clamp(2.2rem, 5vw, 4.5rem);
+    row-gap: clamp(2.2rem, 4.5vw, 3.5rem);
+    max-width: 76rem;
     margin-inline: auto;
 }
 
 .logo-wall img {
-    height: clamp(40px, 5.2vw, 72px);
+    height: clamp(30px, 3.6vw, 48px);
     width: auto;
-    max-width: 260px;
+    max-width: clamp(150px, 17vw, 230px);
     object-fit: contain;
-    filter: invert(1) grayscale(1) brightness(1.15);
-    mix-blend-mode: screen;
-    opacity: 0.55;
+    filter: brightness(0) invert(1);
+    opacity: 0.62;
     transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
 }
 
