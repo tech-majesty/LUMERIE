@@ -986,6 +986,71 @@
         });
     }
 
+    /* -------------------------------------------------------------------------
+     *  Rotating clause
+     *
+     *  Cycles the phrases in a [data-rotate], one at a time. Pauses whenever
+     *  its panel is off screen: a timer running against a heading nobody can
+     *  see is work for nothing, and it would also mean returning to the panel
+     *  mid-transition between two phrases.
+     * ---------------------------------------------------------------------- */
+    const ROTATE_HOLD = 3200;   // ms a phrase stays up
+
+    function initRotators() {
+        document.querySelectorAll('[data-rotate]').forEach(function (host) {
+            const items = [].slice.call(host.children);
+            if (items.length < 2) return;
+
+            let i = 0;
+            let timer = null;
+
+            const step = function () {
+                const out = items[i];
+                i = (i + 1) % items.length;
+                const next = items[i];
+
+                out.classList.remove('is-on');
+                out.classList.add('is-out');
+                next.classList.remove('is-out');
+                next.classList.add('is-on');
+
+                // Clear the outgoing phrase's state once it has left, so it can
+                // roll up from below again on its next turn rather than dropping
+                // in from above.
+                setTimeout(function () { out.classList.remove('is-out'); }, 900);
+            };
+
+            const start = function () {
+                if (timer) return;
+                timer = setInterval(step, ROTATE_HOLD);
+            };
+            const stop = function () {
+                clearInterval(timer);
+                timer = null;
+            };
+
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+            const panel = host.closest('.vp') || host;
+            if ('IntersectionObserver' in window) {
+                new IntersectionObserver(function (entries) {
+                    entries[0].isIntersecting ? start() : stop();
+                }, { threshold: 0.25 }).observe(panel);
+            } else {
+                start();
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                document.hidden ? stop() : (isOnScreen(panel) && start());
+            });
+        });
+    }
+
+    function isOnScreen(node) {
+        const b = node.getBoundingClientRect();
+        return b.top < window.innerHeight && b.bottom > 0;
+    }
+
     function initReveals() {
         // Split first, so the masks exist before anything can be observed.
         document.querySelectorAll('[data-split]').forEach(splitWords);
@@ -1051,6 +1116,7 @@
         document.documentElement.classList.add('js');
         initNav();
         initReveals();
+        initRotators();
         initYear();
         initCursorCta();
         initScrollParallax();

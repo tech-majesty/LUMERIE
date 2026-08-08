@@ -1500,6 +1500,58 @@ html {
     transform: translateY(-2px);
 }
 
+/* ===== Rotating clause ==================================================
+   The phrases are STACKED IN A GRID CELL rather than absolutely positioned,
+   so the box sizes itself to the tallest one. Phrases wrap differently at
+   different widths, so any fixed height would clip one of them at some
+   viewport; letting grid do the measuring means there is nothing to measure.
+
+   Each phrase is a mask with the line inside it: incoming rolls up from below,
+   outgoing keeps going up and out, so the movement always reads one way. */
+
+.rotator {
+    display: grid;
+    text-align: inherit;
+}
+
+.rotator>b {
+    grid-area: 1 / 1;
+    overflow: hidden;
+    font-weight: 600;
+    color: var(--text);
+    /* Descenders sit below the baseline and the mask would cut them. No
+       negative margin to claw the space back: that made the grid row shorter
+       than its own tallest phrase, so the descender room painted outside the
+       track it was measured into. */
+    padding-bottom: 0.14em;
+}
+
+.rotator>b>i {
+    display: block;
+    font-style: normal;
+    transform: translateY(110%);
+    transition: transform 0.85s var(--ease);
+}
+
+.rotator>b.is-on>i {
+    transform: none;
+}
+
+.rotator>b.is-out>i {
+    transform: translateY(-110%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rotator>b:not(.is-on) {
+        visibility: hidden;
+    }
+
+    .rotator>b>i {
+        transform: none;
+        transition: none;
+    }
+}
+
 /* ===== Bento ============================================================
    A twelve-column bed. Every media and stat block on the page is placed on it
    with a span, so the page has one underlying rhythm instead of a different
