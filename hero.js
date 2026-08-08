@@ -284,6 +284,10 @@
             sizeWordmark();
             if (cfgOpen) {
                 applyConfiguratorAngles();
+                if (!animating && viewer.setCameraAngle) {
+                    const active = document.querySelector('.camera-btn.active');
+                    viewer.setCameraAngle(active ? active.dataset.angle : 'front');
+                }
             } else if (!animating) {
                 applyHeroCamera();
             }
@@ -319,30 +323,47 @@
      *     keeps the orbit intact and puts the lamp in the middle of what is
      *     actually visible.
      * ---------------------------------------------------------------------- */
-    const SIDEBAR_PX = 340;
+    /*
+     *  The configurator has no sidebar, so nothing pushes the lamp off centre
+     *  and the viewer's own camera presets are used unchanged. That matters
+     *  beyond tidiness: the previous version shifted the whole view sideways to
+     *  clear a 340px panel, and because the stage's halo is fixed in world
+     *  space, panning across it visibly slid the glow behind the lamp during
+     *  the transition. A straight dolly in and out has nothing to slide.
+     */
+    /*
+     *  How far back the configurator sits.
+     *
+     *  z = 3 is the number the standalone configurator has always used, and it
+     *  is right for a landscape window. On a phone it is badly wrong: the frame
+     *  is a fifth as wide in world units as it is on a laptop, so the binding
+     *  constraint is the lamp's WIDTH, not its height, and at z = 3 the lamp is
+     *  89% of the frame across and runs off both sides. Fitting both dimensions
+     *  and taking whichever is further away covers every viewport.
+     */
+    const MODEL_H = 0.362;
+    const MODEL_W = 0.216;
 
-    /** Half the sidebar's width, in world units at the model's distance. */
-    function sidebarShift() {
+    function configuratorDistance() {
         const c = viewer.camera;
-        const halfFov = (c.fov * Math.PI) / 360;
-        const halfWidth = CONFIGURATOR_Z * Math.tan(halfFov) * c.aspect;
-        const sidebar = Math.min(SIDEBAR_PX, window.innerWidth * 0.84);
-        if (window.innerWidth < 900) return 0;   // sidebar is a bottom sheet
-        return halfWidth * (sidebar / window.innerWidth);
+        const t = Math.tan((c.fov * Math.PI) / 360);
+        const forHeight = MODEL_H / (0.68 * 2 * t);
+        const forWidth = MODEL_W / (0.60 * 2 * t * c.aspect);
+        return Math.max(forHeight, forWidth);
     }
 
-    /**
-     * Re-point the viewer's own camera presets so the lamp centres in the space
-     * left of the sidebar. Both the position and the look-at move together, so
-     * the LEFT/RIGHT orbit is unchanged — it is a lens shift, not a skew.
-     */
     function applyConfiguratorAngles() {
-        const s = sidebarShift();
+        const d = configuratorDistance();
+        // The stock LEFT/RIGHT poses are 3.53 units from the origin. Scaling
+        // them to the new distance preserves the orbit angle and keeps the lamp
+        // the same size from every button.
+        const k = d / 3.53;
         viewer.cameraAngles = {
-            front: { pos: { x: s, y: 0, z: CONFIGURATOR_Z }, lookAt: { x: s, y: 0, z: 0 } },
-            left: { pos: { x: s - 1.8, y: 0.5, z: CONFIGURATOR_Z }, lookAt: { x: s, y: 0, z: 0 } },
-            right: { pos: { x: s + 1.8, y: 0.5, z: CONFIGURATOR_Z }, lookAt: { x: s, y: 0, z: 0 } }
+            front: { pos: { x: 0, y: 0, z: d }, lookAt: { x: 0, y: 0, z: 0 } },
+            left: { pos: { x: -1.8 * k, y: 0.5 * k, z: 3 * k }, lookAt: { x: 0, y: 0, z: 0 } },
+            right: { pos: { x: 1.8 * k, y: 0.5 * k, z: 3 * k }, lookAt: { x: 0, y: 0, z: 0 } }
         };
+        return d;
     }
 
     /*
@@ -383,58 +404,56 @@
 
         // The canvas is pinned to the hero, so the hero has to be the viewport.
         window.scrollTo({ top: 0, behavior: 'instant' });
-        applyConfiguratorAngles();
+        const cfgZ = applyConfiguratorAngles();
 
-        const s = sidebarShift();
-        const target = { x: framing.panX, y: framing.aimY, z: framing.dist };
-
-        const done = function () {
-            animating = false;
+        const reveal = function () {
             document.body.classList.add('cfg-open');
             const cfg = el('cfg');
             if (cfg) cfg.setAttribute('aria-hidden', 'false');
-            // From here the configurator's own buttons own the camera.
         };
 
         if (!window.gsap) {
-            viewer.camera.position.set(s, 0, CONFIGURATOR_Z);
-            viewer.camera.lookAt(s, 0, 0);
-            if (wordPlane) wordPlane.visible = false;
-            done();
+            viewer.camera.position.set(0, 0, cfgZ);
+            viewer.camera.lookAt(0, 0, 0);
+            if (wordPlane) wordPlane.material.opacity = 0;
+            reveal();
+            animating = false;
             return;
         }
 
         claimCamera();
-        const tl = gsap.timeline({ onComplete: done });
+        const target = { y: framing.aimY, z: framing.dist };
+        const tl = gsap.timeline({
+            onComplete: function () { animating = false; }
+        });
 
         // The wordmark is a scene object, so it fades with its material.
         if (wordPlane) {
             tl.to(wordPlane.material, { opacity: 0, duration: 0.6, ease: 'power2.inOut' }, 0);
         }
 
-        // Pull back from the close-up to the configurator's full-product pose.
+        // A straight dolly out from the close-up: x stays at 0 the whole way,
+        // so nothing in the frame slides sideways.
         tl.to(target, {
-            x: s, y: 0, z: CONFIGURATOR_Z,
+            y: 0, z: cfgZ,
             duration: 1.1,
             ease: 'power2.inOut',
             onUpdate: function () {
-                viewer.camera.position.set(target.x, target.y, target.z);
-                viewer.camera.lookAt(s * (1 - this.progress()) + s * this.progress(), 0, 0);
+                viewer.camera.position.set(0, target.y, target.z);
+                viewer.camera.lookAt(0, target.y, 0);
             }
         }, 0);
 
-        // Chrome slides in over the tail of the move rather than after it, so
+        // Chrome comes in over the tail of the move rather than after it, so
         // the two read as one gesture.
-        tl.add(function () {
-            document.body.classList.add('cfg-open');
-            const cfg = el('cfg');
-            if (cfg) cfg.setAttribute('aria-hidden', 'false');
-        }, 0.45);
+        tl.add(reveal, 0.45);
     }
 
     function closeConfigurator() {
         if (!cfgOpen || animating) return;
         animating = true;
+
+        setOpenPart(null);
 
         if (typeof config !== 'undefined') {
             savedFinish = { base: config.base, rim: config.rim, pattern: config.pattern };
@@ -477,6 +496,153 @@
         }
     }
 
+    /* -------------------------------------------------------------------------
+     *  Hotspots
+     *
+     *  The configurator has no panel. Instead each configurable part of the lamp
+     *  carries a marker: hover it (or the mesh itself) to see what it is, click
+     *  to get that part's options in a popover beside it.
+     *
+     *  The options in those popovers are not copies. The sidebar's three control
+     *  groups are MOVED into them at startup, element for element, so every
+     *  listener script.js bound at init — including the twelve coded pattern
+     *  buttons it injects — comes along and keeps working. Rebuilding them would
+     *  mean reimplementing pattern baking, active states and cart wiring.
+     *
+     *  Anchors are placed on a cylinder around the model and swung round to face
+     *  the camera, so a marker is never stranded on the back of the lamp when
+     *  the view moves to LEFT or RIGHT.
+     * ---------------------------------------------------------------------- */
+    const HOTSPOTS = [
+        { part: 'rim', y: 0.150, r: 0.085, meshes: ['Rim', 'Ring', 'BaseRim', 'BaseRim_1', 'Screen_Main_(Gold)'] },
+        { part: 'pattern', y: 0.020, r: 0.090, meshes: PATTERN_MESH_NAMES },
+        { part: 'base', y: -0.130, r: 0.080, meshes: ['Base', 'Logo'] }
+    ];
+
+    const meshToPart = {};
+    HOTSPOTS.forEach(function (h) {
+        h.meshes.forEach(function (m) { meshToPart[m] = h.part; });
+    });
+
+    let hsLayer = null;
+    let openPart = null;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const anchor = new THREE.Vector3();
+
+    /** Move the sidebar's control groups into the popovers, once. */
+    function adoptControls() {
+        const map = { base: 'Base Color', rim: 'Rim Finish', pattern: 'Pattern Design' };
+        const sections = document.querySelectorAll('.sidebar .control-section');
+
+        Object.keys(map).forEach(function (part) {
+            const body = document.querySelector('.hs-pop[data-part="' + part + '"] .hs-pop-body');
+            if (!body) return;
+            for (let i = 0; i < sections.length; i++) {
+                const title = sections[i].querySelector('.control-title');
+                if (title && title.textContent.trim() === map[part]) {
+                    body.appendChild(sections[i]);
+                    break;
+                }
+            }
+        });
+    }
+
+    function setOpenPart(part) {
+        openPart = part;
+        hsLayer.querySelectorAll('.hs').forEach(function (b) {
+            b.classList.toggle('is-open', b.dataset.part === part);
+        });
+        hsLayer.querySelectorAll('.hs-pop').forEach(function (p) {
+            p.classList.toggle('is-open', p.dataset.part === part);
+        });
+    }
+
+    /** Project each anchor to screen space and write it onto the marker. */
+    function positionHotspots() {
+        if (!hsLayer || !viewer || !viewer.model || !cfgOpen) return;
+        const c = viewer.camera;
+        const rect = viewer.renderer.domElement.getBoundingClientRect();
+
+        // Camera azimuth, so anchors sit on the side of the lamp we can see.
+        const az = Math.atan2(c.position.x, c.position.z);
+
+        HOTSPOTS.forEach(function (h) {
+            anchor.set(Math.sin(az) * h.r, h.y, Math.cos(az) * h.r);
+            anchor.project(c);
+            const x = (anchor.x * 0.5 + 0.5) * rect.width;
+            const y = (-anchor.y * 0.5 + 0.5) * rect.height;
+
+            hsLayer.querySelectorAll('[data-part="' + h.part + '"]').forEach(function (n) {
+                n.style.setProperty('--x', x.toFixed(1) + 'px');
+                n.style.setProperty('--y', y.toFixed(1) + 'px');
+                if (n.classList.contains('hs-pop')) {
+                    // Flip to the other side of the dot rather than overflow.
+                    n.classList.toggle('to-left', x + 20 * 16 > rect.width);
+                }
+            });
+        });
+    }
+
+    /** Which configurable part, if any, is under the pointer. */
+    function pickPart(clientX, clientY) {
+        if (!viewer || !viewer.model) return null;
+        const rect = viewer.renderer.domElement.getBoundingClientRect();
+        pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, viewer.camera);
+
+        const hits = raycaster.intersectObject(viewer.model, true);
+        for (let i = 0; i < hits.length; i++) {
+            const part = meshToPart[hits[i].object.name];
+            if (part) return part;
+        }
+        return null;
+    }
+
+    function initHotspots() {
+        hsLayer = el('hsLayer');
+        if (!hsLayer) return;
+        adoptControls();
+
+        hsLayer.querySelectorAll('.hs').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpenPart(openPart === btn.dataset.part ? null : btn.dataset.part);
+            });
+        });
+
+        // Clicking inside a popover must not count as clicking away from it.
+        hsLayer.querySelectorAll('.hs-pop').forEach(function (p) {
+            p.addEventListener('click', function (e) { e.stopPropagation(); });
+        });
+
+        const canvas = viewer.renderer.domElement;
+
+        canvas.addEventListener('pointermove', function (e) {
+            if (!cfgOpen || animating) return;
+            const part = pickPart(e.clientX, e.clientY);
+            canvas.style.cursor = part ? 'pointer' : '';
+            hsLayer.querySelectorAll('.hs').forEach(function (b) {
+                b.classList.toggle('is-near', b.dataset.part === part);
+            });
+        }, { passive: true });
+
+        canvas.addEventListener('click', function (e) {
+            if (!cfgOpen || animating) return;
+            const part = pickPart(e.clientX, e.clientY);
+            setOpenPart(part && part !== openPart ? part : null);
+        });
+
+        // Anywhere else on the overlay closes the popover.
+        el('cfg').addEventListener('click', function () { setOpenPart(null); });
+
+        // The markers have to keep up with the camera, and the camera is moved
+        // by gsap tweens the render loop knows nothing about, so this rides the
+        // same ticker rather than hooking renderFrame.
+        if (window.gsap) gsap.ticker.add(positionHotspots);
+    }
+
     function armConfigurator() {
         // Every "Customize" on the page opens the overlay rather than following
         // its href. The href is kept as a real link so the page still works
@@ -493,7 +659,9 @@
         if (back) back.addEventListener('click', closeConfigurator);
 
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && cfgOpen) closeConfigurator();
+            if (e.key !== 'Escape' || !cfgOpen) return;
+            if (openPart) { setOpenPart(null); return; }
+            closeConfigurator();
         });
     }
 
@@ -553,6 +721,11 @@
         initYear();
         armConfigurator();
         mountViewer();
+
+        // script.js registers its DOMContentLoaded handler after this file's, so
+        // its control buttons — including the twelve coded patterns it injects —
+        // do not exist yet. A macrotask lands after every handler has run.
+        setTimeout(initHotspots, 0);
 
         // A hard ceiling on the splash. If WebGL is unavailable or the model
         // request hangs, the page must still become usable.

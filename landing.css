@@ -665,35 +665,39 @@ body.cfg-open #threeCanvasContainer {
     position: fixed;
 }
 
+/* The sidebar is gone. It is kept in the markup only as the origin of the
+   control groups, which are moved into the hotspot popovers at startup so they
+   keep the listeners script.js bound to them. */
 .cfg .sidebar {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: min(340px, 84vw);
-    transform: translateX(100%);
-    transition: transform 0.7s var(--ease);
-    border-left: 1px solid var(--hairline);
+    display: none;
 }
 
-body.cfg-open .cfg .sidebar {
-    transform: none;
-}
-
+/* Nothing boxes the 3D view in any more: the bar is a transparent strip of
+   floating controls over a full-viewport canvas. */
 .cfg .bottom-bar {
     position: absolute;
     left: 0;
-    right: min(340px, 84vw);
+    right: 0;
     bottom: 0;
-    /* styles.css sets width:100%, which wins over `right` and pushes ADD TO
-       CART out under the sidebar. */
+    /* styles.css's phone rules make this sticky at `top: calc(50vh - 80px)`.
+       Left in place alongside `bottom: 0` it stretches the bar to half the
+       screen, so the reset is explicit. */
+    top: auto;
     width: auto;
-    transform: translateY(100%);
-    transition: transform 0.7s var(--ease);
+    background: none;
+    border-top: 0;
+    opacity: 0;
+    transform: translateY(0.8rem);
+    transition: transform 0.7s var(--ease), opacity 0.7s var(--ease);
 }
 
 body.cfg-open .cfg .bottom-bar {
+    opacity: 1;
     transform: none;
+}
+
+.cfg .product-info-bar {
+    padding: clamp(1rem, 2.4vw, 1.75rem) var(--gutter);
 }
 
 .cfg .camera-controls {
@@ -701,7 +705,6 @@ body.cfg-open .cfg .bottom-bar {
     top: 1.5rem;
     left: 50%;
     right: auto;
-    margin-left: calc(min(340px, 84vw) / -2);
     transform: translateX(-50%) translateY(-1rem);
     opacity: 0;
     transition: transform 0.7s var(--ease), opacity 0.7s var(--ease);
@@ -710,6 +713,177 @@ body.cfg-open .cfg .bottom-bar {
 body.cfg-open .cfg .camera-controls {
     transform: translateX(-50%);
     opacity: 1;
+}
+
+/* ===== Hotspots ========================================================
+ *
+ *  A marker pinned to each configurable part of the lamp. hero.js projects a
+ *  world-space anchor to screen coordinates every frame and writes it into the
+ *  custom properties below, so the markers track the model through the camera
+ *  moves without any layout thrash.
+ */
+
+.hs-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s var(--ease);
+}
+
+body.cfg-open .hs-layer {
+    opacity: 1;
+}
+
+.hs {
+    position: absolute;
+    left: var(--x, 50%);
+    top: var(--y, 50%);
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--cream);
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+/* A dark ring between the dot and its halo, because these sit on a lamp that
+   is white-hot in places and near-black in others — a plain light dot
+   disappears against the perforated sleeve. */
+.hs i {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--cream);
+    box-shadow:
+        0 0 0 2px rgba(20, 16, 14, 0.65),
+        0 0 0 3px rgba(241, 236, 225, 0.5),
+        0 2px 14px rgba(0, 0, 0, 0.65);
+    transition: transform 0.4s var(--ease), background 0.4s var(--ease);
+}
+
+/* The pulse is a separate ring so it can scale without moving the dot. */
+.hs i::after {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px solid rgba(241, 236, 225, 0.75);
+    animation: hs-pulse 2.6s var(--ease) infinite;
+}
+
+@keyframes hs-pulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.8;
+    }
+
+    70% {
+        transform: scale(2.1);
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+.hs span {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
+}
+
+.hs:hover span,
+.hs.is-near span {
+    opacity: 1;
+    transform: none;
+}
+
+/* The popover carries the part name in its own title, and the label would sit
+   underneath it. */
+.hs.is-open span {
+    opacity: 0;
+}
+
+.hs:hover i,
+.hs.is-near i {
+    transform: scale(1.25);
+    background: var(--gold-soft);
+}
+
+.hs.is-open i {
+    background: var(--gold-soft);
+    transform: scale(1.25);
+}
+
+.hs.is-open i::after {
+    animation: none;
+    opacity: 0;
+}
+
+/* ===== Hotspot popover ================================================= */
+
+.hs-pop {
+    position: absolute;
+    left: var(--x, 50%);
+    top: var(--y, 50%);
+    /* Opens to the right of its dot; hero.js adds .to-left when there is not
+       enough room on that side. */
+    transform: translate(1.75rem, -50%);
+    min-width: 15rem;
+    max-width: min(20rem, 78vw);
+    padding: 1.1rem 1.2rem 1.2rem;
+    background: rgba(20, 16, 14, 0.82);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.35s var(--ease), visibility 0.35s;
+}
+
+.hs-pop.to-left {
+    transform: translate(calc(-100% - 1.75rem), -50%);
+}
+
+.hs-pop.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.hs-pop-title {
+    margin: 0 0 0.9rem;
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+/* The moved-in control groups keep their own styling from styles.css; only the
+   section heading is redundant now that the popover has a title. */
+.hs-pop .control-title {
+    display: none;
+}
+
+.hs-pop .control-section {
+    margin: 0;
 }
 
 .cfg-back {
@@ -761,24 +935,42 @@ body.cfg-open .cfg-back {
 }
 
 @media (max-width: 900px) {
-    .cfg .sidebar {
-        width: 100%;
-        max-width: none;
-        height: 62%;
+
+    /* A phone has no room for a popover beside a dot, so it becomes a sheet
+       pinned above the bottom bar and the dot only chooses which one shows. */
+    .hs-pop,
+    .hs-pop.to-left {
+        left: 0.75rem;
+        right: 0.75rem;
         top: auto;
-        bottom: 0;
-        transform: translateY(100%);
-        border-left: 0;
-        border-top: 1px solid var(--hairline);
+        bottom: 5.5rem;
+        max-width: none;
+        transform: translateY(0.6rem);
+        transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0.35s;
     }
 
-    .cfg .bottom-bar {
-        right: 0;
-        bottom: 62%;
+    .hs-pop.is-open {
+        transform: none;
     }
 
-    .cfg .camera-controls {
-        margin-left: 0;
+    .cfg .product-info-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.9rem;
+    }
+
+    .cfg .action-buttons {
+        width: 100%;
+    }
+
+    /* Back and the view buttons share the top strip and collide at phone
+       widths, so Back drops to its arrow alone. */
+    .cfg-back {
+        padding: 0.3rem;
+    }
+
+    .cfg-back span:not(.disc) {
+        display: none;
     }
 }
 

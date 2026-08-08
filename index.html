@@ -630,6 +630,37 @@
             <span>Back</span>
         </button>
 
+        <!-- Hotspots. Three markers pinned to the lamp itself — hero.js projects
+             them from world space every frame and drops the sidebar's control
+             groups into the matching popover at startup, so the buttons in here
+             are the real ones script.js bound its listeners to, just relocated.
+             The <aside class="sidebar"> below is kept as their empty origin and
+             is never shown. -->
+        <div class="hs-layer" id="hsLayer" aria-hidden="true">
+            <button class="hs" type="button" data-part="rim">
+                <i></i><span>Ring finish</span>
+            </button>
+            <button class="hs" type="button" data-part="pattern">
+                <i></i><span>Light pattern</span>
+            </button>
+            <button class="hs" type="button" data-part="base">
+                <i></i><span>Body colour</span>
+            </button>
+
+            <div class="hs-pop" data-part="rim">
+                <p class="hs-pop-title">Ring finish</p>
+                <div class="hs-pop-body"></div>
+            </div>
+            <div class="hs-pop" data-part="pattern">
+                <p class="hs-pop-title">Light pattern</p>
+                <div class="hs-pop-body"></div>
+            </div>
+            <div class="hs-pop" data-part="base">
+                <p class="hs-pop-title">Body colour</p>
+                <div class="hs-pop-body"></div>
+            </div>
+        </div>
+
             <div id="cameraControls" class="camera-controls active">
                 <button class="camera-btn active" data-angle="front">FRONT</button>
                 <button class="camera-btn" data-angle="left">LEFT</button>
