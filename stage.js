@@ -24,36 +24,36 @@
                 'to expose. The gradient is driven by world direction, so the halo ' +
                 'stays anchored behind the lamp instead of sliding with the camera.',
             fields: [
-                { key: 'backdropColor', label: 'Base colour', type: 'color', val: 0x080605 },
-                { key: 'glowColor', label: 'Halo colour', type: 'color', val: 0xffb463 },
-                { key: 'glowGain', label: 'Halo brightness', min: 0, max: 4, step: 0.01, val: 1.30, dp: 2 },
+                { key: 'backdropColor', section: 'Colour', section: 'Colour', label: 'Base colour', type: 'color', val: 0x080605 },
+                { key: 'glowColor', section: 'Colour', section: 'Colour', label: 'Halo colour', type: 'color', val: 0xffb463 },
+                { key: 'glowGain', section: 'Halo', section: 'Halo', label: 'Halo brightness', min: 0, max: 4, step: 0.01, val: 1.30, dp: 2 },
                 {
-                    key: 'glowSpread', label: 'Halo size', min: 0.02, max: 1.6, step: 0.01, val: 0.32, dp: 2,
+                    key: 'glowSpread', section: 'Halo', label: 'Halo size', min: 0.02, max: 1.6, step: 0.01, val: 0.32, dp: 2,
                     unit: ' rad',
                     hint: 'Camera fov is only 10 degrees, so the visible patch of dome ' +
                         'spans about that much angle. Values much above ~0.5 are ' +
                         'effectively constant across the frame and read as flat brown.'
                 },
                 {
-                    key: 'glowSoftness', label: 'Falloff', min: 0.5, max: 12, step: 0.1, val: 5.0, dp: 1,
+                    key: 'glowSoftness', section: 'Halo', label: 'Falloff', min: 0.5, max: 12, step: 0.1, val: 5.0, dp: 1,
                     hint: 'Higher = tighter core and darker corners.'
                 },
                 {
-                    key: 'glowElevation', label: 'Halo height', min: -1, max: 1, step: 0.01, val: 0.12, dp: 2,
+                    key: 'glowElevation', section: 'Halo', label: 'Halo height', min: -1, max: 1, step: 0.01, val: 0.12, dp: 2,
                     hint: 'Halo direction above the horizon. Exactly 0 makes the dome ' +
                         'symmetric about the floor, which is the one setting where the ' +
                         'floor reflection matches the dome perfectly and the horizon ' +
                         'join becomes invisible.'
                 },
-                { key: 'domeScale', label: 'Dome size', min: 1.2, max: 12, step: 0.1, val: 3.0, dp: 1 },
-                { key: 'backdropDistance', label: 'Dome distance', min: 1, max: 20, step: 0.5, val: 6.0, dp: 1 },
+                { key: 'domeScale', section: 'Geometry', section: 'Geometry', label: 'Dome size', min: 1.2, max: 12, step: 0.1, val: 3.0, dp: 1 },
+                { key: 'backdropDistance', section: 'Geometry', section: 'Geometry', label: 'Dome distance', min: 1, max: 20, step: 0.5, val: 6.0, dp: 1 },
                 {
-                    key: 'domeOffsetX', label: 'Offset X', min: -20, max: 20, step: 0.01, val: 0, dp: 2,
+                    key: 'domeOffsetX', section: 'Position', label: 'Offset X', min: -20, max: 20, step: 0.01, val: 0, dp: 2,
                     hint: 'Set by the move gizmo when the backdrop is selected, so a ' +
                         'drag in the viewport survives into the JSON instead of being lost.'
                 },
-                { key: 'domeOffsetY', label: 'Offset Y', min: -20, max: 20, step: 0.01, val: 0, dp: 2 },
-                { key: 'domeOffsetZ', label: 'Offset Z', min: -20, max: 20, step: 0.01, val: 0, dp: 2 }
+                { key: 'domeOffsetY', section: 'Position', section: 'Position', label: 'Offset Y', min: -20, max: 20, step: 0.01, val: 0, dp: 2 },
+                { key: 'domeOffsetZ', section: 'Position', section: 'Position', label: 'Offset Z', min: -20, max: 20, step: 0.01, val: 0, dp: 2 }
             ]
         },
         {
@@ -63,7 +63,7 @@
                 'that rim out is what used to draw a dark band along the horizon.',
             fields: [
                 {
-                    key: 'floorMode', label: 'Reflection type', type: 'select', val: 'planar',
+                    key: 'floorMode', section: 'Type', label: 'Reflection type', type: 'select', val: 'planar',
                     options: [
                         { value: 'planar', label: 'Polished (reflective)' },
                         { value: 'none', label: 'Matte (no reflection)' }
@@ -75,55 +75,58 @@
                         'Planar reflection with a roughness blur is what actually works ' +
                         'here, and is what product configurators use.'
                 },
-                { key: 'floorColor', label: 'Floor colour', type: 'color', val: 0x090808 },
-                { key: 'reflectStrength', label: 'Reflection', min: 0, max: 1.5, step: 0.01, val: 0.50, dp: 2 },
+                { key: 'floorColor', section: 'Type', section: 'Type', label: 'Floor colour', type: 'color', val: 0x090808 },
+                { key: 'reflectStrength', section: 'Reflection', section: 'Reflection', label: 'Reflection', min: 0, max: 1.5, step: 0.01, val: 0.50, dp: 2 },
                 {
-                    key: 'reflectFade', label: 'Reflection falloff', min: 0, max: 14, step: 0.1, val: 3.2, dp: 1,
+                    key: 'reflectFade', section: 'Reflection', label: 'Reflection falloff', min: 0, max: 14, step: 0.1, val: 3.2, dp: 1,
                     hint: 'How fast the lamp\'s own mirror image dies off with distance.'
                 },
                 {
-                    key: 'reflectBlurRadius', label: 'Roughness (blur)', min: 0, max: 8, step: 0.05, val: 2.2, dp: 2,
-                    hint: 'Gaussian step in blur-buffer texels. This is the "slightly ' +
-                        'rough, not a mirror" control.'
+                    key: 'reflectRoughness', section: 'Reflection', label: 'Roughness', min: 0, max: 1, step: 0.01, val: 0.35, dp: 2,
+                    hint: 'Drives which MIP LEVEL of the reflection is sampled — the same ' +
+                        'approach three.js\'s WebGPU roughness-reflection example uses. ' +
+                        'A trilinear mip pyramid is smooth by construction, where a ' +
+                        'fixed-tap blur bands and shimmers. 0 = mirror.'
                 },
                 {
-                    key: 'reflectBlurRamp', label: 'Blur ramp', min: 0, max: 6, step: 0.05, val: 1.6, dp: 2,
-                    hint: 'How quickly it reaches full blur going outward. 0 = uniformly sharp.'
+                    key: 'reflectBlurRamp', section: 'Reflection', label: 'Roughness with distance', min: 0, max: 1, step: 0.01, val: 0.45, dp: 2,
+                    hint: 'Extra roughness added as the reflection recedes, so it ' +
+                        'dissolves the way a real rough surface scatters over distance.'
                 },
                 {
-                    key: 'fresnelGain', label: 'Grazing boost', min: 0, max: 1, step: 0.01, val: 0.90, dp: 2,
+                    key: 'fresnelGain', section: 'Reflection', label: 'Grazing boost', min: 0, max: 1, step: 0.01, val: 0.90, dp: 2,
                     hint: 'A glossy floor is nearly a full mirror at a grazing angle. ' +
                         'Lowering this brings back a visible step at the horizon.'
                 },
-                { key: 'poolRadius', label: 'Light pool size', min: 0.01, max: 1.5, step: 0.01, val: 0.20, dp: 2 },
-                { key: 'poolGain', label: 'Light pool strength', min: 0, max: 2, step: 0.01, val: 0.30, dp: 2 },
+                { key: 'poolRadius', section: 'Light pool', section: 'Light pool', label: 'Light pool size', min: 0.01, max: 1.5, step: 0.01, val: 0.20, dp: 2 },
+                { key: 'poolGain', section: 'Light pool', section: 'Light pool', label: 'Light pool strength', min: 0, max: 2, step: 0.01, val: 0.30, dp: 2 },
                 {
-                    key: 'horizonGain', label: 'Backdrop bounce', min: 0, max: 1, step: 0.01, val: 0.0, dp: 2,
+                    key: 'horizonGain', section: 'Horizon blend', label: 'Backdrop bounce', min: 0, max: 1, step: 0.01, val: 0.0, dp: 2,
                     hint: 'Warmth added to the far floor. Measured as a 16 -> 39 luma ' +
                         'step across the horizon join at 0.14, which is why it is off.'
                 },
-                { key: 'horizonRange', label: 'Bounce reach', min: 0.05, max: 2, step: 0.01, val: 0.55, dp: 2 },
+                { key: 'horizonRange', section: 'Horizon blend', section: 'Horizon blend', label: 'Bounce reach', min: 0.05, max: 2, step: 0.01, val: 0.55, dp: 2 },
                 {
-                    key: 'horizonStart', label: 'Mirror band start', min: 0, max: 3, step: 0.01, val: 1.00, dp: 2,
+                    key: 'horizonStart', section: 'Horizon blend', label: 'Mirror band start', min: 0, max: 3, step: 0.01, val: 1.00, dp: 2,
                     hint: 'Where the floor starts becoming a pure mirror so the join to ' +
                         'the dome is seamless.'
                 },
-                { key: 'horizonEnd', label: 'Mirror band end', min: 0, max: 4, step: 0.01, val: 1.80, dp: 2 },
-                { key: 'floorRadius', label: 'Falloff reference', min: 2, max: 40, step: 0.5, val: 14.0, dp: 1 },
+                { key: 'horizonEnd', section: 'Horizon blend', section: 'Horizon blend', label: 'Mirror band end', min: 0, max: 4, step: 0.01, val: 1.80, dp: 2 },
+                { key: 'floorRadius', section: 'Geometry', section: 'Geometry', label: 'Falloff reference', min: 2, max: 40, step: 0.5, val: 14.0, dp: 1 },
                 {
-                    key: 'floorOffsetY', label: 'Floor height', min: -5, max: 5, step: 0.005, val: 0, dp: 3,
+                    key: 'floorOffsetY', section: 'Geometry', label: 'Floor height', min: -5, max: 5, step: 0.005, val: 0, dp: 3,
                     hint: 'Relative to the base of the model. The gizmo writes this.'
                 },
                 {
-                    key: 'floorRoughness', label: 'Floor roughness', min: 0, max: 1, step: 0.01, val: 0.25, dp: 2,
+                    key: 'floorRoughness', section: 'Material', label: 'Floor roughness', min: 0, max: 1, step: 0.01, val: 0.25, dp: 2,
                     hint: 'Used by SSR and matte modes. This is a real material ' +
                         'roughness, not a screen-space blur.'
                 },
                 {
-                    key: 'floorMetalness', label: 'Floor metalness', min: 0, max: 1, step: 0.01, val: 0.6, dp: 2
+                    key: 'floorMetalness', section: 'Material', label: 'Floor metalness', min: 0, max: 1, step: 0.01, val: 0.6, dp: 2
                 },
                 {
-                    key: 'reflectionResolution', label: 'Reflection buffer', type: 'select', val: 512,
+                    key: 'reflectionResolution', section: 'Quality', label: 'Reflection buffer', type: 'select', val: 512,
                     options: [256, 512, 1024, 2048],
                     rebuild: true,
                     hint: 'Small is fine because the result is blurred. Changing this ' +
@@ -162,7 +165,13 @@
                 const allowed = (f.options || []).map(o => (o && o.value !== undefined) ? o.value : o);
                 if (allowed.indexOf(v) !== -1) out[k] = v;
             } else if (typeof v === 'number' && isFinite(v)) {
-                out[k] = v;
+                // Clamp to the schema's range. reflectBlurRamp used to run 0..6 and
+                // now means 0..1, so an older preset would otherwise drive the
+                // roughness ramp six times past full and pin the floor to its
+                // blurriest mip.
+                out[k] = (f.min !== undefined && f.max !== undefined)
+                    ? Math.min(f.max, Math.max(f.min, v))
+                    : v;
             }
         }
         return out;
@@ -227,11 +236,12 @@
 
     const FLOOR_FRAG = `
         uniform vec3      color;
-        uniform sampler2D tDiffuse;   // sharp reflection
-        uniform sampler2D tBlur;      // gaussian-blurred copy
+        uniform sampler2D tDiffuse;   // reflection, with a full mip chain
         uniform vec3      glowColor;
         uniform float     reflectStrength;
-        uniform float     blurRamp;
+        uniform float     roughness;
+        uniform float     roughGrow;
+        uniform float     maxLod;
         uniform float     reflectFade;
         uniform float     poolRadius;
         uniform float     poolGain;
@@ -248,14 +258,20 @@
         void main() {
             float r = length(vLocal) / max(floorRadius, 1e-3);
 
-            // ROUGH REFLECTION: a sharp sample mixed toward a properly blurred
-            // copy. Taking a ring of taps here instead made the samples overlap
-            // and read as ghosting; a separable gaussian in its own buffer is
-            // both smoother and cheaper than enough taps to hide that.
-            vec3 sharp = texture2DProj(tDiffuse, vUv).rgb;
-            vec3 soft  = texture2DProj(tBlur,    vUv).rgb;
-            float rough = clamp(r * blurRamp, 0.0, 1.0);
-            vec3 refl = mix(sharp, soft, rough);
+            // ROUGH REFLECTION via MIP LEVEL, the same idea as three.js's WebGPU
+            // roughness-reflection example. Roughness picks a level of the
+            // reflection's mip pyramid, and trilinear filtering between levels is
+            // smooth by construction — no tap count to alias against, which is
+            // what made the previous separable-gaussian version noisy.
+            float rough = clamp(roughness + r * roughGrow, 0.0, 1.0);
+            // Perceptual: roughness^2 tracks how blurred a surface actually looks,
+            // so the low end stays controllable instead of jumping straight to soft.
+            float lod = clamp(rough * rough * maxLod, 0.0, maxLod);
+            #ifdef REFL_LOD
+                vec3 refl = texture2DProjLodEXT(tDiffuse, vUv, lod).rgb;
+            #else
+                vec3 refl = texture2DProj(tDiffuse, vUv).rgb;
+            #endif
 
             // FRESNEL: nearly a full mirror at a grazing angle, which is what lets
             // the floor BECOME the dome at the horizon with no step in brightness.
@@ -291,26 +307,6 @@
             gl_FragColor = vec4(c, 1.0);
         }`;
 
-    const BLUR_FRAG = `
-        uniform sampler2D tSrc;
-        uniform vec2  direction;
-        uniform vec2  texel;
-        uniform float radius;
-        varying vec2  vUvQ;
-        void main() {
-            // 9-tap gaussian, weights from Pascal's row 8 normalised.
-            float w[5];
-            w[0] = 0.2270270270; w[1] = 0.1945945946; w[2] = 0.1216216216;
-            w[3] = 0.0540540541; w[4] = 0.0162162162;
-            vec2 stp = direction * texel * radius;
-            vec3 sum = texture2D(tSrc, vUvQ).rgb * w[0];
-            for (int i = 1; i < 5; i++) {
-                vec2 o = stp * float(i);
-                sum += texture2D(tSrc, vUvQ + o).rgb * w[i];
-                sum += texture2D(tSrc, vUvQ - o).rgb * w[i];
-            }
-            gl_FragColor = vec4(sum, 1.0);
-        }`;
 
     // -------------------------------------------------------------------------
     //  Build
@@ -378,6 +374,13 @@
         const refLen = span * S.floorRadius;
         const res = S.reflectionResolution;
 
+        // Explicit-LOD sampling is native on WebGL2; on WebGL1 it needs an
+        // extension, and without it the shader falls back to the sharp mirror
+        // rather than failing to compile.
+        const gl = renderer.getContext();
+        const lodSupported = renderer.capabilities.isWebGL2 ||
+            !!renderer.extensions.get('EXT_shader_texture_lod');
+
         const floorGeo = new THREE.CircleGeometry(radius, 128);
         let floor, groundReflector = null, ssrTargets = null;
 
@@ -404,10 +407,11 @@
                         color: { value: null },
                         tDiffuse: { value: null },
                         textureMatrix: { value: null },
-                        tBlur: { value: null },
                         glowColor: { value: new THREE.Color(S.glowColor) },
                         reflectStrength: { value: S.reflectStrength },
-                        blurRamp: { value: S.reflectBlurRamp },
+                        roughness: { value: S.reflectRoughness },
+                        roughGrow: { value: S.reflectBlurRamp },
+                        maxLod: { value: Math.log2(res) },
                         reflectFade: { value: S.reflectFade },
                         poolRadius: { value: S.poolRadius },
                         poolGain: { value: S.poolGain },
@@ -424,46 +428,31 @@
             });
         }
 
+        // MIPMAPS on the reflection target are what make the roughness blur smooth.
+        // Reflector hardcodes LinearFilter and only disables mipmaps for non-power-
+        // of-two sizes, so with a POT buffer it is enough to switch the min filter
+        // and ask for mips — the renderer then regenerates them each time it
+        // renders into the target.
+        if (S.floorMode === 'planar') {
+            // Reflector builds its ShaderMaterial from only {uniforms, vertexShader,
+            // fragmentShader} — a `defines` entry in the shader object is dropped,
+            // which silently left REFL_LOD undefined and the mip sampling switched
+            // off. Set it on the material instead.
+            if (lodSupported) {
+                floor.material.defines = Object.assign({}, floor.material.defines, { REFL_LOD: '' });
+                floor.material.needsUpdate = true;
+            }
+            const rt = floor.getRenderTarget();
+            rt.texture.minFilter = THREE.LinearMipmapLinearFilter;
+            rt.texture.generateMipmaps = true;
+            rt.texture.needsUpdate = true;
+        }
+
         floor.rotateX(-Math.PI / 2);
         floor.position.y = floorY + S.floorOffsetY;
         floor.renderOrder = -5;
         scene.add(floor);
 
-        // --- blur buffers ---
-        // Half resolution on purpose: the output is blurred, so the detail thrown
-        // away is detail the blur would have destroyed anyway, and each pass costs
-        // a quarter as much. Two 1D passes beat an NxN kernel for the same radius.
-        const half = Math.max(64, Math.floor(res / 2));
-        const rtOpts = {
-            minFilter: THREE.LinearFilter,
-            magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat,
-            depthBuffer: false,
-            stencilBuffer: false
-        };
-        const blurRT = [
-            new THREE.WebGLRenderTarget(half, half, rtOpts),
-            new THREE.WebGLRenderTarget(half, half, rtOpts)
-        ];
-        // The reflection is already tonemapped and encoded by the pass that made
-        // it, so the blur must not re-encode: keep both buffers in the same space.
-        blurRT.forEach(rt => { rt.texture.encoding = THREE.LinearEncoding; });
-
-        const blurMat = new THREE.ShaderMaterial({
-            uniforms: {
-                tSrc: { value: null },
-                direction: { value: new THREE.Vector2(1, 0) },
-                texel: { value: new THREE.Vector2(1 / half, 1 / half) },
-                radius: { value: S.reflectBlurRadius }
-            },
-            vertexShader: `
-                varying vec2 vUvQ;
-                void main() { vUvQ = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
-            fragmentShader: BLUR_FRAG
-        });
-        const blurScene = new THREE.Scene();
-        blurScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blurMat));
-        const blurCam = new THREE.Camera();
 
         const api = {
             dome: dome,
@@ -513,7 +502,8 @@
                 f.color.value.set(n.floorColor);
                 f.glowColor.value.set(n.glowColor);
                 f.reflectStrength.value = n.reflectStrength;
-                f.blurRamp.value = n.reflectBlurRamp;
+                f.roughness.value = n.reflectRoughness;
+                f.roughGrow.value = n.reflectBlurRamp;
                 f.reflectFade.value = n.reflectFade;
                 f.poolRadius.value = n.poolRadius;
                 f.poolGain.value = n.poolGain;
@@ -524,49 +514,12 @@
                 f.horizonStart.value = n.horizonStart;
                 f.horizonEnd.value = n.horizonEnd;
 
-                blurMat.uniforms.radius.value = n.reflectBlurRadius;
-
                 dome.position.set(n.domeOffsetX, centreY + n.domeOffsetY, n.domeOffsetZ);
                 floor.position.y = floorY + n.floorOffsetY;
 
                 return needsRebuild;
             },
 
-            /**
-             * Blur the reflector's target and point the floor at the result.
-             *
-             * Reads the target the reflector filled on the PREVIOUS frame, because
-             * the reflector only renders when the floor is drawn, which happens
-             * after this. One frame of latency on a reflection is imperceptible,
-             * and buying it avoids a second full reflection render per frame.
-             */
-            blur: function () {
-                // Planar only. SSR does its own, physically-correct blur inside
-                // SSRPass, and the matte floor has nothing to blur.
-                if (api.mode !== 'planar') return;
-                const src = floor.getRenderTarget && floor.getRenderTarget();
-                if (!src) return;
-                // A host's selective-bloom pass swaps meshes to a flat dark
-                // material; if that is in place there are no uniforms to write to,
-                // and blurring now would target a material nobody displays.
-                const mat = floor.material;
-                if (!mat || !mat.uniforms || !mat.uniforms.tBlur) return;
-                const prev = renderer.getRenderTarget();
-                const u = blurMat.uniforms;
-
-                u.tSrc.value = src.texture;
-                u.direction.value.set(1, 0);
-                renderer.setRenderTarget(blurRT[0]);
-                renderer.render(blurScene, blurCam);
-
-                u.tSrc.value = blurRT[0].texture;
-                u.direction.value.set(0, 1);
-                renderer.setRenderTarget(blurRT[1]);
-                renderer.render(blurScene, blurCam);
-
-                renderer.setRenderTarget(prev);
-                mat.uniforms.tBlur.value = blurRT[1].texture;
-            },
 
             /**
              * Read the live transforms back into settings, so a gizmo drag becomes
@@ -579,6 +532,13 @@
                 api.settings.floorOffsetY = +(floor.position.y - floorY).toFixed(4);
                 return api.settings;
             },
+
+            /**
+             * Kept as a no-op. The roughness blur is now mip sampling inside the
+             * floor shader, so there is no separate blur pass to drive — and no
+             * one-frame latency either, which the old pre-pass had.
+             */
+            blur: function () { },
 
             setVisible: function (on) {
                 dome.visible = on;
@@ -593,8 +553,6 @@
                 floor.geometry.dispose();
                 floor.material.dispose();
                 if (floor.dispose) floor.dispose();
-                blurRT.forEach(rt => rt.dispose());
-                blurMat.dispose();
             }
         };
         return api;
@@ -624,8 +582,8 @@
         "floorColor": "#090808",
         "reflectStrength": 0,
         "reflectFade": 0,
-        "reflectBlurRadius": 0,
-        "reflectBlurRamp": 6,
+        "reflectRoughness": 0.35,
+        "reflectBlurRamp": 0.45,
         "fresnelGain": 1,
         "poolRadius": 0.23,
         "poolGain": 0.28,

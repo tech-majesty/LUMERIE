@@ -665,6 +665,16 @@
         .grpBody { padding: 2px var(--spacing-md) var(--spacing-md); }
         .grp.shut .grpBody { display: none; }
 
+        /* --- sub-section inside a group --- */
+        .sub { margin: 2px 0 10px; }
+        .subHead {
+            font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+            color: var(--gold); opacity: .75;
+            padding: 6px 0 5px; margin-bottom: 3px;
+            border-bottom: 1px solid var(--panel-line-soft);
+        }
+        .subBody { padding-left: 2px; }
+
         /* --- a labelled field row --- */
         .fld {
             display: flex; align-items: center; gap: 8px;
@@ -672,17 +682,20 @@
         }
         .fld > label {
             flex: 1 1 auto; min-width: 0;
-            font-size: 11.5px; color: var(--panel-text-dim);
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            font-size: 11.5px; line-height: 1.25; color: var(--panel-text-dim);
+            /* wrap instead of truncating: "Light pool strength" was arriving as
+               "Light pool stren..." with the meaning cut off */
+            white-space: normal;
+            overflow-wrap: break-word;
         }
         .fld > input[type=text], .fld > select {
-            flex: 0 0 152px; width: 152px;
+            flex: 0 0 128px; width: 128px;
         }
         .fld > input[type=color] { flex: 0 0 44px; }
 
         /* --- drag-to-scrub number, the signature 3D-app widget --- */
         .num {
-            flex: 0 0 152px; position: relative; height: 24px;
+            flex: 0 0 116px; position: relative; height: 24px;
             border: 1px solid var(--panel-line); border-radius: var(--radius-sm);
             background: var(--panel-fill); overflow: hidden;
             cursor: ew-resize; user-select: none;
@@ -722,7 +735,7 @@
 
         /* --- toggle --- */
         .tgl {
-            flex: 0 0 152px; height: 24px; padding: 0;
+            flex: 0 0 116px; height: 24px; padding: 0;
             background: var(--panel-fill); color: var(--panel-text-dim);
             border: 1px solid var(--panel-line); border-radius: var(--radius-sm);
             cursor: pointer; font-size: 11px; letter-spacing: .06em;
@@ -2415,6 +2428,25 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 return { row: row, input: btn };
             }
 
+            /**
+             * A sub-section inside a group: a small header plus its own indented
+             * body. Deliberately not collapsible — nesting two levels of disclosure
+             * makes things harder to find, not easier. It exists to break long
+             * lists into scannable runs.
+             */
+            function sub(parent, title) {
+                const wrap = document.createElement('div');
+                wrap.className = 'sub';
+                const h = document.createElement('div');
+                h.className = 'subHead';
+                h.textContent = title;
+                const body = document.createElement('div');
+                body.className = 'subBody';
+                wrap.appendChild(h); wrap.appendChild(body);
+                parent.appendChild(wrap);
+                return body;
+            }
+
             /** A collapsible group, with its open/shut state remembered. */
             function group(parent, key, title, hint) {
                 const g = document.createElement('div');
@@ -2444,7 +2476,7 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 return body;
             }
 
-            return { num, color, select, toggle, group, store, save, fmt };
+            return { num, color, select, toggle, group, sub, store, save, fmt };
         })();
 
 
@@ -2862,16 +2894,25 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
 
             window.MajestyStage.SCHEMA.forEach((g, gi) => {
                 const body = UI.group(host, 'stage-' + gi, g.group, g.hint);
+                // Sub-sections, so a 17-control group reads as five short lists
+                // instead of one column you have to scan end to end.
+                const subs = {};
+                const hostFor = (f) => {
+                    if (!f.section) return body;
+                    if (!subs[f.section]) subs[f.section] = UI.sub(body, f.section);
+                    return subs[f.section];
+                };
                 g.fields.forEach(f => {
                     const common = {
                         id: 'st_' + f.key, label: f.label, hint: f.hint,
                         val: state.stageSettings[f.key],
                         onChange: v => push(f.key, v)
                     };
+                    const into = hostFor(f);
                     if (f.type === 'color') {
-                        UI.color(body, common);
+                        UI.color(into, common);
                     } else if (f.type === 'select') {
-                        UI.select(body, Object.assign({}, common, {
+                        UI.select(into, Object.assign({}, common, {
                             options: f.options,
                             // Only coerce selects whose values are numbers.
                             // `+v` on a string enum such as floorMode yields NaN,
@@ -2880,7 +2921,7 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                             onChange: v => push(f.key, (typeof f.val === 'number') ? +v : v)
                         }));
                     } else {
-                        UI.num(body, Object.assign({}, common, {
+                        UI.num(into, Object.assign({}, common, {
                             min: f.min, max: f.max, step: f.step, dp: f.dp, unit: f.unit,
                             // the schema default, so ↺ resets to shipped values
                             val: state.stageSettings[f.key]
