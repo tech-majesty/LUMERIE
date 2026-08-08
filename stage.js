@@ -479,7 +479,15 @@
             /** Push settings into the live uniforms. Returns true if a rebuild is needed. */
             update: function (next) {
                 const n = normalise(next);
-                const needsRebuild = n.reflectionResolution !== S.reflectionResolution;
+                // Every "did this change?" test has to happen BEFORE the assign
+                // below. S and api.settings are the same object, so assigning
+                // first overwrites the old values and the comparisons all come out
+                // false — which is why switching floor mode silently did nothing.
+                const needsRebuild =
+                    n.reflectionResolution !== S.reflectionResolution ||
+                    n.floorMode !== S.floorMode ||
+                    n.domeScale !== S.domeScale ||
+                    n.backdropDistance !== S.backdropDistance;
                 Object.assign(api.settings, n);
 
                 const d = dome.material.uniforms;
@@ -490,10 +498,11 @@
                 d.glowSoft.value = n.glowSoftness;
                 d.glowGain.value = n.glowGain;
 
-                // Mode changes are structural — the caller has to rebuild.
-                if (n.floorMode !== S.floorMode) return true;
+                // A mode change is structural: bail out and let the caller rebuild
+                // rather than writing uniforms into a material of the wrong kind.
+                if (needsRebuild) return true;
 
-                if (api.mode === 'ssr' || api.mode === 'none') {
+                if (api.mode === 'none') {
                     floor.material.color.set(n.floorColor);
                     floor.material.roughness = n.floorRoughness;
                     floor.material.metalness = n.floorMetalness;
@@ -520,10 +529,7 @@
                 dome.position.set(n.domeOffsetX, centreY + n.domeOffsetY, n.domeOffsetZ);
                 floor.position.y = floorY + n.floorOffsetY;
 
-                // Dome geometry depends on these, so they cannot be a uniform tweak.
-                return needsRebuild ||
-                    n.domeScale !== S.domeScale ||
-                    n.backdropDistance !== S.backdropDistance;
+                return needsRebuild;
             },
 
             /**

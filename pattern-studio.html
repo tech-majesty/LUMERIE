@@ -1197,8 +1197,10 @@
             scene = new THREE.Scene();
             // same 10-degree product lens and start position as the storefront
             // far = 1000 for a 0.4-unit subject left bokeh and AO with almost no
-            // usable depth precision. 40 comfortably encloses the dome.
-            camera = new THREE.PerspectiveCamera(10, view.clientWidth / view.clientHeight, 0.5, 40);
+            // usable depth precision. This is only a starting value — buildStage()
+            // recomputes far from the dome's actual radius, because the dome is much
+            // larger than the subject and clipping it shows as a black wedge.
+            camera = new THREE.PerspectiveCamera(10, view.clientWidth / view.clientHeight, 0.5, 60);
             camera.position.set(0, 0, 3);
             camera.layers.enable(LAYER_LOGO);
 
@@ -2871,7 +2873,11 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                     } else if (f.type === 'select') {
                         UI.select(body, Object.assign({}, common, {
                             options: f.options,
-                            onChange: v => push(f.key, +v)
+                            // Only coerce selects whose values are numbers.
+                            // `+v` on a string enum such as floorMode yields NaN,
+                            // which normalise() then rejects — so picking "Matte"
+                            // silently did nothing.
+                            onChange: v => push(f.key, (typeof f.val === 'number') ? +v : v)
                         }));
                     } else {
                         UI.num(body, Object.assign({}, common, {
@@ -3524,9 +3530,21 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 settings: state.stageSettings
             });
             floorMesh = state.stage.floor;
+
+            // The camera's far plane MUST enclose the dome, or its back face is
+            // clipped and you see straight through to the clear colour as a black
+            // wedge. These were two numbers set independently — far was lowered to
+            // 40 for depth precision while the dome is radius 36, and the farthest
+            // dome point sat at 40.19. Derive far from the dome so they cannot
+            // disagree again, allowing for the camera orbiting out to maxDistance.
+            const orbitMax = (controls && isFinite(controls.maxDistance)) ? controls.maxDistance : 12;
+            camera.far = (orbitMax + state.stage.domeRadius) * 1.08;
+            camera.updateProjectionMatrix();
+
             perf.reflector = state.stage.resolution + 'px';
             console.log(`Stage built — floor r=${state.stage.radius.toFixed(2)}, ` +
-                `dome r=${state.stage.domeRadius.toFixed(2)}, reflection ${state.stage.resolution}px`);
+                `dome r=${state.stage.domeRadius.toFixed(2)}, reflection ${state.stage.resolution}px, ` +
+                `camera far ${camera.far.toFixed(1)}`);
         }
 
         /** Re-create the stage, for settings that change geometry rather than uniforms. */
