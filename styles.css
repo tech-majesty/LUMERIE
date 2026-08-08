@@ -34,6 +34,13 @@
        Display remains the fallback while the file downloads. */
     --font-stat: 'Georgia Pro', 'Playfair Display', Georgia, serif;
 
+    /* Brand gold. The LUMERIE wordmark is a gradient, not a flat colour, so
+       anything meant to match it has to use the same gradient — a flat #d4a574
+       is only the dark END of it, which is why the statistics and the tagline
+       read duller than the heading they sit under. */
+    --gold-grad: linear-gradient(135deg, #fbbf24 0%, #d4a574 100%);
+    --gold-solid: #e5b567;
+
     /* Spacing */
     --spacing-xs: 0.5rem;
     --spacing-sm: 0.75rem;
@@ -820,13 +827,27 @@ body.light-mode .empty-cart-message {
     margin-left: 0.08em;
 }
 
-.luxegenie-title {
-    font-family: var(--font-display);
-    font-size: 3rem;
-    background: linear-gradient(135deg, #fbbf24 0%, #d4a574 100%);
+/* Applied to the wordmark, the statistics and the tagline so all three are the
+   same gold. `color` is set first as the fallback for anything that cannot do
+   background-clip: text — without it those browsers render the text invisible. */
+.brand-gold {
+    color: var(--gold-solid);
+    background: var(--gold-grad);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+    .brand-gold {
+        background: none;
+        -webkit-text-fill-color: currentColor;
+    }
+}
+
+.luxegenie-title {
+    font-family: var(--font-display);
+    font-size: 3rem;
     margin-bottom: 0.5rem;
 }
 
@@ -862,7 +883,6 @@ body.light-mode .empty-cart-message {
     display: block;
     font-family: var(--font-stat);
     font-size: 3rem;
-    color: #d4a574;
     margin-bottom: var(--spacing-xs);
 }
 
@@ -884,7 +904,6 @@ body.light-mode .empty-cart-message {
 .highlight-text {
     font-family: var(--font-display);
     font-size: 1.25rem;
-    color: #d4a574;
     margin-top: var(--spacing-lg);
     font-style: italic;
 }
