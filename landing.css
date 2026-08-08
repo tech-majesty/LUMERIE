@@ -1445,48 +1445,41 @@ html {
     pointer-events: none;
 }
 
-/* ===== Logo grid ========================================================
-   A grid with real cells rather than a strip, so eleven marks of wildly
-   different aspect ratios each get the same optical space. */
+/* ===== Logo wall ========================================================
+   No grid, no cells, no borders. A grid needs its last row filled or it hangs
+   an empty box off the end, and every divider it draws is another rectangle on
+   a page that is trying not to have any. Wrapping flex centres each row on its
+   own and simply stops when it runs out of marks.
 
-.logo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: var(--r-md);
-    overflow: hidden;
+   The files are dark artwork on a white ground with no alpha: inverting turns
+   the ground black and the mark light, and screening drops that black out
+   against the page, so each one sits on nothing at all. */
+
+.logo-wall {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    column-gap: clamp(2.5rem, 6vw, 5.5rem);
+    row-gap: clamp(2.5rem, 5vw, 4.5rem);
+    max-width: 74rem;
+    margin-inline: auto;
 }
 
-.logo-cell {
-    display: grid;
-    place-items: center;
-    padding: clamp(1.4rem, 2.6vw, 2.2rem) 1rem;
-    min-height: clamp(96px, 11vw, 132px);
-    background: var(--bg);
-    transition: background 0.5s var(--ease);
-}
-
-.logo-cell:hover {
-    background: var(--surface-2);
-}
-
-.logo-cell img {
-    max-height: clamp(30px, 3.4vw, 44px);
-    max-width: min(150px, 100%);
+.logo-wall img {
+    height: clamp(40px, 5.2vw, 72px);
     width: auto;
+    max-width: 260px;
     object-fit: contain;
-    /* Dark artwork on a white ground with no alpha: inverting turns the ground
-       black and the mark light, screening drops the black out entirely. */
     filter: invert(1) grayscale(1) brightness(1.15);
     mix-blend-mode: screen;
     opacity: 0.55;
-    transition: opacity 0.4s var(--ease);
+    transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
 }
 
-.logo-cell:hover img {
+.logo-wall img:hover {
     opacity: 1;
+    transform: translateY(-2px);
 }
 
 /* ===== Bento ============================================================
