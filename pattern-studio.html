@@ -1068,6 +1068,8 @@
     <script src="pattern-engine.js"></script>
     <!-- shared backdrop + floor, so tuning here changes the storefront too -->
     <script src="stage.js"></script>
+    <!-- light linking for the logo emboss, shared with the storefront -->
+    <script src="logo-light.js"></script>
 
     <script>
         // =====================================================================
@@ -2934,6 +2936,58 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             });
         }
 
+        /** Logo light panel — generated from logo-light.js's schema. */
+        function buildLogoLightPanel(host) {
+            if (!window.MajestyLogoLight) return;
+            const LL = window.MajestyLogoLight;
+            state.logoLightSettings = state.logoLightSettings || LL.current();
+
+            const push = (key, value) => {
+                state.logoLightSettings[key] = value;
+                if (state.logoLight) state.logoLight.update(state.logoLightSettings);
+            };
+
+            LL.SCHEMA.forEach((g, gi) => {
+                const body = UI.group(host, 'logolight-' + gi, g.group, g.hint);
+                const subs = {};
+                const hostFor = f => {
+                    if (!f.section) return body;
+                    if (!subs[f.section]) subs[f.section] = UI.sub(body, f.section);
+                    return subs[f.section];
+                };
+                g.fields.forEach(f => {
+                    const into = hostFor(f);
+                    const common = {
+                        id: 'll_' + f.key, label: f.label, hint: f.hint,
+                        val: state.logoLightSettings[f.key],
+                        onChange: v => push(f.key, v)
+                    };
+                    if (f.type === 'color') UI.color(into, common);
+                    else if (f.type === 'bool') UI.toggle(into, common);
+                    else UI.num(into, Object.assign({}, common, {
+                        min: f.min, max: f.max, step: f.step, dp: f.dp, unit: f.unit
+                    }));
+                });
+            });
+
+            const share = UI.group(host, 'logolight-share', 'Share these settings');
+            const copy = document.createElement('button');
+            copy.className = 'primary';
+            copy.textContent = 'Copy logo light JSON';
+            copy.addEventListener('click', () => {
+                const txt = LL.toJSON(state.logoLightSettings);
+                if (navigator.clipboard) navigator.clipboard.writeText(txt);
+                status('Logo light JSON copied — it goes into logo-light.js.', 'ok');
+            });
+            share.appendChild(copy);
+            const note = document.createElement('div');
+            note.className = 'note';
+            note.textContent = 'This light is computed inside the Logo material, so it ' +
+                'cannot spill onto anything else. three\'s layers do not do light ' +
+                'linking — they only decide what a camera sees.';
+            share.appendChild(note);
+        }
+
         /** Scene panel — the light rig, exposure and lens. */
         function buildScenePanel() {
             const host = $('#sceneGen');
@@ -2992,6 +3046,8 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             pick.querySelectorAll('button').forEach(b =>
                 b.addEventListener('click', () => selectStagePart(b.dataset.pick)));
             updateSelectionReadout();
+
+            buildLogoLightPanel(host);
 
             const lensBody = UI.group(host, 'sc-lens', 'Lens');
             UI.num(lensBody, {
@@ -3516,8 +3572,23 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             mesh.material.envMapIntensity = s.envMapIntensity;
             mesh.material.color.setHex(s.color);
             // Logo sits on layer 1 so its dedicated spotlight reaches it alone
-            if (mesh.name === 'Logo') mesh.layers.enable(LAYER_LOGO);
-            else mesh.layers.disable(LAYER_LOGO);
+            if (mesh.name === 'Logo') {
+                mesh.layers.enable(LAYER_LOGO);
+                // The layer does not isolate the light — three only tests layers
+                // against the camera. logo-light.js computes the spot inside this
+                // material, which is what actually confines it. Attach once, or
+                // every material update forces a shader recompile.
+                if (window.MajestyLogoLight && state.logoLightMaterial !== mesh.material) {
+                    state.logoLightSettings = state.logoLightSettings ||
+                        window.MajestyLogoLight.current();
+                    state.logoLight = window.MajestyLogoLight.attach(
+                        THREE, mesh, state.logoLightSettings);
+                    state.logoLightMaterial = mesh.material;
+                    state.logoMesh = mesh;
+                }
+            } else {
+                mesh.layers.disable(LAYER_LOGO);
+            }
             mesh.material.needsUpdate = true;
         }
 

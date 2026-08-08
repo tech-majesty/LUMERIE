@@ -612,11 +612,29 @@ class ThreeViewer {
         mesh.material.envMapIntensity = settings.envMapIntensity;
         mesh.material.color.setHex(settings.color);
 
-        // Special Handling for Logo: Enable Layer 1 so it receives the Targeted Logo Light
+        // LIGHT LINKING for the logo emboss.
+        //
+        // The layer assignment below is NOT what isolates the light — three's
+        // renderer only ever tests layers against the CAMERA
+        // (object.layers.test(camera.layers)), never light against object, so a
+        // layer-restricted THREE.SpotLight lights the whole scene. Measured: the
+        // logo gained 69 and the body beside it gained 93.
+        //
+        // The isolation comes from logo-light.js, which computes the spot inside
+        // this material. Layers are still set because the camera enables layer 1
+        // and other code assumes the convention.
         if (mesh.name === 'Logo') {
-            mesh.layers.enable(1); // It is now on Layer 0 AND Layer 1
+            mesh.layers.enable(1);
+
+            // Attach once. applyPBR runs on every material update, and
+            // reassigning onBeforeCompile each time would force a shader
+            // recompile on every colour change.
+            if (window.MajestyLogoLight && this._logoLightMaterial !== mesh.material) {
+                this._logoLight = window.MajestyLogoLight.attach(
+                    THREE, mesh, window.MajestyLogoLight.current());
+                this._logoLightMaterial = mesh.material;
+            }
         } else {
-            // Ensure other meshes are NOT on Layer 1 (just in case they were reused)
             mesh.layers.disable(1);
         }
 
