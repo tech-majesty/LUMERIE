@@ -3,18 +3,16 @@
  *
  *  Four jobs:
  *
- *  1. The hero's cinematic sequence. It reuses ThreeViewer from viewer.js
- *     unchanged — same rig, same stage, same logo light as the configurator —
- *     and only takes over the camera and the backdrop.
+ *  1. The hero. It mounts the ONE ThreeViewer this page has — the same rig,
+ *     stage and logo light the configurator uses — and parks its camera on a
+ *     still, head-on close-up of the top of the lamp.
  *
- *  2. Making the canvas transparent above the horizon, so the lamp renders in
- *     FRONT of the LUMERIE wordmark instead of on top of an opaque dome. That
- *     layering is the whole hero, so it is not a detail.
+ *  2. The LUMERIE wordmark, which lives in the 3D scene rather than in the
+ *     DOM so the lamp occludes it with real depth. See the note above it.
  *
- *  3. The handoff into the configurator: rather than a page jump, the camera
- *     flies to the configurator's own opening pose, the page furniture clears,
- *     and only then does the navigation happen — so the lamp appears to stay
- *     put across two documents.
+ *  3. Opening the configurator in place. No navigation: its chrome is a fixed
+ *     overlay on this document and script.js drives the same viewer, so the
+ *     lamp never reloads and never leaves the screen.
  *
  *  4. Page chrome: preloader, sticky nav, mobile menu, scroll reveals, and not
  *     burning a GPU on an off-screen canvas.
@@ -22,68 +20,34 @@
 (function () {
     'use strict';
 
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     /* -------------------------------------------------------------------------
-     *  Cinematic sequence
+     *  Hero framing
      *
-     *  Deliberately slow: three legs of roughly twenty-five seconds each, eased
-     *  at both ends, so at any given moment the movement is barely perceptible
-     *  and the lamp reads as a still that happens to breathe. A faster orbit
-     *  makes a product look like a turntable render.
+     *  The camera does not move. No orbit, no drift, no pointer parallax — a
+     *  still, head-on close-up on the top of the lamp, which is where the ring,
+     *  the shade and the emboss all are. Anything that moves on its own here
+     *  reads as a turntable render rather than a photograph.
      *
-     *  Offsets are MULTIPLES of the framing distance, which is derived at
-     *  runtime from the viewport (see computeFraming) — fixed world coordinates
-     *  frame correctly at one aspect ratio and crop the lamp at every other.
-     *
-     *  The finish never changes. Red body, golden ring, throughout.
-     * ---------------------------------------------------------------------- */
-    const SHOTS = [
-        {
-            // Opening: a shade off head-on, easing in.
-            from: { x: 0.10, y: 0.075, z: 1.10, ty: 0.006 },
-            to: { x: -0.06, y: 0.020, z: 1.00, ty: 0.000 },
-            dur: 26
-        },
-        {
-            // Long drift left and slightly down; the floor reflection leads.
-            to: { x: -0.30, y: -0.035, z: 1.05, ty: 0.004 },
-            dur: 25
-        },
-        {
-            // Rise back across to the right and return to the opening pose so
-            // the loop closes without a cut.
-            to: { x: 0.10, y: 0.075, z: 1.10, ty: 0.006 },
-            dur: 29
-        }
-    ];
-
-    const FINISH = { base: 'Red', rim: 'Golden Ring', pattern: 'Triangle' };
-
-    const cam = Object.assign({}, SHOTS[0].from);
-
-    // Pointer parallax, applied on top of the timeline rather than baked into
-    // it so the two never fight over camera.position. Small — this is a long
-    // lens, and a little translation goes a long way.
-    const parallax = { x: 0, y: 0, tx: 0, ty: 0 };
-    const PARALLAX = 0.03;
-
-    /* -------------------------------------------------------------------------
-     *  Framing
-     *
-     *  The lamp is 0.362 world units tall on a 10° lens, so the distance that
-     *  fills a given share of the frame is trigonometry, not a magic number:
+     *  The pose is derived from the viewport rather than hardcoded, because a
+     *  fixed world position frames correctly at one aspect ratio and crops at
+     *  every other:
      *
      *      visibleHeight = 2 · d · tan(fov / 2)
      *
-     *  The lamp stays horizontally centred on every viewport, because it has to
-     *  sit across the middle of the wordmark behind it. On a phone the copy
-     *  needs the upper half, so the view pans up, which puts the lamp low in
-     *  the frame.
+     *  FRAME_H is how much of the world the frame should cover vertically. The
+     *  lamp is 0.362 tall, so 0.40 crops the base and fills the frame with the
+     *  top of the product; FRAME_AIM is where the centre of that frame sits on
+     *  the model, measured from its middle.
+     *
+     *  The finish never changes: red body, golden ring.
      * ---------------------------------------------------------------------- */
-    const MODEL_HEIGHT = 0.362;
+    const FRAME_H = { wide: 0.40, narrow: 0.60 };
+    const FRAME_AIM = { wide: 0.075, narrow: 0.045 };
+
+    const FINISH = { base: 'Red', rim: 'Golden Ring', pattern: 'Triangle' };
+
     const CONFIGURATOR_Z = 3;     // ThreeViewer.cameraAngles.front.pos.z
-    const framing = { dist: 3.4, panX: 0, panY: 0, driftX: 1 };
+    const framing = { dist: 2.3, aimY: 0.075, panX: 0 };
 
     function computeFraming() {
         if (!viewer || !viewer.camera) return;
@@ -91,26 +55,16 @@
         const halfFov = (c.fov * Math.PI) / 360;
         const wide = window.innerWidth >= 900;
 
-        const fill = wide ? 0.58 : 0.34;
-        framing.dist = MODEL_HEIGHT / (fill * 2 * Math.tan(halfFov));
-
-        const halfHeight = framing.dist * Math.tan(halfFov);
+        const frameH = wide ? FRAME_H.wide : FRAME_H.narrow;
+        framing.dist = frameH / (2 * Math.tan(halfFov));
+        framing.aimY = wide ? FRAME_AIM.wide : FRAME_AIM.narrow;
         framing.panX = 0;
-        // Panning the view UP puts the subject LOWER in the frame.
-        framing.panY = wide ? 0 : halfHeight * 0.18;
-
-        // The shots' sideways drift is a fraction of the framing DISTANCE, which
-        // is the right unit on a landscape frame and far too much on a portrait
-        // one — a phone's frame is about a fifth as wide in world units, so the
-        // same drift swings the lamp clean off the side. Scale it by how wide
-        // the frame actually is.
-        framing.driftX = wide ? 1 : Math.max(0.18, c.aspect / 1.6);
     }
 
     let viewer = null;
     let heroVisible = true;
-    let timeline = null;
-    let handingOff = false;
+    let cfgOpen = false;
+    let animating = false;
 
     /* ---------------------------------------------------------------------- */
 
@@ -139,41 +93,23 @@
 
     /* ---------------------------------------------------------------------- */
 
-    function applyCamera() {
+    /** Park the camera on the hero pose. Straight on, no roll, no offset. */
+    function applyHeroCamera() {
         if (!viewer || !viewer.camera) return;
         const c = viewer.camera;
-        const d = framing.dist;
-        c.position.set(
-            framing.panX + (cam.x + parallax.x) * d * framing.driftX,
-            framing.panY + (cam.y + parallax.y) * d,
-            cam.z * d
-        );
-        c.lookAt(
-            framing.panX + parallax.tx * d * framing.driftX,
-            framing.panY + cam.ty + parallax.ty * d,
-            0
-        );
+        c.position.set(framing.panX, framing.aimY, framing.dist);
+        c.lookAt(framing.panX, framing.aimY, 0);
     }
 
-    function buildTimeline() {
-        // The viewer tweens the camera to 'front' the moment the model lands.
-        // Kill it, or the two run simultaneously for 1.5s and the shot judders.
+    /**
+     * Stop the viewer tweening to its own 'front' pose.
+     *
+     * ThreeViewer fires setCameraAngle('front') the moment the model lands,
+     * which starts a 1.5s gsap tween on camera.position. Left alone it drags
+     * the hero pose away over the first second and a half.
+     */
+    function claimCamera() {
         if (window.gsap) gsap.killTweensOf(viewer.camera.position);
-
-        if (reduceMotion) {
-            Object.assign(cam, SHOTS[0].to);
-            applyCamera();
-            return;
-        }
-
-        timeline = gsap.timeline({ repeat: -1 });
-        SHOTS.forEach(function (shot) {
-            timeline.to(cam, {
-                x: shot.to.x, y: shot.to.y, z: shot.to.z, ty: shot.to.ty,
-                duration: shot.dur,
-                ease: 'sine.inOut'
-            });
-        });
     }
 
     /* -------------------------------------------------------------------------
@@ -284,10 +220,13 @@
         const wide = window.innerWidth >= 900;
         const width = 2 * halfWidth * (wide ? 0.94 : 0.86);
         wordPlane.scale.set(width, width * (WORD_TEX.h / WORD_TEX.w), 1);
+        wordPlane.position.x = framing.panX;
 
-        // 0 is the top of the frame, 1 the bottom.
-        const frac = wide ? 0.42 : 0.25;
-        wordPlane.position.y = framing.panY + (0.5 - frac) * 2 * halfHeight;
+        // 0 is the top of the frame, 1 the bottom. The camera aims at the top
+        // of the lamp, so the frame centre is already high on the product and
+        // the word wants to sit a little above it.
+        const frac = wide ? 0.30 : 0.22;
+        wordPlane.position.y = framing.aimY + (0.5 - frac) * 2 * halfHeight;
     }
 
     /* ---------------------------------------------------------------------- */
@@ -312,8 +251,8 @@
                 }
                 computeFraming();
                 buildWordmark();
-                buildTimeline();
-                applyCamera();
+                claimCamera();
+                applyHeroCamera();
                 dismissPreloader();
             }
         });
@@ -322,20 +261,20 @@
         // already kicks it off. Calling it again downloads the 6.7 MB GLB twice,
         // adds two copies of the lamp to the scene and builds the stage twice.
 
-        // Exposed for tuning the shot list from the console — the numbers above
-        // are only meaningful against the actual model bounds.
+        // script.js looks for this instead of constructing its own viewer, so
+        // the configurator drives the same lamp the hero is already showing.
+        // It has to be set before script.js's DOMContentLoaded handler runs —
+        // it does, because hero.js is loaded first and this runs synchronously
+        // from its own DOMContentLoaded handler, registered earlier.
+        window.MajestySharedViewer = viewer;
         window.__heroViewer = viewer;
-
-        // Drive the camera from gsap's ticker rather than three's loop, so the
-        // write always lands after the timeline has advanced for that frame.
-        if (window.gsap) gsap.ticker.add(applyCamera);
 
         // Skip the render entirely while the hero is scrolled away. Two composer
         // passes and a whole-scene material swap per frame is not something to
         // keep paying for behind eight sections of copy.
         const originalRender = viewer.renderFrame.bind(viewer);
         viewer.renderFrame = function () {
-            if (heroVisible || handingOff) originalRender();
+            if (heroVisible || cfgOpen || animating) originalRender();
         };
 
         // ThreeViewer's own resize handler updates camera.aspect; this must run
@@ -343,113 +282,219 @@
         window.addEventListener('resize', function () {
             computeFraming();
             sizeWordmark();
-            applyCamera();
+            if (cfgOpen) {
+                applyConfiguratorAngles();
+            } else if (!animating) {
+                applyHeroCamera();
+            }
         });
 
         const hero = document.querySelector('.hero');
         if (hero && 'IntersectionObserver' in window) {
             new IntersectionObserver(function (entries) {
                 heroVisible = entries[0].isIntersecting;
-                if (timeline && !handingOff) {
-                    heroVisible ? timeline.resume() : timeline.pause();
-                }
             }, { threshold: 0 }).observe(hero);
         }
     }
 
     /* -------------------------------------------------------------------------
-     *  Hero → configurator handoff
+     *  Opening the configurator, in place
      *
-     *  The configurator is a separate document with its own ThreeViewer, so this
-     *  cannot be a single continuous scene. What it can be is continuous to
-     *  look at: the camera flies to exactly the pose the configurator opens on,
-     *  the backdrop dome comes back so the frame already matches, the page
-     *  furniture clears, and the navigation only happens once a curtain in the
-     *  shared background colour is fully up. The configurator is then told to
-     *  skip its own splash and fade up from that same colour.
+     *  There is no second page and no navigation. index.html owns the only
+     *  ThreeViewer; the configurator's chrome is a fixed layer over this
+     *  document and script.js attaches to the same viewer. So "Customize" is a
+     *  camera move and a couple of panels sliding in — the lamp on screen when
+     *  you press it is the same lamp, the same frame, the same WebGL context.
      *
-     *  The model is in the HTTP cache by this point, so the second page has it
-     *  immediately.
+     *  Two things have to change hands:
+     *
+     *  1. The camera. The hero owns a still close-up; the configurator owns
+     *     FRONT / LEFT / RIGHT through setCameraAngle. Rather than have both
+     *     write to camera.position, the hero flies it to the configurator's
+     *     opening pose and then simply stops touching it.
+     *
+     *  2. The centre of the frame. The sidebar covers the right-hand ~340px,
+     *     so a centred lamp would sit behind it. The configurator's angles are
+     *     shifted sideways by exactly half the sidebar in world units, which
+     *     keeps the orbit intact and puts the lamp in the middle of what is
+     *     actually visible.
      * ---------------------------------------------------------------------- */
-    function handoff(href) {
-        if (handingOff) return;
-        handingOff = true;
+    const SIDEBAR_PX = 340;
 
-        const go = function () {
-            const url = new URL(href, location.href);
-            url.searchParams.set('from', 'hero');
-            location.href = url.toString();
+    /** Half the sidebar's width, in world units at the model's distance. */
+    function sidebarShift() {
+        const c = viewer.camera;
+        const halfFov = (c.fov * Math.PI) / 360;
+        const halfWidth = CONFIGURATOR_Z * Math.tan(halfFov) * c.aspect;
+        const sidebar = Math.min(SIDEBAR_PX, window.innerWidth * 0.84);
+        if (window.innerWidth < 900) return 0;   // sidebar is a bottom sheet
+        return halfWidth * (sidebar / window.innerWidth);
+    }
+
+    /**
+     * Re-point the viewer's own camera presets so the lamp centres in the space
+     * left of the sidebar. Both the position and the look-at move together, so
+     * the LEFT/RIGHT orbit is unchanged — it is a lens shift, not a skew.
+     */
+    function applyConfiguratorAngles() {
+        const s = sidebarShift();
+        viewer.cameraAngles = {
+            front: { pos: { x: s, y: 0, z: CONFIGURATOR_Z }, lookAt: { x: s, y: 0, z: 0 } },
+            left: { pos: { x: s - 1.8, y: 0.5, z: CONFIGURATOR_Z }, lookAt: { x: s, y: 0, z: 0 } },
+            right: { pos: { x: s + 1.8, y: 0.5, z: CONFIGURATOR_Z }, lookAt: { x: s, y: 0, z: 0 } }
+        };
+    }
+
+    /*
+     *  The hero is a fixed brand shot — red body, golden ring — but a visitor
+     *  who has been configuring should not lose their work by pressing Back.
+     *  So the two views keep separate finishes: closing stores whatever was
+     *  selected and puts the hero's back on, opening restores the stored one.
+     */
+    let savedFinish = null;
+
+    function applyFinish(f) {
+        if (typeof config === 'undefined' || !viewer) return;
+        config.base = f.base;
+        config.rim = f.rim;
+        config.pattern = f.pattern;
+        viewer.updateMaterials();
+        if (typeof updateConfigurationName === 'function') updateConfigurationName();
+        syncControlButtons();
+    }
+
+    /** Move the sidebar's active states onto whatever config now holds. */
+    function syncControlButtons() {
+        [['base', config.base], ['rim', config.rim], ['pattern', config.pattern]]
+            .forEach(function (pair) {
+                document.querySelectorAll('.control-btn[data-type="' + pair[0] + '"]')
+                    .forEach(function (btn) {
+                        btn.classList.toggle('active', btn.dataset.value === pair[1]);
+                    });
+            });
+    }
+
+    function openConfigurator() {
+        if (cfgOpen || animating || !viewer || !viewer.model) return;
+        cfgOpen = true;
+        animating = true;
+
+        if (savedFinish) applyFinish(savedFinish);
+
+        // The canvas is pinned to the hero, so the hero has to be the viewport.
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        applyConfiguratorAngles();
+
+        const s = sidebarShift();
+        const target = { x: framing.panX, y: framing.aimY, z: framing.dist };
+
+        const done = function () {
+            animating = false;
+            document.body.classList.add('cfg-open');
+            const cfg = el('cfg');
+            if (cfg) cfg.setAttribute('aria-hidden', 'false');
+            // From here the configurator's own buttons own the camera.
         };
 
-        if (!window.gsap || !viewer || !viewer.model) { go(); return; }
+        if (!window.gsap) {
+            viewer.camera.position.set(s, 0, CONFIGURATOR_Z);
+            viewer.camera.lookAt(s, 0, 0);
+            if (wordPlane) wordPlane.visible = false;
+            done();
+            return;
+        }
 
-        if (timeline) timeline.kill();
-        gsap.killTweensOf(parallax);
+        claimCamera();
+        const tl = gsap.timeline({ onComplete: done });
 
-        const curtain = el('curtain');
-        if (curtain) curtain.style.visibility = 'visible';
+        // The wordmark is a scene object, so it fades with its material.
+        if (wordPlane) {
+            tl.to(wordPlane.material, { opacity: 0, duration: 0.6, ease: 'power2.inOut' }, 0);
+        }
 
-        const tl = gsap.timeline({ onComplete: go });
-
-        // Page furniture out first, so the lamp is alone before it moves.
-        tl.to(['.hero-foot', '.hero-veil', '.nav'], {
-            opacity: 0, duration: 0.55, ease: 'power2.inOut'
+        // Pull back from the close-up to the configurator's full-product pose.
+        tl.to(target, {
+            x: s, y: 0, z: CONFIGURATOR_Z,
+            duration: 1.1,
+            ease: 'power2.inOut',
+            onUpdate: function () {
+                viewer.camera.position.set(target.x, target.y, target.z);
+                viewer.camera.lookAt(s * (1 - this.progress()) + s * this.progress(), 0, 0);
+            }
         }, 0);
 
-        // The wordmark is a scene object, so it fades with its material rather
-        // than with CSS. It has to be gone before the camera arrives, or the
-        // configurator would open on a frame that still has a word in it.
-        if (wordPlane) {
-            tl.to(wordPlane.material, { opacity: 0, duration: 0.7, ease: 'power2.inOut' }, 0);
+        // Chrome slides in over the tail of the move rather than after it, so
+        // the two read as one gesture.
+        tl.add(function () {
+            document.body.classList.add('cfg-open');
+            const cfg = el('cfg');
+            if (cfg) cfg.setAttribute('aria-hidden', 'false');
+        }, 0.45);
+    }
+
+    function closeConfigurator() {
+        if (!cfgOpen || animating) return;
+        animating = true;
+
+        if (typeof config !== 'undefined') {
+            savedFinish = { base: config.base, rim: config.rim, pattern: config.pattern };
+        }
+        applyFinish(FINISH);
+
+        document.body.classList.remove('cfg-open');
+        const cfg = el('cfg');
+        if (cfg) cfg.setAttribute('aria-hidden', 'true');
+
+        const done = function () {
+            cfgOpen = false;
+            animating = false;
+            applyHeroCamera();
+        };
+
+        if (!window.gsap) {
+            if (wordPlane) { wordPlane.material.opacity = 0.95; wordPlane.visible = true; }
+            done();
+            return;
         }
 
-        tl.to(parallax, { x: 0, y: 0, tx: 0, ty: 0, duration: 0.7, ease: 'power2.out' }, 0);
+        claimCamera();
+        const from = viewer.camera.position;
+        const target = { x: from.x, y: from.y, z: from.z };
+        const tl = gsap.timeline({ onComplete: done });
 
-        // Fly to the configurator's opening pose. cam.z is a multiple of the
-        // framing distance, so the target is the configurator's world z divided
-        // by it — that lands the camera on exactly (0, 0, 3).
-        tl.to(cam, {
-            x: 0, y: 0, ty: 0,
-            z: CONFIGURATOR_Z / framing.dist,
-            duration: 1.5,
-            ease: 'power2.inOut'
-        }, 0.15);
+        tl.to(target, {
+            x: framing.panX, y: framing.aimY, z: framing.dist,
+            duration: 1.0,
+            ease: 'power2.inOut',
+            onUpdate: function () {
+                viewer.camera.position.set(target.x, target.y, target.z);
+                viewer.camera.lookAt(framing.panX, framing.aimY, 0);
+            }
+        }, 0);
 
-        if (curtain) {
-            tl.to(curtain, { opacity: 1, duration: 0.5, ease: 'power2.in' }, 1.3);
+        if (wordPlane) {
+            tl.to(wordPlane.material, { opacity: 0.95, duration: 0.7, ease: 'power2.out' }, 0.3);
         }
     }
 
-    function armHandoff() {
+    function armConfigurator() {
+        // Every "Customize" on the page opens the overlay rather than following
+        // its href. The href is kept as a real link so the page still works
+        // with scripting off and so middle-click opens the standalone page.
         document.querySelectorAll('a[href^="configurator.html"]').forEach(function (a) {
             a.addEventListener('click', function (e) {
-                // Let modified clicks (new tab, download) behave normally.
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
                 e.preventDefault();
-                handoff(a.getAttribute('href'));
+                openConfigurator();
             });
         });
-    }
 
-    /* ---------------------------------------------------------------------- */
+        const back = el('cfgBack');
+        if (back) back.addEventListener('click', closeConfigurator);
 
-    function initPointerParallax() {
-        if (reduceMotion) return;
-        window.addEventListener('pointermove', function (e) {
-            if (!heroVisible || handingOff || e.pointerType === 'touch') return;
-            if (!window.gsap) return;
-            const nx = (e.clientX / window.innerWidth) * 2 - 1;
-            const ny = (e.clientY / window.innerHeight) * 2 - 1;
-            gsap.to(parallax, {
-                x: nx * PARALLAX,
-                y: -ny * PARALLAX * 0.5,
-                tx: nx * PARALLAX * 0.25,
-                ty: -ny * PARALLAX * 0.12,
-                duration: 1.8,
-                ease: 'power2.out',
-                overwrite: true
-            });
-        }, { passive: true });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && cfgOpen) closeConfigurator();
+        });
     }
 
     function initNav() {
@@ -506,8 +551,7 @@
         initNav();
         initReveals();
         initYear();
-        initPointerParallax();
-        armHandoff();
+        armConfigurator();
         mountViewer();
 
         // A hard ceiling on the splash. If WebGL is unavailable or the model

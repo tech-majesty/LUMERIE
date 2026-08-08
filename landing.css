@@ -68,8 +68,16 @@ html {
     -webkit-text-size-adjust: 100%;
 }
 
+/* styles.css is loaded first, for the configurator chrome this page opens over
+   itself. It lays the body out as a locked 100vh flex row — correct for a
+   single-screen application, fatal for a scrolling document — so these four
+   properties are put back deliberately, not incidentally. */
 body {
     margin: 0;
+    display: block;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
     background: var(--ink);
     color: var(--text);
     font-family: var(--font-body);
@@ -78,7 +86,6 @@ body {
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
 }
 
 img {
@@ -604,16 +611,175 @@ h3 {
     }
 }
 
-/* The curtain the hero→configurator handoff fades up behind. Sits above
-   everything except the preloader; inert until hero.js arms it. */
-#curtain {
+/* ===== Configurator overlay ============================================
+ *
+ *  The configurator is not another page. Its chrome is a fixed layer over this
+ *  document, and the canvas it drives is the hero's — the same ThreeViewer, the
+ *  same lamp, never reloaded. Opening it scrolls to the top and locks the
+ *  document, so the hero is exactly the viewport underneath.
+ *
+ *  styles.css already styles every control in here. All this does is take the
+ *  pieces out of that sheet's whole-page flex layout and hang them off the
+ *  edges of the screen instead.
+ */
+
+.cfg {
     position: fixed;
     inset: 0;
-    z-index: 250;
-    background: var(--ink);
+    z-index: 60;
+    pointer-events: none;
     opacity: 0;
     visibility: hidden;
+    transition: opacity 0.5s var(--ease), visibility 0.5s;
+}
+
+body.cfg-open .cfg {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+/* Scroll is locked while the configurator is up, or the page would slide out
+   from under a canvas that is pinned to the hero. */
+body.cfg-open {
+    overflow: hidden;
+}
+
+body.cfg-open .nav,
+body.cfg-open .hero-foot,
+body.cfg-open .hero-veil {
+    opacity: 0;
     pointer-events: none;
+}
+
+.nav,
+.hero-foot,
+.hero-veil {
+    transition: opacity 0.5s var(--ease);
+}
+
+/* The hero canvas is absolute inside .hero, which is only as tall as the
+   viewport — pinning it while the configurator is open keeps it there even
+   though the document behind is still long. */
+body.cfg-open #threeCanvasContainer {
+    position: fixed;
+}
+
+.cfg .sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(340px, 84vw);
+    transform: translateX(100%);
+    transition: transform 0.7s var(--ease);
+    border-left: 1px solid var(--hairline);
+}
+
+body.cfg-open .cfg .sidebar {
+    transform: none;
+}
+
+.cfg .bottom-bar {
+    position: absolute;
+    left: 0;
+    right: min(340px, 84vw);
+    bottom: 0;
+    /* styles.css sets width:100%, which wins over `right` and pushes ADD TO
+       CART out under the sidebar. */
+    width: auto;
+    transform: translateY(100%);
+    transition: transform 0.7s var(--ease);
+}
+
+body.cfg-open .cfg .bottom-bar {
+    transform: none;
+}
+
+.cfg .camera-controls {
+    position: absolute;
+    top: 1.5rem;
+    left: 50%;
+    right: auto;
+    margin-left: calc(min(340px, 84vw) / -2);
+    transform: translateX(-50%) translateY(-1rem);
+    opacity: 0;
+    transition: transform 0.7s var(--ease), opacity 0.7s var(--ease);
+}
+
+body.cfg-open .cfg .camera-controls {
+    transform: translateX(-50%);
+    opacity: 1;
+}
+
+.cfg-back {
+    position: absolute;
+    top: 1.15rem;
+    left: var(--gutter);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.35rem 1.15rem 0.35rem 0.35rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--cream);
+    color: var(--on-cream);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-0.6rem);
+    transition: transform 0.7s var(--ease), opacity 0.7s var(--ease);
+}
+
+body.cfg-open .cfg-back {
+    opacity: 1;
+    transform: none;
+}
+
+.cfg-back .disc {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--ink);
+    color: var(--cream);
+    font-size: 0.72rem;
+    transition: transform 0.4s var(--ease);
+}
+
+.cfg-back:hover .disc {
+    transform: translateX(-3px);
+}
+
+/* The modals live outside .cfg so they can cover the sidebar too. */
+.cart-modal-overlay {
+    z-index: 90;
+}
+
+@media (max-width: 900px) {
+    .cfg .sidebar {
+        width: 100%;
+        max-width: none;
+        height: 62%;
+        top: auto;
+        bottom: 0;
+        transform: translateY(100%);
+        border-left: 0;
+        border-top: 1px solid var(--hairline);
+    }
+
+    .cfg .bottom-bar {
+        right: 0;
+        bottom: 62%;
+    }
+
+    .cfg .camera-controls {
+        margin-left: 0;
+    }
 }
 
 /* ===== Chapters ========================================================
@@ -716,72 +882,57 @@ h3 {
     }
 }
 
-/* ===== Lineage / cards ================================================= */
+/* ===== Columns =========================================================
+   Deliberately not cards. No box, no border, no fill — a hairline above each
+   column and then air. Boxing three short paragraphs makes them look like a
+   pricing table; the rule plus the number carries the same grouping without
+   drawing eight extra lines on the page. */
 
-.cards {
+.cols {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1px;
-    background: var(--hairline);
-    border: 1px solid var(--hairline);
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    column-gap: clamp(1.8rem, 4vw, 4rem);
+    row-gap: clamp(2rem, 4vw, 3rem);
 }
 
-.on-cream .cards,
-.on-cream .cards>* {
-    background-color: transparent;
-}
-
-.on-cream .cards {
-    background: var(--hairline-ink);
-    border-color: var(--hairline-ink);
-}
-
-.card {
-    background: var(--ink);
-    padding: clamp(1.6rem, 2.8vw, 2.4rem);
+.col {
     display: flex;
     flex-direction: column;
     gap: 0.7rem;
-    transition: background 0.6s var(--ease);
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--hairline);
 }
 
-.on-cream .card {
-    background: var(--cream);
+.on-cream .col {
+    border-top-color: var(--hairline-ink);
 }
 
-.card:hover {
-    background: var(--ink-2);
-}
-
-.on-cream .card:hover {
-    background: var(--cream-2);
-}
-
-.card .n {
+.col .n {
     font-family: var(--font-display);
     font-size: 0.72rem;
     letter-spacing: 0.14em;
     color: var(--gold-soft);
-    margin-bottom: 0.9rem;
+    margin-bottom: 0.7rem;
 }
 
-.on-cream .card .n {
+.on-cream .col .n {
     color: #9a7c17;
 }
 
-.card h3 {
+.col h3 {
     font-size: clamp(1.15rem, 1.7vw, 1.4rem);
     letter-spacing: -0.02em;
 }
 
-.card p {
+.col p {
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.65;
     color: var(--text-dim);
+    max-width: 34ch;
 }
 
-.on-cream .card p {
+.on-cream .col p {
     color: var(--on-cream-dim);
 }
 
@@ -906,23 +1057,20 @@ h3 {
 .quotes {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-    gap: 1px;
-    background: var(--hairline-ink);
-    border: 1px solid var(--hairline-ink);
+    column-gap: clamp(1.8rem, 4vw, 4rem);
+    row-gap: clamp(2rem, 4vw, 3rem);
 }
 
+/* Open columns, same as .col — a rule above and nothing else. <figure> carries
+   a 40px left/right margin by UA default, which was eating 80px out of every
+   column and squeezing the quotes to five words a line. */
 .quote {
     margin: 0;
-    background: var(--cream);
-    padding: clamp(1.6rem, 2.6vw, 2.3rem);
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--hairline-ink);
     display: flex;
     flex-direction: column;
     gap: 1.3rem;
-    transition: background 0.6s var(--ease);
-}
-
-.quote:hover {
-    background: var(--cream-2);
 }
 
 .quote p {

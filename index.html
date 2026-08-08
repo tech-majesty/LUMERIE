@@ -19,6 +19,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Inter:wght@400;500&display=swap"
         rel="stylesheet">
+    <!-- The configurator opens over this page rather than on one of its own, so
+         its chrome — control swatches, cart, summary — is styled by the same
+         sheet the standalone configurator uses. It MUST load first: it sets
+         global rules (body as a 100vh flex row, its own :root type tokens) that
+         landing.css then overrides for a scrolling document. -->
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="landing.css">
 </head>
 
@@ -48,9 +54,6 @@
             <div class="pre-pct" id="prePct">00</div>
         </div>
     </div>
-
-    <!-- Raised by the hero→configurator handoff, in the colour both pages share. -->
-    <div id="curtain"></div>
 
     <!-- ===== Navigation ==================================================== -->
     <nav class="nav" id="nav">
@@ -100,15 +103,13 @@
 
         <div class="hero-foot">
             <div>
+                <!-- No CTA here: the nav's Customize is always on screen, and two
+                     of the same button in one viewport is one too many. -->
                 <p class="hero-strap">
                     The world's first AIoT-powered luxury dining lamp.
                     <em>The lamp has always been there. Now, for the first time, it
                         knows you are.</em>
                 </p>
-                <a class="btn btn-solid" href="configurator.html">
-                    Customize yours
-                    <span class="disc" aria-hidden="true">&rarr;</span>
-                </a>
             </div>
 
             <div class="hero-scroll">
@@ -243,8 +244,8 @@
                 </div>
             </div>
 
-            <div class="cards reveal" style="--d:120ms">
-                <article class="card">
+            <div class="cols reveal" style="--d:120ms">
+                <article class="col">
                     <span class="n">01</span>
                     <h3>The Lamp</h3>
                     <p>
@@ -252,7 +253,7 @@
                         table, the lamp was already there — and it understood nothing.
                     </p>
                 </article>
-                <article class="card">
+                <article class="col">
                     <span class="n">02</span>
                     <h3>LUMERIE&reg;</h3>
                     <p>
@@ -260,7 +261,7 @@
                         guest experience continuously, invisibly, and beautifully.
                     </p>
                 </article>
-                <article class="card">
+                <article class="col">
                     <span class="n">03</span>
                     <h3>The Intelligence OS</h3>
                     <p>
@@ -319,8 +320,8 @@
                 </div>
             </div>
 
-            <div class="cards reveal" style="--d:120ms">
-                <article class="card">
+            <div class="cols reveal" style="--d:120ms">
+                <article class="col">
                     <span class="n">01</span>
                     <h3>Experience Intelligence</h3>
                     <p>
@@ -329,7 +330,7 @@
                         effortless.
                     </p>
                 </article>
-                <article class="card">
+                <article class="col">
                     <span class="n">02</span>
                     <h3>Operational Intelligence</h3>
                     <p>
@@ -337,7 +338,7 @@
                         every second, and elevate service into mastery.
                     </p>
                 </article>
-                <article class="card">
+                <article class="col">
                     <span class="n">03</span>
                     <h3>Revenue Intelligence</h3>
                     <p>
@@ -612,6 +613,280 @@
         </div>
     </footer>
 
+
+    <!-- ===== Configurator ==================================================
+         Not a separate page. The hero's canvas IS the configurator's canvas —
+         index.html mounts one ThreeViewer and this chrome opens over the top of
+         it, so the lamp never reloads, never jumps, and never leaves the
+         screen. script.js attaches to the viewer hero.js published rather than
+         building its own.
+
+         The markup below is the standalone configurator's, unchanged apart from
+         the wrapper and the back button; styles.css still styles it, and
+         landing.css only repositions it as a fixed overlay. -->
+    <div id="cfg" class="cfg" aria-hidden="true">
+        <button class="cfg-back" id="cfgBack" type="button">
+            <span class="disc" aria-hidden="true">&larr;</span>
+            <span>Back</span>
+        </button>
+
+            <div id="cameraControls" class="camera-controls active">
+                <button class="camera-btn active" data-angle="front">FRONT</button>
+                <button class="camera-btn" data-angle="left">LEFT</button>
+                <button class="camera-btn" data-angle="right">RIGHT</button>
+            </div>
+
+        <!-- Bottom Bar -->
+        <div class="bottom-bar">
+            <div class="product-info-bar">
+                <div class="product-name-section">
+                    <h2 class="product-model">MAJESTY<sup class="tm">&trade;</sup></h2>
+                    <p class="product-specs">AIoT LUXURY DINING LAMP • <span id="engineSpec">RED</span></p>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-secondary" id="summaryBtn">
+                        <span>SUMMARY</span>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                    <button class="btn-primary" id="addToCartBtn">
+                        <span>ADD TO CART</span>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3 class="sidebar-title">Configure your LUMERIE</h3>
+            </div>
+            <a class="studio-link" id="studioLink" href="pattern-studio.html" target="_blank"
+                rel="noopener" title="Design a new light pattern">
+                <svg viewBox="0 0 24 24" fill="none" width="14" height="14"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 17.2V21h3.8L18 9.8 14.2 6 3 17.2z" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M16.5 4.5l3 3" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>PATTERN STUDIO</span>
+            </a>
+
+        <div class="customization-controls">
+            <!-- Base Color Selection -->
+            <div class="control-section">
+                <h3 class="control-title">Base Color</h3>
+                <div class="control-options">
+                    <div class="control-item">
+                        <button class="control-btn active" data-type="base" data-value="Red" title="Red">
+                            <span class="color-swatch" style="background: #dc2626;"></span>
+                        </button>
+                        <span class="mobile-label">Red</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="base" data-value="Red Metallic" title="Red Metallic">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Red Metallic</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="base" data-value="Black" title="Black">
+                            <span class="color-swatch" style="background: #1a1a1a;"></span>
+                        </button>
+                        <span class="mobile-label">Black</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="base" data-value="White" title="White">
+                            <span class="color-swatch" style="background: #ffffff;"></span>
+                        </button>
+                        <span class="mobile-label">White</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="base" data-value="Gold" title="Gold">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #fbbf24 0%, #d4a574 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Gold</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="base" data-value="Silver" title="Silver">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #e5e7eb 0%, #9ca3af 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Silver</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="base" data-value="Copper" title="Copper"
+                            id="copper-base-btn" style="display: none;">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #FFCEB2FF 0%, rgb(207, 160, 133) 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Copper</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rim Color Selection -->
+            <div class="control-section">
+                <h3 class="control-title">Rim Finish</h3>
+                <div class="control-options">
+                    <div class="control-item">
+                        <button class="control-btn active" data-type="rim" data-value="Golden Ring" title="Golden Ring">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #fbbf24 0%, #d4a574 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Golden Ring</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="rim" data-value="Silver Ring" title="Silver Ring">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #e5e7eb 0%, #cbd5e1 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Silver Ring</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="rim" data-value="Copper Ring" title="Copper Ring">
+                            <span class="color-swatch"
+                                style="background: linear-gradient(135deg, #FFCEB2FF 0%, rgb(207, 160, 133) 100%);"></span>
+                        </button>
+                        <span class="mobile-label">Copper Ring</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pattern Selection -->
+            <div class="control-section">
+                <h3 class="control-title">Pattern Design</h3>
+                <div class="control-options">
+                    <div class="control-item">
+                        <button class="control-btn active" data-type="pattern" data-value="Triangle" title="Triangle">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <polygon points="50,25 80,75 20,75" fill="currentColor" />
+                            </svg>
+                        </button>
+                        <span class="mobile-label">Triangle</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="pattern" data-value="Star" title="Star">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <polygon points="50,15 61,40 88,40 67,57 75,85 50,68 25,85 33,57 12,40 39,40"
+                                    fill="currentColor" />
+                            </svg>
+                        </button>
+                        <span class="mobile-label">Star</span>
+                    </div>
+                    <div class="control-item">
+                        <button class="control-btn" data-type="pattern" data-value="Arabic" title="Arabic">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="72" cy="25" r="5" fill="currentColor" />
+                                <path d="M95,58 C95,45 80,38 60,38 C40,38 28,45 28,58 L95,58" fill="none"
+                                    stroke="currentColor" stroke-width="6" stroke-linecap="round" />
+                                <path d="M28,58 C28,85 15,95 5,88" fill="none" stroke="currentColor" stroke-width="6"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </button>
+                        <span class="mobile-label">Arabic</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </aside>
+    </div>
+
+    <!-- Cart Modal Overlay -->
+    <div class="cart-modal-overlay" id="cartModal">
+        <div class="cart-modal">
+            <div class="cart-header">
+                <h3>Your Selection</h3>
+                <button class="close-modal" id="closeCartBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="cart-items" id="cartItemsContainer">
+                <!-- Cart items will be injected here -->
+                <div class="empty-cart-message">Your cart is empty</div>
+            </div>
+            <div class="cart-footer">
+                <button class="btn-primary" id="checkoutBtn" style="width: 100%; justify-content: center;">
+                    Checkout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Modal Overlay -->
+    <div class="cart-modal-overlay" id="summaryModal">
+        <div class="summary-modal-content">
+            <button class="close-modal-absolute" id="closeSummaryBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+            <div class="summary-container">
+                <div class="summary-logo">
+                    <!-- Cloned simple logo or text -->
+                    <h2 class="luxegenie-title brand-gold">LUMERIE<sup class="tm">&trade;</sup></h2>
+                    <p class="luxegenie-subtitle">AI-Powered Dining Experiences</p>
+                </div>
+
+                <div class="summary-grid">
+                    <div class="stat-box">
+                        <span class="stat-number brand-gold">2x</span>
+                        <span class="stat-label">Elevated Guest Experience</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-number brand-gold">40%</span>
+                        <span class="stat-label">Increased Service Efficiency</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-number brand-gold">20%</span>
+                        <span class="stat-label">Increase in Sales</span>
+                    </div>
+                </div>
+
+                <div class="summary-description">
+                    <p>LUMERIE&trade; is an advanced and sophisticated Artificial Intelligence (AI) solution designed
+                        to improve the workflows for guests and servers.</p>
+                    <p class="highlight-text brand-gold">The World's Only Artificial Intelligence Luxury Table Lamp</p>
+                </div>
+
+                <div class="summary-footer">
+                    <p>LUMERIE&trade; • MAJESTY Experiences</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Success Modal Overlay -->
+    <div class="cart-modal-overlay" id="checkoutSuccessModal">
+        <div class="success-modal-content">
+            <div class="success-icon">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="32" cy="32" r="30" stroke="rgb(238, 186, 88)" stroke-width="2" />
+                    <path d="M20 32L28 40L44 24" stroke="rgb(238, 186, 88)" stroke-width="4" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </div>
+            <h2 class="success-title">LUMERIE<sup class="tm">&trade;</sup> on the way</h2>
+            <p class="success-message">Your luxury dining experience is being prepared.</p>
+            <button class="btn-primary" id="closeSuccessBtn" style="margin-top: 2rem;">Back to Configurator</button>
+        </div>
+    </div>
+
+
+    <div id="cursor-tooltip"></div>
+
     <!-- ===== Scripts =======================================================
          Same three.js r128 build and same helper set as the configurator. The
          version is pinned deliberately: r155 changed light intensity units, and
@@ -628,12 +903,15 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script src="pattern-engine.js"></script>
     <script src="stage.js"></script>
     <script src="logo-light.js"></script>
     <script src="viewer.js"></script>
     <script src="hero.js"></script>
+    <!-- Attaches to the viewer hero.js publishes; see the note in init(). -->
+    <script src="script.js"></script>
 </body>
 
 </html>

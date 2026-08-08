@@ -43,32 +43,20 @@ function init() {
         }
     };
 
-    // ARRIVING FROM THE LANDING HERO
+    // EMBEDDED IN THE LANDING PAGE
     //
-    // The hero flies its camera to this page's opening pose, raises a curtain in
-    // the shared background colour, and only then navigates. Showing the splash
-    // again here would break that: the lamp would vanish behind a progress bar
-    // it has already been through. So the splash is skipped and the page fades
-    // up from the same colour the curtain went out on.
+    // index.html mounts one ThreeViewer for its hero and then opens the
+    // configurator over the top of it, so the same lamp is on screen the whole
+    // time. When that is the case hero.js has already published its viewer and
+    // this file must attach to it rather than build a second one — a second
+    // viewer would mean a second WebGL context, a second 6.7 MB model download
+    // and two canvases fighting over the same container.
     //
-    // The model is in the HTTP cache by now, so there is nothing to wait for
-    // that is worth a progress bar.
-    const fromHero = new URLSearchParams(location.search).get('from') === 'hero';
-    if (fromHero && preloader) {
-        preloader.remove();
-        const curtain = document.createElement('div');
-        curtain.style.cssText =
-            'position:fixed;inset:0;z-index:9999;background:#14100e;' +
-            'pointer-events:none;transition:opacity 1s cubic-bezier(.22,1,.36,1)';
-        document.body.appendChild(curtain);
-        requestAnimationFrame(() => {
-            curtain.style.opacity = '0';
-            setTimeout(() => curtain.remove(), 1100);
-        });
-    }
+    // There is also nothing to load, so there is no splash to run.
+    const shared = window.MajestySharedViewer || null;
 
     // Start the animation loop
-    if (!fromHero) requestAnimationFrame(updateLoader);
+    if (!shared) requestAnimationFrame(updateLoader);
 
     // The splash tracks the model, because the model IS the first view now — the
     // 2D still it used to track no longer exists. The bar shows real download
@@ -87,13 +75,18 @@ function init() {
     // A stalled or uncached CDN must not trap the client behind the splash.
     setTimeout(modelReady, 20000);
 
-    threeViewer = new ThreeViewer({
-        onProgress: onModelProgress,
-        onLoad: () => {
-            viewerReady = true;
-            modelReady();
-        }
-    });
+    if (shared) {
+        threeViewer = shared;
+        viewerReady = true;
+    } else {
+        threeViewer = new ThreeViewer({
+            onProgress: onModelProgress,
+            onLoad: () => {
+                viewerReady = true;
+                modelReady();
+            }
+        });
+    }
 
     // Setup camera listeners now that viewer is created
     setupCameraAngleListeners();
@@ -429,6 +422,10 @@ function getCurrentImagePath() {
 
 function setupThemeListener() {
     const themeBtn = document.getElementById('themeToggleBtn');
+    // The landing page embeds the configurator without the light-mode toggle —
+    // it has one palette and switching half the chrome to a light theme mid-page
+    // would look broken.
+    if (!themeBtn) return;
     const sunIcon = themeBtn.querySelector('.sun-icon');
     const moonIcon = themeBtn.querySelector('.moon-icon');
 
