@@ -263,6 +263,22 @@
         varying vec2      vLocal;
         varying vec3      vWorld;
 
+        /**
+         * Reflector sets its render target's encoding to renderer.outputEncoding
+         * on EVERY frame, so the reflection texture holds sRGB-encoded values.
+         * The composer's intermediate buffers are linear and only the final pass
+         * encodes to screen, so sampling the reflection raw and writing it here
+         * means it gets encoded a SECOND time — which brightens midtones and, since
+         * the curve is non-linear per channel, shifts hue as well. Measured against
+         * the real lamp it came out r x1.51, g x1.09, b x2.00: not an exposure
+         * boost, a colour-space mismatch.
+         */
+        vec3 srgbToLinear(vec3 c) {
+            return mix(pow((c + 0.055) / 1.055, vec3(2.4)),
+                       c / 12.92,
+                       step(c, vec3(0.04045)));
+        }
+
         void main() {
             float r = length(vLocal) / max(floorRadius, 1e-3);
 
@@ -276,10 +292,13 @@
             // so the low end stays controllable instead of jumping straight to soft.
             float lod = clamp(rough * rough * maxLod, 0.0, maxLod);
             #ifdef REFL_LOD
-                vec3 refl = texture2DProjLodEXT(tDiffuse, vUv, lod).rgb;
+                vec3 reflRaw = texture2DProjLodEXT(tDiffuse, vUv, lod).rgb;
             #else
-                vec3 refl = texture2DProj(tDiffuse, vUv).rgb;
+                vec3 reflRaw = texture2DProj(tDiffuse, vUv).rgb;
             #endif
+            // Back to linear, so the reflection sits in the same space as
+            // everything else in the buffer and is encoded exactly once.
+            vec3 refl = srgbToLinear(reflRaw);
 
             // FRESNEL: nearly a full mirror at a grazing angle, which is what lets
             // the floor BECOME the dome at the horizon with no step in brightness.
