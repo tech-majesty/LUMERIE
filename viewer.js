@@ -90,6 +90,33 @@ let cart = [];
 // Three.js Viewer State
 let threeViewer = null;
 
+
+/**
+ * Rendering budget for this device.
+ *
+ * Resolved once. The chain below is entirely fragment-bound — three scene
+ * renders plus a bloom pyramid plus a mirrored reflection — so the only knobs
+ * that matter on a phone are how many pixels each of those covers.
+ *
+ * Pixel ratio is squared in its effect: an iPhone reporting 3 would render NINE
+ * times the fragments of a ratio of 1. Nobody can see that on a lamp occupying
+ * a third of a phone screen.
+ *
+ * The reflection buffer is the other one. The tuned stage preset asks for 2048,
+ * which is a larger surface than a phone's entire display, for a reflection
+ * shown a few hundred pixels tall. Only the resolution moves here: strength,
+ * colour, fresnel, fade and the horizon band are untouched, so the look the
+ * preset describes is the same look, just sampled less finely.
+ */
+function majestyQuality() {
+    const w = window.innerWidth;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+
+    if (w <= 700) return { tier: 'phone', pixelRatio: 1.5, reflection: 512 };
+    if (w <= 1180 || coarse) return { tier: 'tablet', pixelRatio: 1.75, reflection: 1024 };
+    return { tier: 'desktop', pixelRatio: 2, reflection: null };  // null = keep the preset
+}
+
 // Three.js Viewer Class
 class ThreeViewer {
     constructor(options = {}) {
@@ -97,7 +124,12 @@ class ThreeViewer {
         this.container = document.getElementById('threeCanvasContainer');
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(10, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        // antialias:false ON PURPOSE. Every pass renders into the composer's own
+        // WebGLRenderTargets, which are not multisampled, so an MSAA backbuffer is
+        // allocated and then bypassed: measured 4 samples on a 2560x1440 default
+        // framebuffer that only ever receives one fullscreen quad. The actual
+        // antialiasing is the FXAA pass at the end of the chain.
+        this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
         this.model = null;
         this.loader = new THREE.GLTFLoader();
         this.materialSettings = {
@@ -166,10 +198,8 @@ class ThreeViewer {
     init() {
         // Renderer setup
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        // Capped. Every pass below is fragment-bound, and the cost scales with
-        // the SQUARE of this: a 3x display would quadruple the work of a 1.5x one
-        // for a difference nobody can see on a lamp this size.
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.quality = majestyQuality();
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality.pixelRatio));
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
         this.container.appendChild(this.renderer.domElement);
@@ -280,9 +310,12 @@ class ThreeViewer {
         this.fxaaPass.material.uniforms['resolution'].value.y = 1 / (this.container.clientHeight * pixelRatio);
         this.finalComposer.addPass(this.fxaaPass);
 
-        // Handle High DPI
-        this.bloomComposer.setSize(this.container.clientWidth * pixelRatio, this.container.clientHeight * pixelRatio);
-        this.finalComposer.setSize(this.container.clientWidth * pixelRatio, this.container.clientHeight * pixelRatio);
+        // EffectComposer.setSize() multiplies by the renderer's pixel ratio ITSELF.
+        // Passing pre-multiplied dimensions squared it: at ratio 2 the targets came
+        // out 5120x2880 instead of 2560x1440, four times the fragments, on every
+        // one of the three scene renders. Measured, not inferred.
+        this.bloomComposer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.finalComposer.setSize(this.container.clientWidth, this.container.clientHeight);
 
         // Materials for selective bloom
         this.darkMaterial = new THREE.MeshBasicMaterial({ color: 'black' });
@@ -688,8 +721,9 @@ class ThreeViewer {
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         if (this.bloomComposer) {
             const pixelRatio = this.renderer.getPixelRatio();
-            this.bloomComposer.setSize(this.container.clientWidth * pixelRatio, this.container.clientHeight * pixelRatio);
-            this.finalComposer.setSize(this.container.clientWidth * pixelRatio, this.container.clientHeight * pixelRatio);
+            // CSS pixels: setSize applies the ratio internally. See init().
+            this.bloomComposer.setSize(this.container.clientWidth, this.container.clientHeight);
+            this.finalComposer.setSize(this.container.clientWidth, this.container.clientHeight);
 
             if (this.fxaaPass) {
                 this.fxaaPass.material.uniforms['resolution'].value.x = 1 / (this.container.clientWidth * pixelRatio);
@@ -865,6 +899,14 @@ class ThreeViewer {
         const camDist = Math.max(...Object.values(this.cameraAngles).map(a =>
             Math.hypot(a.pos.x, a.pos.y, a.pos.z)));
 
+        // The tuned preset asks for a 2048 reflection. On a phone that is a bigger
+        // surface than the screen, so the tier caps it. Resolution only: every
+        // value that describes how the floor LOOKS is left exactly as tuned.
+        const stageSettings = window.MajestyStage.current();
+        if (this.quality.reflection && stageSettings.reflectionResolution > this.quality.reflection) {
+            stageSettings.reflectionResolution = this.quality.reflection;
+        }
+
         this.stage = window.MajestyStage.create({
             THREE: THREE,
             scene: this.scene,
@@ -872,7 +914,7 @@ class ThreeViewer {
             camera: this.camera,
             box: box,
             camDist: camDist,
-            settings: window.MajestyStage.current()
+            settings: stageSettings
         });
 
         // Kept as aliases: the bloom pass and the floor helpers refer to these.
@@ -882,7 +924,8 @@ class ThreeViewer {
         this.installReflectionDimmer();
 
         console.log(`Stage built — floor y=${box.min.y.toFixed(4)} r=${this.stage.radius.toFixed(2)}, ` +
-            `dome r=${this.stage.domeRadius.toFixed(2)}, reflection ${this.stage.resolution}px`);
+            `dome r=${this.stage.domeRadius.toFixed(2)}, reflection ${this.stage.resolution}px, ` +
+            `quality ${this.quality.tier} @${this.renderer.getPixelRatio()}x`);
     }
 
     /**
