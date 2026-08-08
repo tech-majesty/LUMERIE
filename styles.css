@@ -769,16 +769,37 @@ body.light-mode .empty-cart-message {
 }
 
 .summary-modal-content {
-    background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%);
-    width: 800px;
-    max-width: 90%;
+    /* Near-black with a barely-there warm lift toward the top, so the panel
+       reads as lit from above rather than as a flat grey sheet. */
+    background:
+        radial-gradient(120% 80% at 50% -10%, rgba(238, 186, 88, 0.10) 0%, rgba(238, 186, 88, 0) 60%),
+        linear-gradient(180deg, #121110 0%, #070706 100%);
+    width: 860px;
+    max-width: 92%;
     max-height: 90vh;
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(238, 186, 88, 0.3);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border-radius: 18px;
+    border: 1px solid rgba(238, 186, 88, 0.16);
+    box-shadow:
+        0 40px 90px -20px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(0, 0, 0, 0.6);
     position: relative;
     overflow-y: auto;
-    animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: modalSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A single bright hairline along the top edge — the cue that reads as a
+   polished edge catching light, and the cheapest way to stop a dark panel
+   looking like a flat rectangle. */
+.summary-modal-content::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(238, 186, 88, 0.55) 50%,
+        transparent 100%);
+    pointer-events: none;
 }
 
 @keyframes modalSlideUp {
@@ -811,9 +832,29 @@ body.light-mode .empty-cart-message {
 }
 
 .summary-container {
-    padding: var(--spacing-2xl);
+    padding: 3.5rem 3.25rem 2.5rem;
     text-align: center;
     color: white;
+}
+
+/* Staggered entrance. Each block arrives just after the one above it, which
+   makes the panel feel composed rather than dumped on screen all at once. */
+.summary-container > * {
+    animation: summaryRise 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.summary-container > *:nth-child(1) { animation-delay: 0.06s; }
+.summary-container > *:nth-child(2) { animation-delay: 0.14s; }
+.summary-container > *:nth-child(3) { animation-delay: 0.22s; }
+.summary-container > *:nth-child(4) { animation-delay: 0.30s; }
+
+@keyframes summaryRise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .summary-modal-content,
+    .summary-container > * { animation: none; }
 }
 
 /* Trademark mark: raised and small, so it reads as a mark rather than as part
@@ -847,74 +888,132 @@ body.light-mode .empty-cart-message {
 
 .luxegenie-title {
     font-family: var(--font-display);
-    font-size: 3rem;
-    margin-bottom: 0.5rem;
+    font-size: 3.75rem;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    margin-bottom: 0.85rem;
 }
 
+/* Smaller than the old 1.25rem and much wider tracked. A subtitle competing
+   with the wordmark for size is what made the header read as generic. */
 .luxegenie-subtitle {
-    font-size: 1.25rem;
-    color: #a1a1aa;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #8a8a94;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
-    margin-bottom: var(--spacing-2xl);
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    margin-bottom: 2.75rem;
+    position: relative;
+    padding-bottom: 2.25rem;
 }
 
+/* Short centred hairline instead of a full-width divider — it separates
+   without cutting the panel in half. */
+.luxegenie-subtitle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 72px;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent, rgba(238, 186, 88, 0.7), transparent);
+}
+
+/* Boxed cards replaced with columns divided by hairlines. Three bordered grey
+   rectangles is the most generic pattern on the web; a specification table
+   separated by rules is how the numbers get to look considered. */
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--spacing-xl);
-    margin-bottom: var(--spacing-2xl);
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin-bottom: 2.75rem;
 }
 
 .stat-box {
-    background: rgba(255, 255, 255, 0.05);
-    padding: var(--spacing-xl);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease;
+    padding: 0.5rem 1.25rem;
+    position: relative;
+    background: none;
+    border: 0;
+    border-radius: 0;
 }
 
-.stat-box:hover {
-    transform: translateY(-5px);
-    border-color: rgba(238, 186, 88, 0.5);
+.stat-box + .stat-box::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 12%;
+    bottom: 12%;
+    width: 1px;
+    background: linear-gradient(180deg,
+        transparent, rgba(255, 255, 255, 0.13), transparent);
 }
 
 .stat-number {
     display: block;
     font-family: var(--font-stat);
-    font-size: 3rem;
-    margin-bottom: var(--spacing-xs);
+    font-size: 3.4rem;
+    line-height: 1.05;
+    margin-bottom: 0.7rem;
+    font-feature-settings: 'lnum' 1, 'tnum' 1;
 }
 
 .stat-label {
-    font-size: 0.875rem;
-    color: #d1d5db;
+    display: block;
+    /* No ch cap: the tracking below makes each glyph wider than 1ch, so a
+       16ch limit still broke these to three lines. The column's own padding
+       is the right constraint. */
+    margin: 0 auto;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #9b9ba4;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    line-height: 1.4;
+    letter-spacing: 0.16em;
+    line-height: 1.7;
 }
 
 .summary-description {
-    max-width: 600px;
-    margin: 0 auto var(--spacing-2xl);
-    line-height: 1.6;
-    color: #e5e7eb;
+    max-width: 52ch;
+    margin: 0 auto 2.5rem;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: #b9b9c2;
 }
 
+/* The tagline is the line worth remembering, so it gets set as a pull quote
+   with its own rules rather than sitting as one more italic paragraph. */
 .highlight-text {
     font-family: var(--font-display);
-    font-size: 1.25rem;
-    margin-top: var(--spacing-lg);
+    font-size: 1.4rem;
+    line-height: 1.5;
     font-style: italic;
+    margin: 2.25rem auto 0;
+    padding: 1.75rem 0 0;
+    max-width: 40ch;
+    position: relative;
+}
+
+.highlight-text::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 46px;
+    height: 1px;
+    background: rgba(238, 186, 88, 0.45);
 }
 
 .summary-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: var(--spacing-lg);
-    font-size: 0.75rem;
-    color: #6b7280;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding-top: 1.5rem;
+    font-size: 0.62rem;
+    color: #5d5d66;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
 }
 
 #checkoutSuccessModal {
@@ -963,7 +1062,15 @@ body.light-mode .empty-cart-message {
     }
 
     .luxegenie-title {
-        font-size: 2rem;
+        font-size: 2.35rem;
+    }
+
+    .luxegenie-subtitle {
+        font-size: 0.6rem;
+        letter-spacing: 0.3em;
+        text-indent: 0.3em;
+        margin-bottom: 2rem;
+        padding-bottom: 1.75rem;
     }
 
     .summary-modal-content {
@@ -972,8 +1079,35 @@ body.light-mode .empty-cart-message {
     }
 
     .summary-container {
-        padding: var(--spacing-xl);
+        /* Extra top padding so the wordmark clears the close button, which sits
+           at top-right and crowded the TM on a narrow viewport. */
+        padding: 4rem 1.5rem 1.75rem;
     }
+
+    /* Three hairline-divided columns are too narrow to read on a phone, so the
+       statistics stack and the dividers become horizontal. */
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-box {
+        padding: 1.25rem 0;
+    }
+
+    .stat-box + .stat-box::before {
+        left: 15%;
+        right: 15%;
+        top: 0;
+        bottom: auto;
+        width: auto;
+        height: 1px;
+        background: linear-gradient(90deg,
+            transparent, rgba(255, 255, 255, 0.13), transparent);
+    }
+
+    .stat-number { font-size: 2.75rem; }
+    .stat-label { max-width: none; }
+    .highlight-text { font-size: 1.15rem; }
 }
 
 /* ===== Preloader ===== */
