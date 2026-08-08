@@ -1247,7 +1247,7 @@ function renderCart() {
             ? `<img src="${item.image}" alt="Lamp Config" class="cart-item-image">`
             : `<div class="cart-item-image"></div>`}
             <div class="cart-item-details">
-                <div class="cart-item-title">Majesty Lamp - ${item.names.base}</div>
+                <div class="cart-item-title">MAJESTY AIoT Lamp - ${item.names.base}</div>
                 <div class="cart-item-specs">${item.names.rim} • ${item.names.pattern}</div>
             </div>
             <button class="remove-item-btn" onclick="removeFromCart(${item.id})">
