@@ -73,8 +73,8 @@
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            display: grid;
-            grid-template-columns: 320px 1fr 320px;
+            display: flex;
+            --props-w: 360px;
         }
 
         /* ===== Panels — same 320px sidebar metrics as the storefront ===== */
@@ -546,92 +546,248 @@
         body.light-mode pre::-webkit-scrollbar-thumb {
             background: #d1d5db;
         }
+
+        /* =====================================================================
+           PROPERTIES PANEL
+           Modelled on a 3D app's properties editor rather than a web form: a
+           vertical tab rail, collapsible groups, and drag-to-scrub number
+           fields. The point is that ~60 settings stay findable.
+           ================================================================== */
+        #view {
+            flex: 1 1 auto;
+            min-width: 0;
+            position: relative;
+        }
+
+        #resizer {
+            flex: 0 0 5px;
+            cursor: col-resize;
+            background: var(--panel-line);
+            transition: background .15s;
+        }
+        #resizer:hover, #resizer.drag { background: var(--gold); }
+
+        #props {
+            flex: 0 0 var(--props-w);
+            min-width: 260px;
+            max-width: 640px;
+            background: var(--panel);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-left: 1px solid var(--panel-line);
+        }
+
+        #propHead {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--panel-line);
+            flex: 0 0 auto;
+        }
+        .brandRow {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--spacing-sm); margin-bottom: var(--spacing-sm);
+        }
+        .brandRow h1 {
+            font-family: var(--font-display); font-size: 1.05rem; font-weight: 500;
+            letter-spacing: .04em; color: var(--gold);
+        }
+        .brandRow small {
+            display: block; font-family: var(--font-body); font-size: .58rem;
+            letter-spacing: .14em; text-transform: uppercase;
+            color: var(--color-text-secondary); margin-top: 2px;
+        }
+
+        .searchWrap { position: relative; }
+        .searchWrap input {
+            width: 100%; padding: 7px 26px 7px 9px; font-size: 12px;
+            background: var(--panel-fill); color: var(--panel-text);
+            border: 1px solid var(--panel-line); border-radius: var(--radius-sm);
+        }
+        .searchWrap input:focus { outline: none; border-color: var(--gold); }
+        #searchClear {
+            position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+            width: 20px; height: 20px; padding: 0; line-height: 1;
+            background: none; border: 0; color: var(--panel-text-dim);
+            cursor: pointer; font-size: 15px;
+        }
+        #searchClear:hover { color: var(--panel-text); }
+
+        #propMain { flex: 1 1 auto; display: flex; min-height: 0; }
+
+        /* --- vertical tab rail --- */
+        #tabRail {
+            flex: 0 0 46px;
+            border-right: 1px solid var(--panel-line);
+            display: flex; flex-direction: column; align-items: stretch;
+            padding-top: 6px; gap: 2px;
+        }
+        #tabRail button {
+            position: relative;
+            height: 44px; width: 100%; padding: 0;
+            background: none; border: 0; border-left: 2px solid transparent;
+            color: var(--panel-text-dim); cursor: pointer;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 2px;
+            font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase;
+            transition: color .15s, background .15s;
+        }
+        #tabRail button svg { width: 17px; height: 17px; }
+        #tabRail button:hover { color: var(--panel-text); background: var(--panel-fill); }
+        #tabRail button.on {
+            color: var(--gold); border-left-color: var(--gold);
+            background: var(--panel-fill);
+        }
+
+        #panes { flex: 1 1 auto; overflow-y: auto; min-width: 0; }
+        .pane { display: none; padding-bottom: var(--spacing-2xl); }
+        .pane.on { display: block; }
+
+        /* --- collapsible group --- */
+        .grp { border-bottom: 1px solid var(--panel-line-soft); }
+        .grpHead {
+            width: 100%; text-align: left; cursor: pointer;
+            padding: 9px var(--spacing-md); background: none; border: 0;
+            color: var(--panel-text); font-family: var(--font-body);
+            font-size: 10px; font-weight: 600; letter-spacing: .13em;
+            text-transform: uppercase;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .grpHead:hover { background: var(--panel-fill); }
+        .grpHead i {
+            width: 0; height: 0; flex: 0 0 auto;
+            border-left: 4px solid currentColor;
+            border-top: 3.5px solid transparent;
+            border-bottom: 3.5px solid transparent;
+            transform: rotate(90deg); transition: transform .15s;
+            opacity: .65;
+        }
+        .grp.shut .grpHead i { transform: rotate(0deg); }
+        .grpBody { padding: 2px var(--spacing-md) var(--spacing-md); }
+        .grp.shut .grpBody { display: none; }
+
+        /* --- a labelled field row --- */
+        .fld {
+            display: flex; align-items: center; gap: 8px;
+            min-height: 26px; margin-bottom: 4px;
+        }
+        .fld > label {
+            flex: 1 1 auto; min-width: 0;
+            font-size: 11.5px; color: var(--panel-text-dim);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .fld > input[type=text], .fld > select {
+            flex: 0 0 152px; width: 152px;
+        }
+        .fld > input[type=color] { flex: 0 0 44px; }
+
+        /* --- drag-to-scrub number, the signature 3D-app widget --- */
+        .num {
+            flex: 0 0 152px; position: relative; height: 24px;
+            border: 1px solid var(--panel-line); border-radius: var(--radius-sm);
+            background: var(--panel-fill); overflow: hidden;
+            cursor: ew-resize; user-select: none;
+        }
+        .num .bar {
+            position: absolute; inset: 0 auto 0 0;
+            background: linear-gradient(90deg, rgba(238,186,88,.30), rgba(238,186,88,.16));
+            pointer-events: none;
+        }
+        .num .val {
+            position: relative; z-index: 1;
+            height: 100%; display: flex; align-items: center; justify-content: center;
+            font-size: 11.5px; font-variant-numeric: tabular-nums;
+            color: var(--panel-text);
+        }
+        .num:hover { border-color: rgba(238,186,88,.55); }
+        .num.editing { cursor: text; }
+        .num input {
+            position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%;
+            border: 0; background: var(--panel); color: var(--panel-text);
+            text-align: center; font-size: 11.5px; padding: 0;
+        }
+        .num input:focus { outline: 1px solid var(--gold); }
+        .fld .reset {
+            flex: 0 0 16px; width: 16px; height: 16px; padding: 0;
+            background: none; border: 0; cursor: pointer; line-height: 1;
+            color: var(--panel-text-dim); font-size: 12px; opacity: 0;
+            transition: opacity .15s;
+        }
+        .fld:hover .reset { opacity: .7; }
+        .fld .reset:hover { opacity: 1; color: var(--gold); }
+        .fld.dirty > label { color: var(--panel-text); }
+        .fld.dirty > label::after {
+            content: '•'; color: var(--gold); margin-left: 5px; font-size: 14px;
+            line-height: 0; vertical-align: middle;
+        }
+
+        /* --- toggle --- */
+        .tgl {
+            flex: 0 0 152px; height: 24px; padding: 0;
+            background: var(--panel-fill); color: var(--panel-text-dim);
+            border: 1px solid var(--panel-line); border-radius: var(--radius-sm);
+            cursor: pointer; font-size: 11px; letter-spacing: .06em;
+        }
+        .tgl.on {
+            background: rgba(238,186,88,.16); color: var(--gold);
+            border-color: rgba(238,186,88,.5);
+        }
+
+        /* --- viewport overlay toolbar --- */
+        #viewBar {
+            position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+            display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+            z-index: 6; pointer-events: auto;
+        }
+        /* The segmented buttons were styled for a solid panel; over the viewport
+           they need to read as a floating overlay instead of a white slab. */
+        #viewBar .seg {
+            margin: 0;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 18px rgba(0, 0, 0, .55);
+            border: 1px solid var(--panel-line);
+        }
+        #viewBar .seg button {
+            background: rgba(10, 10, 12, .72);
+            border-color: var(--panel-line);
+            color: var(--panel-text-dim);
+            padding: 7px 11px;
+        }
+        #viewBar .seg button:hover { background: rgba(28, 28, 32, .85); color: var(--panel-text); }
+        #viewBar .seg button.on {
+            background: rgba(238, 186, 88, .20);
+            color: var(--gold);
+            border-color: rgba(238, 186, 88, .45);
+        }
+        body.light-mode #viewBar .seg button { background: rgba(255,255,255,.82); color: #4d4d4d; }
+        body.light-mode #viewBar .seg button.on { background: rgba(212,165,116,.28); color: #7a5320; }
+
+        .grp.hidden { display: none; }
+
+        /* search filtering */
+        .grp.filtered, .fld.filtered { display: none; }
+
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            #props { flex: 1 1 auto; max-width: none; }
+            #view { flex: 0 0 45vh; }
+            #resizer { display: none; }
+        }
     </style>
 </head>
 
 <body>
-    <!-- ============ LEFT: SOURCE + PATTERN ============ -->
-    <aside>
-        <div class="brand">
-            <h1>Pattern Studio<small>Majesty · Lumerie</small></h1>
-            <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light / dark">
-                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round">
-                    <circle cx="12" cy="12" r="4" />
-                    <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-                </svg>
-                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" style="display:none">
-                    <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
-                </svg>
-            </button>
-        </div>
-
-        <div class="sec">
-            <label class="h">Model</label>
-            <div class="row"><label>Source</label></div>
-            <input type="text" id="glbUrl" value="https://pub-0fa84320243249fca31ce0de4238c3e8.r2.dev/MajestyGLB.glb">
-            <div style="height:7px"></div>
-            <button id="btnLoadUrl">Reload from R2 (backup copy)</button>
-            <button id="btnLoadLocal">Reload model</button>
-            <div class="drop" id="glbDrop">or drop a local <code>.glb</code></div>
-            <input type="file" id="glbFile" accept=".glb" class="hidden">
-            <div id="modelInfo" class="note"></div>
-        </div>
-
-        <div class="sec">
-            <label class="h">Pattern</label>
-            <div class="row"><label>Name</label></div>
-            <input type="text" id="pname" value="Ladder">
-            <div style="height:9px"></div>
-            <div class="row"><label>Generator</label></div>
-            <select id="ptype"><!-- filled from GENERATORS at startup --></select>
-            <div id="edgeInfo" class="note"></div>
-            <div style="height:9px"></div>
-            <div id="imgBox" class="hidden">
-                <div class="drop" id="texDrop">drop a tileable <code>PNG</code> (alpha = pattern)</div>
-                <input type="file" id="texFile" accept="image/*" class="hidden">
-                <div class="rng"><div class="row"><label>Repeat around</label><output id="o_tileX">4</output></div>
-                    <input type="range" id="tileX" min="1" max="24" step="1" value="4"></div>
-                <div class="rng"><div class="row"><label>Repeat vertical</label><output id="o_tileY">3</output></div>
-                    <input type="range" id="tileY" min="1" max="24" step="1" value="3"></div>
-                <div class="rng"><div class="row"><label>Invert alpha</label><output id="o_inv">off</output></div>
-                    <input type="range" id="inv" min="0" max="1" step="1" value="0"></div>
-            </div>
-            <div id="paramBox"></div>
-            <div class="rng"><div class="row"><label>Rotate around lamp</label><output id="o_rot">0°</output></div>
-                <input type="range" id="rot" min="-180" max="180" step="1" value="0"></div>
-        </div>
-
-        <div class="sec">
-            <label class="h">Emission</label>
-            <div class="row"><label>Glow colour</label><input type="color" id="ecol" value="#ff9a36"></div>
-            <div class="swatches" id="presetCols"></div>
-            <div style="height:10px"></div>
-            <div class="rng"><div class="row"><label>Strength (glTF)</label><output id="o_estr">50</output></div>
-                <input type="range" id="estr" min="0" max="120" step="1" value="50"></div>
-            <div class="rng"><div class="row"><label>Roughness</label><output id="o_rough">0.50</output></div>
-                <input type="range" id="rough" min="0" max="1" step="0.01" value="0.5"></div>
-            <div class="note">Defaults match the existing <code>Triangle</code> / <code>Star</code> / <code>Arabic</code>
-                materials exactly: emissive <code>[1, 0.605, 0.214]</code>, strength <code>50</code>, roughness
-                <code>0.5</code>, <code>BLEND</code>, double-sided.</div>
-        </div>
-    </aside>
-
-    <!-- ============ CENTER: VIEWPORT ============ -->
+    <!-- ===================== VIEWPORT ===================== -->
     <main id="view">
         <div id="hud"><span id="hudMain"></span><span id="perfLine"></span></div>
         <div id="status">Loading three.js…</div>
-    </main>
-
-    <!-- ============ RIGHT: BAKE / EXPORT ============ -->
-    <aside class="right">
-        <div class="brand">
-            <h1>Output<small>bake · glb · render</small></h1>
-        </div>
-
-        <div class="sec">
-            <label class="h">Preview mode</label>
+        <div id="viewBar">
+            <div class="seg" id="segView">
+                <button data-view="left">Left</button>
+                <button data-view="front" class="on">Front</button>
+                <button data-view="right">Right</button>
+            </div>
             <div class="seg" id="segMode">
                 <button data-mode="proc" class="on">Procedural</button>
                 <button data-mode="baked">Baked tex</button>
@@ -640,82 +796,218 @@
                 <button data-iso="0" class="on">Full lamp</button>
                 <button data-iso="1">Pattern only</button>
             </div>
-            <div class="row"><label>Base Color</label>
-                <select id="baseCol" style="width:auto;flex:0 0 130px">
-                    <option value="Red" selected>Red</option>
-                    <option value="Red Metallic">Red Metallic</option>
-                    <option value="Black">Black</option>
-                    <option value="White">White</option>
-                    <option value="Gold">Gold</option>
-                    <option value="Silver">Silver</option>
-                    <option value="Copper">Copper</option>
-                </select>
+        </div>
+    </main>
+
+    <div id="resizer" title="Drag to resize the panel"></div>
+
+    <!-- ===================== PROPERTIES ===================== -->
+    <aside id="props">
+        <header id="propHead">
+            <div class="brandRow">
+                <h1>Pattern Studio<small>Majesty · Lumerie</small></h1>
+                <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light / dark">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" style="display:none">
+                        <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
+                    </svg>
+                </button>
             </div>
-            <div class="row"><label>Rim Finish</label>
-                <select id="rimCol" style="width:auto;flex:0 0 130px">
-                    <option value="Golden Ring" selected>Golden Ring</option>
-                    <option value="Silver Ring">Silver Ring</option>
-                    <option value="Copper Ring">Copper Ring</option>
-                </select>
+            <div class="searchWrap">
+                <input id="propSearch" type="text" placeholder="Search settings…" autocomplete="off">
+                <button id="searchClear" title="Clear">×</button>
             </div>
-            <div class="seg" id="segView" style="margin-top:9px">
-                <button data-view="left">Left</button>
-                <button data-view="front" class="on">Front</button>
-                <button data-view="right">Right</button>
+            <div id="searchNote" class="note hidden"></div>
+        </header>
+
+        <div id="propMain">
+            <nav id="tabRail"></nav>
+
+            <div id="panes">
+                <!-- ============ PATTERN ============ -->
+                <section class="pane on" data-pane="pattern">
+                    <div class="grp" data-key="p-name">
+                        <button class="grpHead"><i></i>Pattern</button>
+                        <div class="grpBody">
+                            <div class="fld"><label>Name</label><input type="text" id="pname" value="Ladder"></div>
+                            <div class="fld"><label>Generator</label><select id="ptype"></select></div>
+                            <div id="edgeInfo" class="note"></div>
+                        </div>
+                    </div>
+
+                    <div class="grp" data-key="p-img">
+                        <button class="grpHead"><i></i>Image tile</button>
+                        <div class="grpBody">
+                            <div id="imgBox">
+                                <div class="drop" id="texDrop">drop a tileable <code>PNG</code> (alpha = pattern)</div>
+                                <input type="file" id="texFile" accept="image/*" class="hidden">
+                                <div id="imgFields"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grp" data-key="p-shape">
+                        <button class="grpHead"><i></i>Shape</button>
+                        <div class="grpBody"><div id="paramBox"></div></div>
+                    </div>
+
+                    <div class="grp" data-key="p-place">
+                        <button class="grpHead"><i></i>Placement</button>
+                        <div class="grpBody"><div id="placeBox"></div></div>
+                    </div>
+
+                    <div class="grp" data-key="p-emit">
+                        <button class="grpHead"><i></i>Emission</button>
+                        <div class="grpBody">
+                            <div class="fld"><label>Glow colour</label><input type="color" id="ecol" value="#ff9a36"></div>
+                            <div class="swatches" id="presetCols"></div>
+                            <div id="emitFields"></div>
+                            <div class="note">Defaults match the shipped <code>Triangle</code> / <code>Star</code> /
+                                <code>Arabic</code> materials exactly: emissive <code>[1, 0.605, 0.214]</code>,
+                                strength <code>50</code>, roughness <code>0.5</code>, <code>BLEND</code>, double-sided.</div>
+                        </div>
+                    </div>
+
+                    <div class="grp" data-key="p-share">
+                        <button class="grpHead"><i></i>Share this pattern</button>
+                        <div class="grpBody">
+                            <button id="btnCopyRecipe" class="primary" disabled>Copy pattern recipe</button>
+                            <button id="btnPasteRecipe">Paste a recipe</button>
+                            <pre id="recipeOut" class="hidden"></pre>
+                            <div class="note">Every setting needed to rebuild this pattern exactly — generator, all
+                                sliders, size ramp, tilt, rotation and emission.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ STAGE ============ -->
+                <section class="pane" data-pane="stage">
+                    <div id="stageGen"></div>
+                    <div class="grp" data-key="s-share">
+                        <button class="grpHead"><i></i>Share these settings</button>
+                        <div class="grpBody">
+                            <button id="btnCopyStage" class="primary">Copy stage JSON</button>
+                            <button id="btnPasteStage">Paste stage JSON</button>
+                            <button id="btnResetStage">Reset to defaults</button>
+                            <pre id="stageOut" class="hidden"></pre>
+                            <div class="note">Send the JSON over and it goes into <code>stage.js</code>, which the
+                                storefront loads too — so tuning it here is tuning the live site.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ SCENE ============ -->
+                <section class="pane" data-pane="scene">
+                    <div class="grp" data-key="sc-prod">
+                        <button class="grpHead"><i></i>Product</button>
+                        <div class="grpBody">
+                            <div class="fld"><label>Base colour</label>
+                                <select id="baseCol">
+                                    <option value="Red" selected>Red</option>
+                                    <option value="Red Metallic">Red Metallic</option>
+                                    <option value="Black">Black</option>
+                                    <option value="White">White</option>
+                                    <option value="Gold">Gold</option>
+                                    <option value="Silver">Silver</option>
+                                    <option value="Copper">Copper</option>
+                                </select>
+                            </div>
+                            <div class="fld"><label>Rim finish</label>
+                                <select id="rimCol">
+                                    <option value="Golden Ring" selected>Golden Ring</option>
+                                    <option value="Silver Ring">Silver Ring</option>
+                                    <option value="Copper Ring">Copper Ring</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="sceneGen"></div>
+                    <div class="grp" data-key="sc-note">
+                        <button class="grpHead"><i></i>About the preview</button>
+                        <div class="grpBody">
+                            <div class="note"><b>Procedural</b> is ground truth — the pattern is computed from 3D
+                                position, no UVs involved. Switch to <b>Baked tex</b> after baking: the two must look
+                                identical. If they don't, the bake is wrong.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ POST ============ -->
+                <section class="pane" data-pane="post">
+                    <div id="postGen"></div>
+                </section>
+
+                <!-- ============ OUTPUT ============ -->
+                <section class="pane" data-pane="output">
+                    <div class="grp" data-key="o-bake">
+                        <button class="grpHead"><i></i>Texture bake</button>
+                        <div class="grpBody">
+                            <div class="kv"><span>Resolution</span><b id="bakeRes">3556 × 2000</b></div>
+                            <div class="kv"><span>Matches existing art</span><b style="color:var(--ok)">yes</b></div>
+                            <button id="btnBake" disabled>Bake texture</button>
+                            <canvas id="texpreview" class="hidden"></canvas>
+                            <div id="bakeInfo" class="note"></div>
+                            <button id="btnDlTex" class="hidden">Download pattern PNG</button>
+                            <button id="btnUv" disabled>Download UV template</button>
+                            <div class="note">UV template = the sleeve's unwrap as a wireframe, for hand-drawn art. The
+                                unwrap is a cone, so a flat drawing must be pre-warped into a V — the generators do
+                                that for you automatically.</div>
+                        </div>
+                    </div>
+
+                    <div class="grp" data-key="o-glb">
+                        <button class="grpHead"><i></i>Export model</button>
+                        <div class="grpBody">
+                            <button id="btnGlb" class="primary" disabled>Export .glb with pattern</button>
+                            <div id="glbInfo" class="note"></div>
+                            <div class="note">Surgical patch — clones the existing sleeve's accessors, so the file
+                                only grows by the PNG. Every other mesh, material and extension is byte-identical.</div>
+                        </div>
+                    </div>
+
+                    <div class="grp" data-key="o-render">
+                        <button class="grpHead"><i></i>Render passes · 1920×1080</button>
+                        <div class="grpBody">
+                            <button id="btnRenderLines" disabled>Pattern alpha pass</button>
+                            <button id="btnRenderGlow" disabled>Bloom glow pass</button>
+                            <button id="btnRenderLamp" disabled>Full lamp alpha pass</button>
+                            <div class="note">Composite: lamp pass at bottom, alpha pass over it, glow pass on
+                                <b>Screen</b> or <b>Add</b>. Glow is additive light so it can't live in an alpha
+                                channel — that's why it's a separate layer.</div>
+                        </div>
+                    </div>
+
+                    <div class="grp" data-key="o-snip">
+                        <button class="grpHead"><i></i>Wire it into the site</button>
+                        <div class="grpBody">
+                            <button id="btnSnip" disabled>Generate code + SVG icon</button>
+                            <pre id="snippet" class="hidden"></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ MODEL ============ -->
+                <section class="pane" data-pane="model">
+                    <div class="grp" data-key="m-src">
+                        <button class="grpHead"><i></i>Model source</button>
+                        <div class="grpBody">
+                            <div class="fld"><label>R2 URL</label></div>
+                            <input type="text" id="glbUrl"
+                                value="https://pub-0fa84320243249fca31ce0de4238c3e8.r2.dev/MajestyGLB.glb">
+                            <button id="btnLoadLocal">Reload model</button>
+                            <button id="btnLoadUrl">Reload from R2 (backup copy)</button>
+                            <div class="drop" id="glbDrop">or drop a local <code>.glb</code></div>
+                            <input type="file" id="glbFile" accept=".glb" class="hidden">
+                            <div id="modelInfo" class="note"></div>
+                        </div>
+                    </div>
+                </section>
             </div>
-            <div class="note"><b>Procedural</b> is ground truth — the pattern is computed from 3D position, no UVs
-                involved. Switch to <b>Baked tex</b> after baking: the two must look identical. If they don't, the bake
-                is wrong.</div>
-        </div>
-
-        <div class="sec">
-            <label class="h">Texture bake</label>
-            <div class="kv"><span>Resolution</span><b id="bakeRes">3556 × 2000</b></div>
-            <div class="kv"><span>Matches existing art</span><b style="color:var(--ok)">yes</b></div>
-            <div style="height:9px"></div>
-            <button id="btnBake" disabled>Bake texture</button>
-            <canvas id="texpreview" class="hidden"></canvas>
-            <div id="bakeInfo" class="note"></div>
-            <button id="btnDlTex" class="hidden">Download pattern PNG</button>
-            <button id="btnUv" disabled>Download UV template</button>
-            <div class="note">UV template = the sleeve's unwrap as a wireframe, for hand-drawn art. The unwrap is a
-                cone, so a flat drawing must be pre-warped into a V — the generators above do that for you
-                automatically.</div>
-        </div>
-
-        <div class="sec">
-            <label class="h">Export model</label>
-            <button id="btnGlb" class="primary" disabled>Export .glb with pattern</button>
-            <div id="glbInfo" class="note"></div>
-            <div class="note">Surgical patch — clones the existing sleeve's accessors, so the file only grows by the
-                PNG. Every other mesh, material and extension is byte-identical.</div>
-        </div>
-
-        <div class="sec">
-            <label class="h">Render passes · 1920×1080</label>
-            <div class="row"><label>Transparent background</label></div>
-            <button id="btnRenderLines" disabled>Pattern alpha pass</button>
-            <button id="btnRenderGlow" disabled>Bloom glow pass</button>
-            <button id="btnRenderLamp" disabled>Full lamp alpha pass</button>
-            <div class="note">Composite: lamp pass at bottom, alpha pass over it, glow pass on <b>Screen</b> or
-                <b>Add</b>. Glow is additive light so it can't live in an alpha channel — that's why it's a separate
-                layer.</div>
-        </div>
-
-        <div class="sec">
-            <label class="h">Wire it into the site</label>
-            <button id="btnSnip" disabled>Generate code + SVG icon</button>
-            <pre id="snippet" class="hidden"></pre>
-        </div>
-
-        <div class="sec">
-            <label class="h">Share this pattern</label>
-            <button id="btnCopyRecipe" class="primary" disabled>Copy pattern recipe</button>
-            <button id="btnPasteRecipe">Paste a recipe</button>
-            <pre id="recipeOut" class="hidden"></pre>
-            <div class="note">The recipe is every setting needed to rebuild this exact pattern —
-                generator, all sliders, size ramp, tilt, rotation and emission. Copy it and send it
-                over; pasting one back restores the pattern here precisely.</div>
         </div>
     </aside>
 
@@ -733,6 +1025,8 @@
 
     <!-- shared procedural pattern engine (same file the storefront loads) -->
     <script src="pattern-engine.js"></script>
+    <!-- shared backdrop + floor, so tuning here changes the storefront too -->
+    <script src="stage.js"></script>
 
     <script>
         // =====================================================================
@@ -835,6 +1129,8 @@
         //  three.js scene — mirrors production settings so the preview is honest
         // ---------------------------------------------------------------------
         let renderer, scene, camera, controls, bloomComposer, finalComposer, bloomPass, renderPass;
+        // held so the Scene panel can drive the rig live
+        let ambientLight, mainLight, rimLight;
         let logoLight = null, floorMesh = null;
         const LAYER_LOGO = 1;   // storefront reserves layer 1 for the Logo
         // The model is committed to the repo, so it comes from the same origin as
@@ -884,13 +1180,14 @@
 
             // --- light rig, verbatim from script.js -------------------------
             const g = MAIN.global;
-            scene.add(new THREE.AmbientLight(0xffffff, g.ambientIntensity));
+            ambientLight = new THREE.AmbientLight(0xffffff, g.ambientIntensity);
+            scene.add(ambientLight);
 
-            const mainLight = new THREE.DirectionalLight(0xffffff, g.mainLightIntensity);
+            mainLight = new THREE.DirectionalLight(0xffffff, g.mainLightIntensity);
             mainLight.position.set(5, 5, 5);
             scene.add(mainLight);
 
-            const rimLight = new THREE.PointLight(0xffffff, g.rimLightIntensity);
+            rimLight = new THREE.PointLight(0xffffff, g.rimLightIntensity);
             rimLight.position.set(-5, 3, -5);
             scene.add(rimLight);
 
@@ -964,10 +1261,13 @@
             // anyway, so drawing it there costs a second full scene render for
             // nothing. Hiding it halves the reflector's per-frame cost with no
             // visual change.
-            if (floorMesh) floorMesh.visible = false;
+            if (state.stage) state.stage.setVisible(false);
             bloomComposer.render();
-            if (floorMesh) floorMesh.visible = true;
             scene.traverse(restoreMats);
+            // blur() AFTER the restore: darkenNonGlow swaps the floor's material
+            // for the flat dark one, and that material has no uniforms to write
+            // the blurred reflection into.
+            if (state.stage) { state.stage.setVisible(true); state.stage.blur(); }
             finalComposer.render();
         }
 
@@ -1150,7 +1450,7 @@
 
             rebuildParams();
             applyMainMaterials();
-            addReflectorFloor();
+            buildStudioStage();
             resetView();
             ['#btnBake', '#btnUv', '#btnGlb', '#btnRenderLines', '#btnRenderGlow', '#btnRenderLamp', '#btnSnip', '#btnCopyRecipe']
                 .forEach(s => $(s).disabled = false);
@@ -1780,11 +2080,15 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 if (recipe.emission.strength != null) $('#estr').value = recipe.emission.strength;
                 if (recipe.emission.roughness != null) $('#rough').value = recipe.emission.roughness;
             }
-            if (recipe.rotateDeg != null) $('#rot').value = recipe.rotateDeg;
-
-            // rebuildParams() creates the sliders for this generator, so the
-            // values have to be written after it, then pushed to the shader.
+            // rebuildParams() creates the controls for this generator — INCLUDING
+            // the rotation field — so every value has to be written after it, not
+            // before, or the rebuild resets it.
             rebuildParams();
+            if (recipe.rotateDeg != null) {
+                const rotEl = $('#rot');
+                rotEl.value = recipe.rotateDeg;
+                rotEl.dispatchEvent(new Event('input'));
+            }
             const setAll = (obj) => {
                 let missing = [];
                 for (const [k, v] of Object.entries(obj || {})) {
@@ -1797,13 +2101,12 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             };
             const missing = [...setAll(recipe.params), ...setAll(recipe.placement)];
 
-            // reflect the restored values in the readouts
-            $('#o_rot').textContent = $('#rot').value + '°';
-            $('#o_estr').textContent = $('#estr').value;
-            $('#o_rough').textContent = (+$('#rough').value).toFixed(2);
-            ['tileX', 'tileY', 'inv'].forEach(id => {
-                const o = $('#o_' + id);
-                if (o) o.textContent = id === 'inv' ? (+$('#inv').value ? 'on' : 'off') : $('#' + id).value;
+            // Repaint the restored values. The widgets listen for 'input' on their
+            // hidden shim, so dispatching is what refreshes the visible number —
+            // writing the old <output> text alone would leave the widget stale.
+            ['rot', 'estr', 'rough', 'tileX', 'tileY', 'inv'].forEach(id => {
+                const el = $('#' + id);
+                if (el) el.dispatchEvent(new Event('input'));
             });
 
             updateProcUniforms();
@@ -1835,39 +2138,621 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
             }
         }
 
+
+        // =====================================================================
+        //  UI — a small properties-editor toolkit
+        //
+        //  Every control is generated from a field description rather than
+        //  hand-written markup. That is what keeps ~60 settings navigable: the
+        //  tab rail, the collapsible groups and the search filter all work off
+        //  the same generated structure, and a new setting is one schema entry.
+        //
+        //  COMPATIBILITY: each generated number field also emits a hidden
+        //  <input type="range"> carrying the original element id, plus a hidden
+        //  <output id="o_...">. Every piece of existing code that reads
+        //  $('#estr').value, dispatches 'input' on it, or writes to #o_estr keeps
+        //  working untouched — the widget is a new face on the same plumbing.
+        // =====================================================================
+        const UI = (() => {
+            const LS = 'majesty.studio.ui.v1';
+            const store = (() => {
+                try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) { return {}; }
+            })();
+            const save = () => { try { localStorage.setItem(LS, JSON.stringify(store)); } catch (e) { } };
+
+            const fmt = (v, dp, unit) => (+v).toFixed(dp || 0) + (unit || '');
+
+            /**
+             * Drag-to-scrub number field.
+             *  - drag horizontally to change, like a 3D app's number widget
+             *  - shift = fine (x0.2), ctrl/cmd = coarse (x5)
+             *  - double-click (or click without dragging) to type an exact value
+             *  - the fill bar shows where the value sits in its range
+             */
+            function num(parent, f) {
+                const dp = f.dp || 0, unit = f.unit || '';
+                const min = f.min, max = f.max, step = f.step || 1;
+
+                const row = document.createElement('div');
+                row.className = 'fld';
+                row.dataset.label = (f.label || f.key).toLowerCase();
+
+                const lab = document.createElement('label');
+                lab.textContent = f.label || f.key;
+                if (f.hint) lab.title = f.hint;
+                row.appendChild(lab);
+
+                const box = document.createElement('div');
+                box.className = 'num';
+                const bar = document.createElement('div'); bar.className = 'bar';
+                const val = document.createElement('div'); val.className = 'val';
+                box.appendChild(bar); box.appendChild(val);
+                if (f.hint) box.title = f.hint;
+                row.appendChild(box);
+
+                // hidden compat shim — the id the rest of the app already uses
+                const shim = document.createElement('input');
+                shim.type = 'range';
+                shim.className = 'hidden';
+                shim.id = f.id;
+                shim.min = min; shim.max = max; shim.step = step; shim.value = f.val;
+                row.appendChild(shim);
+
+                const out = document.createElement('output');
+                out.className = 'hidden';
+                out.id = 'o_' + f.id;
+                row.appendChild(out);
+
+                const reset = document.createElement('button');
+                reset.className = 'reset'; reset.type = 'button';
+                reset.title = 'Reset to ' + fmt(f.val, dp, unit);
+                reset.textContent = '↺';
+                row.appendChild(reset);
+
+                const def = +f.val;
+                const paint = () => {
+                    const v = +shim.value;
+                    val.textContent = fmt(v, dp, unit);
+                    out.textContent = fmt(v, dp, unit);
+                    bar.style.width = (max > min ? ((v - min) / (max - min)) * 100 : 0) + '%';
+                    row.classList.toggle('dirty', Math.abs(v - def) > 1e-9);
+                };
+                const commit = (v) => {
+                    v = Math.min(max, Math.max(min, v));
+                    // snap to the step so typed and dragged values agree
+                    const snapped = Math.round((v - min) / step) * step + min;
+                    shim.value = String(+snapped.toFixed(6));
+                    shim.dispatchEvent(new Event('input', { bubbles: true }));
+                };
+                // Single path for every change, internal or external. applyRecipe()
+                // and pasteRecipe() set shim.value directly and dispatch 'input';
+                // routing through here means the widget repaints for those too
+                // instead of showing a stale number.
+                shim.addEventListener('input', () => {
+                    paint();
+                    if (f.onChange) f.onChange(+shim.value);
+                });
+
+                let drag = null;
+                box.addEventListener('pointerdown', e => {
+                    if (box.classList.contains('editing')) return;
+                    drag = { x: e.clientX, v: +shim.value, moved: false };
+                    box.setPointerCapture(e.pointerId);
+                });
+                box.addEventListener('pointermove', e => {
+                    if (!drag) return;
+                    const dx = e.clientX - drag.x;
+                    if (Math.abs(dx) > 2) drag.moved = true;
+                    if (!drag.moved) return;
+                    let scale = (max - min) / 220;          // full range over ~220px
+                    if (e.shiftKey) scale *= 0.2;
+                    if (e.ctrlKey || e.metaKey) scale *= 5;
+                    commit(drag.v + dx * scale);
+                });
+                const endDrag = (e) => {
+                    if (!drag) return;
+                    const wasClick = !drag.moved;
+                    drag = null;
+                    try { box.releasePointerCapture(e.pointerId); } catch (err) { }
+                    if (wasClick) edit();
+                };
+                box.addEventListener('pointerup', endDrag);
+                box.addEventListener('pointercancel', endDrag);
+
+                function edit() {
+                    box.classList.add('editing');
+                    const inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.value = (+shim.value).toFixed(dp);
+                    box.appendChild(inp);
+                    inp.focus(); inp.select();
+                    const done = (apply) => {
+                        if (apply) { const n = parseFloat(inp.value); if (isFinite(n)) commit(n); }
+                        inp.remove(); box.classList.remove('editing');
+                    };
+                    inp.addEventListener('blur', () => done(true));
+                    inp.addEventListener('keydown', e => {
+                        if (e.key === 'Enter') { e.preventDefault(); done(true); }
+                        if (e.key === 'Escape') { e.preventDefault(); done(false); }
+                    });
+                }
+
+                reset.addEventListener('click', () => commit(def));
+                // wheel is a silent value-changer on a scrolling panel — block it
+                box.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+
+                paint();
+                parent.appendChild(row);
+                return { row: row, input: shim, set: commit, paint: paint };
+            }
+
+            /** Colour swatch row. */
+            function color(parent, f) {
+                const row = document.createElement('div');
+                row.className = 'fld';
+                row.dataset.label = (f.label || f.key).toLowerCase();
+                const lab = document.createElement('label');
+                lab.textContent = f.label || f.key;
+                if (f.hint) lab.title = f.hint;
+                const inp = document.createElement('input');
+                inp.type = 'color';
+                inp.id = f.id;
+                inp.value = '#' + ('000000' + (f.val >>> 0).toString(16)).slice(-6);
+                row.appendChild(lab); row.appendChild(inp);
+                inp.addEventListener('input', () => f.onChange && f.onChange(parseInt(inp.value.slice(1), 16)));
+                parent.appendChild(row);
+                return { row: row, input: inp };
+            }
+
+            /** Dropdown row. */
+            function select(parent, f) {
+                const row = document.createElement('div');
+                row.className = 'fld';
+                row.dataset.label = (f.label || f.key).toLowerCase();
+                const lab = document.createElement('label');
+                lab.textContent = f.label || f.key;
+                if (f.hint) lab.title = f.hint;
+                const sel = document.createElement('select');
+                sel.id = f.id;
+                (f.options || []).forEach(o => {
+                    const op = document.createElement('option');
+                    const isObj = o && typeof o === 'object';
+                    op.value = isObj ? o.value : o;
+                    op.textContent = isObj ? o.label : o;
+                    if (String(op.value) === String(f.val)) op.selected = true;
+                    sel.appendChild(op);
+                });
+                row.appendChild(lab); row.appendChild(sel);
+                sel.addEventListener('change', () => f.onChange && f.onChange(sel.value));
+                sel.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+                parent.appendChild(row);
+                return { row: row, input: sel };
+            }
+
+            /** On/off button styled as a toggle. */
+            function toggle(parent, f) {
+                const row = document.createElement('div');
+                row.className = 'fld';
+                row.dataset.label = (f.label || f.key).toLowerCase();
+                const lab = document.createElement('label');
+                lab.textContent = f.label || f.key;
+                if (f.hint) lab.title = f.hint;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.id = f.id;              // so it is addressable like every other field
+                btn.className = 'tgl' + (f.val ? ' on' : '');
+                btn.textContent = f.val ? (f.onLabel || 'On') : (f.offLabel || 'Off');
+                let on = !!f.val;
+                btn.addEventListener('click', () => {
+                    on = !on;
+                    btn.classList.toggle('on', on);
+                    btn.textContent = on ? (f.onLabel || 'On') : (f.offLabel || 'Off');
+                    f.onChange && f.onChange(on);
+                });
+                row.appendChild(lab); row.appendChild(btn);
+                parent.appendChild(row);
+                return { row: row, input: btn };
+            }
+
+            /** A collapsible group, with its open/shut state remembered. */
+            function group(parent, key, title, hint) {
+                const g = document.createElement('div');
+                g.className = 'grp';
+                g.dataset.key = key;
+                const head = document.createElement('button');
+                head.type = 'button';
+                head.className = 'grpHead';
+                head.innerHTML = '<i></i>';
+                head.appendChild(document.createTextNode(title));
+                const body = document.createElement('div');
+                body.className = 'grpBody';
+                if (hint) {
+                    const n = document.createElement('div');
+                    n.className = 'note';
+                    n.textContent = hint;
+                    body.appendChild(n);
+                }
+                g.appendChild(head); g.appendChild(body);
+                if (store['grp.' + key] === 'shut') g.classList.add('shut');
+                head.addEventListener('click', () => {
+                    g.classList.toggle('shut');
+                    store['grp.' + key] = g.classList.contains('shut') ? 'shut' : 'open';
+                    save();
+                });
+                parent.appendChild(g);
+                return body;
+            }
+
+            return { num, color, select, toggle, group, store, save, fmt };
+        })();
+
+
+        // =====================================================================
+        //  Panel builders
+        // =====================================================================
+
+        /** Fields that exist for every generator, generated once at startup. */
+        function buildFixedFields() {
+            const img = $('#imgFields');
+            UI.num(img, { id: 'tileX', label: 'Repeat around', min: 1, max: 24, step: 1, val: 4 });
+            UI.num(img, { id: 'tileY', label: 'Repeat vertical', min: 1, max: 24, step: 1, val: 3 });
+            UI.num(img, { id: 'inv', label: 'Invert alpha', min: 0, max: 1, step: 1, val: 0 });
+
+            const emit = $('#emitFields');
+            UI.num(emit, { id: 'estr', label: 'Strength (glTF)', min: 0, max: 120, step: 1, val: 50 });
+            UI.num(emit, { id: 'rough', label: 'Roughness', min: 0, max: 1, step: 0.01, val: 0.5, dp: 2 });
+        }
+
+        /** Stage panel — generated straight from stage.js's SCHEMA. */
+        function buildStagePanel() {
+            const host = $('#stageGen');
+            host.innerHTML = '';
+            if (!window.MajestyStage) {
+                host.innerHTML = '<div class="note">stage.js not loaded.</div>';
+                return;
+            }
+            state.stageSettings = state.stageSettings || window.MajestyStage.current();
+
+            const push = (key, value) => {
+                state.stageSettings[key] = value;
+                if (!state.stage) return;
+                // Some settings change geometry rather than a uniform, so the
+                // stage has to be rebuilt; update() reports when that is the case.
+                if (state.stage.update(state.stageSettings)) rebuildStudioStage();
+            };
+
+            window.MajestyStage.SCHEMA.forEach((g, gi) => {
+                const body = UI.group(host, 'stage-' + gi, g.group, g.hint);
+                g.fields.forEach(f => {
+                    const common = {
+                        id: 'st_' + f.key, label: f.label, hint: f.hint,
+                        val: state.stageSettings[f.key],
+                        onChange: v => push(f.key, v)
+                    };
+                    if (f.type === 'color') {
+                        UI.color(body, common);
+                    } else if (f.type === 'select') {
+                        UI.select(body, Object.assign({}, common, {
+                            options: f.options,
+                            onChange: v => push(f.key, +v)
+                        }));
+                    } else {
+                        UI.num(body, Object.assign({}, common, {
+                            min: f.min, max: f.max, step: f.step, dp: f.dp, unit: f.unit,
+                            // the schema default, so ↺ resets to shipped values
+                            val: state.stageSettings[f.key]
+                        }));
+                        // seed the widget with the live value, keeping ↺ on the default
+                        const el = $('#st_' + f.key);
+                        if (el) { el.value = state.stageSettings[f.key]; el.dispatchEvent(new Event('input')); }
+                    }
+                });
+            });
+        }
+
+        /** Scene panel — the light rig, exposure and lens. */
+        function buildScenePanel() {
+            const host = $('#sceneGen');
+            host.innerHTML = '';
+            const g = MAIN.global;
+
+            const lightBody = UI.group(host, 'sc-light', 'Light rig',
+                'The same rig as the storefront. Changing it here is preview only — ' +
+                'tell me the values you want and they go into script.js.');
+            UI.num(lightBody, {
+                id: 'ln_exp', label: 'Exposure', min: 0, max: 3, step: 0.01, val: g.exposure, dp: 2,
+                onChange: v => { renderer.toneMappingExposure = v; }
+            });
+            UI.num(lightBody, {
+                id: 'ln_amb', label: 'Ambient', min: 0, max: 3, step: 0.01, val: g.ambientIntensity, dp: 2,
+                onChange: v => { if (ambientLight) ambientLight.intensity = v; }
+            });
+            UI.num(lightBody, {
+                id: 'ln_key', label: 'Key light', min: 0, max: 5, step: 0.01, val: g.mainLightIntensity, dp: 2,
+                onChange: v => { if (mainLight) mainLight.intensity = v; }
+            });
+            UI.num(lightBody, {
+                id: 'ln_rim', label: 'Rim light', min: 0, max: 10, step: 0.01, val: g.rimLightIntensity, dp: 2,
+                onChange: v => { if (rimLight) rimLight.intensity = v; }
+            });
+            UI.num(lightBody, {
+                id: 'ln_logo', label: 'Logo spot', min: 0, max: 20, step: 0.1, val: g.logoLightIntensity, dp: 1,
+                onChange: v => { if (typeof logoLight !== 'undefined' && logoLight) logoLight.intensity = v; }
+            });
+
+            const lensBody = UI.group(host, 'sc-lens', 'Lens');
+            UI.num(lensBody, {
+                id: 'ln_fov', label: 'Field of view', min: 4, max: 60, step: 0.5, val: 10, dp: 1, unit: '°',
+                hint: 'The product lens is 10 degrees — long, which is what keeps the ' +
+                    'silhouette flat and product-like. Widening it will not match the site.',
+                onChange: v => { camera.fov = v; camera.updateProjectionMatrix(); }
+            });
+            UI.toggle(lensBody, {
+                id: 'ln_stage', label: 'Show stage', val: true,
+                onChange: on => { if (state.stage) state.stage.setVisible(on); }
+            });
+        }
+
+        /** Post panel — bloom and tonemapping. */
+        function buildPostPanel() {
+            const host = $('#postGen');
+            host.innerHTML = '';
+
+            const b = UI.group(host, 'po-bloom', 'Bloom',
+                'Selective bloom: only the pattern is allowed to glow. Everything ' +
+                'else is blacked out for the bloom pass, so the gold rim can still ' +
+                'occlude the glow instead of being washed over by it.');
+            UI.num(b, {
+                id: 'bl_str', label: 'Strength', min: 0, max: 4, step: 0.01, val: 0.5, dp: 2,
+                onChange: v => { if (bloomPass) bloomPass.strength = v; }
+            });
+            UI.num(b, {
+                id: 'bl_rad', label: 'Radius', min: 0, max: 3, step: 0.01, val: 1, dp: 2,
+                onChange: v => { if (bloomPass) bloomPass.radius = v; }
+            });
+            UI.num(b, {
+                id: 'bl_thr', label: 'Threshold', min: 0, max: 1, step: 0.01, val: 0.5, dp: 2,
+                onChange: v => { if (bloomPass) bloomPass.threshold = v; }
+            });
+
+            const t = UI.group(host, 'po-tone', 'Tonemapping',
+                'ACES is what the storefront ships. The others are here to compare ' +
+                'against — they will not match the live site.');
+            UI.select(t, {
+                id: 'tn_mode', label: 'Curve', val: 'aces',
+                options: [
+                    { value: 'aces', label: 'ACES Filmic (site)' },
+                    { value: 'reinhard', label: 'Reinhard' },
+                    { value: 'cineon', label: 'Cineon' },
+                    { value: 'linear', label: 'Linear' },
+                    { value: 'none', label: 'None' }
+                ],
+                onChange: v => {
+                    const map = {
+                        aces: THREE.ACESFilmicToneMapping,
+                        reinhard: THREE.ReinhardToneMapping,
+                        cineon: THREE.CineonToneMapping,
+                        linear: THREE.LinearToneMapping,
+                        none: THREE.NoToneMapping
+                    };
+                    renderer.toneMapping = map[v];
+                    // Tonemapping is compiled into every material's shader.
+                    scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+                }
+            });
+        }
+
+        // =====================================================================
+        //  Tab rail, search and the panel resizer
+        // =====================================================================
+        const TABS = [
+            { pane: 'pattern', label: 'Pattern', icon: 'M4 6h16M4 12h16M4 18h16' },
+            { pane: 'stage', label: 'Stage', icon: 'M3 16h18M6 16a6 6 0 0112 0' },
+            { pane: 'scene', label: 'Scene', icon: 'M12 4v2m0 12v2M4 12h2m12 0h2M12 8a4 4 0 100 8 4 4 0 000-8z' },
+            { pane: 'post', label: 'Post', icon: 'M5 19V9m7 10V5m7 14v-6' },
+            { pane: 'output', label: 'Output', icon: 'M12 3v12m0 0l-4-4m4 4l4-4M4 21h16' },
+            { pane: 'model', label: 'Model', icon: 'M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zm0 0v18m8-13.5L4 16.5' }
+        ];
+
+        function buildTabs() {
+            const rail = $('#tabRail');
+            rail.innerHTML = '';
+            TABS.forEach(t => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.dataset.pane = t.pane;
+                b.title = t.label;
+                b.innerHTML =
+                    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ` +
+                    `stroke-linecap="round" stroke-linejoin="round"><path d="${t.icon}"/></svg>` +
+                    `<span>${t.label}</span>`;
+                b.addEventListener('click', () => showPane(t.pane));
+                rail.appendChild(b);
+            });
+            showPane(UI.store.pane || 'pattern');
+        }
+
+        function showPane(name) {
+            document.querySelectorAll('#panes .pane').forEach(p =>
+                p.classList.toggle('on', p.dataset.pane === name));
+            document.querySelectorAll('#tabRail button').forEach(b =>
+                b.classList.toggle('on', b.dataset.pane === name));
+            UI.store.pane = name;
+            UI.save();
+        }
+
+        /**
+         * Search across every generated field, in every tab.
+         *
+         * With this many settings the honest answer to "where is the reflection
+         * blur" is a search box, not a better guess at grouping. Matching hides
+         * non-matching rows and whole groups, and reveals the tabs that hold hits.
+         */
+        function setupSearch() {
+            const inp = $('#propSearch');
+            const note = $('#searchNote');
+
+            const run = () => {
+                const q = inp.value.trim().toLowerCase();
+                const clear = !q;
+                let total = 0;
+                const perPane = {};
+
+                document.querySelectorAll('#panes .pane').forEach(pane => {
+                    let paneHits = 0;
+                    pane.querySelectorAll('.fld').forEach(f => {
+                        const hit = clear || (f.dataset.label || f.textContent.toLowerCase()).includes(q);
+                        f.classList.toggle('filtered', !clear && !hit);
+                        if (!clear && hit) paneHits++;
+                    });
+                    pane.querySelectorAll('.grp').forEach(g => {
+                        if (clear) { g.classList.remove('filtered'); return; }
+                        const any = g.querySelector('.fld:not(.filtered)');
+                        g.classList.toggle('filtered', !any);
+                        if (any) g.classList.remove('shut');   // open groups that match
+                    });
+                    perPane[pane.dataset.pane] = paneHits;
+                    total += paneHits;
+                });
+
+                // restore remembered collapse state once the search is cleared
+                if (clear) {
+                    document.querySelectorAll('#panes .grp').forEach(g => {
+                        g.classList.toggle('shut', UI.store['grp.' + g.dataset.key] === 'shut');
+                    });
+                    note.classList.add('hidden');
+                    document.querySelectorAll('#tabRail button').forEach(b => b.style.opacity = '');
+                    return;
+                }
+
+                document.querySelectorAll('#tabRail button').forEach(b => {
+                    b.style.opacity = perPane[b.dataset.pane] ? '' : '0.3';
+                });
+                note.classList.remove('hidden');
+                note.textContent = total
+                    ? `${total} setting${total === 1 ? '' : 's'} match — ` +
+                      Object.entries(perPane).filter(([, n]) => n).map(([p, n]) => `${p} (${n})`).join(', ')
+                    : 'No settings match.';
+            };
+
+            inp.addEventListener('input', run);
+            $('#searchClear').addEventListener('click', () => { inp.value = ''; run(); inp.focus(); });
+            // "/" focuses search, the way it does in most tools
+            document.addEventListener('keydown', e => {
+                if (e.key === '/' && document.activeElement !== inp &&
+                    !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+                    e.preventDefault(); inp.focus();
+                }
+                if (e.key === 'Escape' && document.activeElement === inp) { inp.value = ''; run(); inp.blur(); }
+            });
+        }
+
+        /** Drag the divider to resize the properties panel; width is remembered. */
+        function setupResizer() {
+            const bar = $('#resizer');
+            const saved = parseInt(UI.store.propsW, 10);
+            if (saved >= 260 && saved <= 640) document.body.style.setProperty('--props-w', saved + 'px');
+
+            let start = null;
+            bar.addEventListener('pointerdown', e => {
+                start = { x: e.clientX, w: $('#props').getBoundingClientRect().width };
+                bar.classList.add('drag');
+                bar.setPointerCapture(e.pointerId);
+            });
+            bar.addEventListener('pointermove', e => {
+                if (!start) return;
+                const w = Math.max(260, Math.min(640, start.w - (e.clientX - start.x)));
+                document.body.style.setProperty('--props-w', w + 'px');
+                onResize();
+            });
+            const end = e => {
+                if (!start) return;
+                start = null;
+                bar.classList.remove('drag');
+                try { bar.releasePointerCapture(e.pointerId); } catch (err) { }
+                UI.store.propsW = parseInt(getComputedStyle(document.body).getPropertyValue('--props-w'), 10);
+                UI.save();
+                onResize();
+            };
+            bar.addEventListener('pointerup', end);
+            bar.addEventListener('pointercancel', end);
+        }
+
+        // =====================================================================
+        //  Stage settings clipboard
+        // =====================================================================
+        function copyStageJSON() {
+            const txt = window.MajestyStage.toJSON(state.stageSettings || window.MajestyStage.current());
+            const pre = $('#stageOut');
+            pre.textContent = txt;
+            pre.classList.remove('hidden');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(txt).then(
+                    () => status('Stage JSON copied — send it over and it goes into stage.js.', 'ok'),
+                    () => status('Stage JSON shown below (clipboard blocked).', 'warn'));
+            } else {
+                status('Stage JSON shown below.', 'ok');
+            }
+        }
+
+        async function pasteStageJSON() {
+            let text = '';
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText();
+            } catch (e) { /* fall through */ }
+            if (!text) text = window.prompt('Paste a stage JSON:') || '';
+            if (!text.trim()) return;
+            try {
+                state.stageSettings = window.MajestyStage.normalise(JSON.parse(text));
+                buildStagePanel();
+                if (state.stage && state.stage.update(state.stageSettings)) rebuildStudioStage();
+                status('Stage settings applied.', 'ok');
+            } catch (e) {
+                status('Could not read that stage JSON: ' + e.message, 'err');
+            }
+        }
+
+        function resetStageJSON() {
+            state.stageSettings = window.MajestyStage.defaults();
+            buildStagePanel();
+            rebuildStudioStage();
+            status('Stage reset to the shipped defaults.', 'ok');
+        }
+
         // ---------------------------------------------------------------------
         //  UI wiring
         // ---------------------------------------------------------------------
         function rebuildParams() {
             const type = $('#ptype').value;
             const gen = GENERATORS[type];
+            // the image-tile group only applies to the 'image' generator
+            const imgGrp = document.querySelector('.grp[data-key="p-img"]');
+            if (imgGrp) imgGrp.classList.toggle('hidden', type !== 'image');
             $('#imgBox').classList.toggle('hidden', type !== 'image');
-            const box = $('#paramBox'); box.innerHTML = '';
 
-            const addSlider = (k, p) => {
-                const dp = p.dp || 0, unit = p.unit || '';
-                const d = document.createElement('div');
-                d.className = 'rng';
-                d.innerHTML =
-                    `<div class="row"><label>${p.label}</label><output id="o_p_${k}">${(+p.val).toFixed(dp)}${unit}</output></div>` +
-                    `<input type="range" id="p_${k}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">`;
-                box.appendChild(d);
-                d.querySelector('input').addEventListener('input', e => {
-                    $('#o_p_' + k).textContent = (+e.target.value).toFixed(dp) + unit;
-                    updateProcUniforms();
-                });
-            };
+            const shape = $('#paramBox'); shape.innerHTML = '';
+            const place = $('#placeBox'); place.innerHTML = '';
+
+            const add = (host, k, p) => UI.num(host, {
+                id: 'p_' + k,
+                label: p.label,
+                min: p.min, max: p.max, step: p.step,
+                val: p.val, dp: p.dp, unit: p.unit,
+                onChange: () => updateProcUniforms()
+            });
 
             const { own, common } = paramsFor(type);
-            for (const [k, p] of Object.entries(own)) addSlider(k, p);
+            // Shape controls are per-generator; placement is the same for all of
+            // them, so they get their own collapsible group rather than being
+            // stacked under a plain heading in one long column.
+            for (const [k, p] of Object.entries(own)) add(shape, k, p);
+            for (const [k, p] of Object.entries(common)) add(place, k, p);
 
-            // Size ramp + placement, present for every generator.
-            const hdr = document.createElement('label');
-            hdr.className = 'h';
-            hdr.style.cssText = 'display:block;margin:14px 0 8px';
-            hdr.textContent = 'Size & placement — all patterns';
-            box.appendChild(hdr);
-            for (const [k, p] of Object.entries(common)) addSlider(k, p);
+            UI.num(place, {
+                id: 'rot', label: 'Rotate around lamp',
+                min: -180, max: 180, step: 1, val: 0, unit: '°',
+                onChange: () => updateProcUniforms()
+            });
 
             applyProcMaterial();
             invalidateBake();
@@ -1988,26 +2873,36 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
          *  became several 7 MP scene renders per frame and the tab froze.
          *  A mirrored, near-black floor carries no fine detail, so a capped
          *  buffer is visually indistinguishable and orders of magnitude cheaper. */
-        const REFLECTOR_MAX = 1024;
-        function addReflectorFloor() {
-            if (!state.model || floorMesh) return;
-            const view = $('#view');
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
-            const w = Math.max(256, Math.min(REFLECTOR_MAX, Math.round((view.clientWidth || 960) * dpr)));
-            const h = Math.max(256, Math.min(REFLECTOR_MAX, Math.round((view.clientHeight || 720) * dpr)));
+        /*  The stage (dome + glossy floor) comes from stage.js, the same module
+         *  the storefront uses, so what is tuned here is literally what ships.  */
+        function buildStudioStage() {
+            if (!state.model || state.stage) return;
+            if (!window.MajestyStage) { console.warn('stage.js missing'); return; }
             const box = new THREE.Box3().setFromObject(state.model);
-            floorMesh = new THREE.Reflector(new THREE.CircleGeometry(5, 64), {
-                clipBias: 0.003,
-                textureWidth: w,
-                textureHeight: h,
-                color: MAIN.floor.color,
-                recursion: 0          // no self-reflection: one less full scene pass
+            state.stageSettings = state.stageSettings || window.MajestyStage.current();
+            state.stage = window.MajestyStage.create({
+                THREE: THREE,
+                scene: scene,
+                renderer: renderer,
+                camera: camera,
+                box: box,
+                // OrbitControls lets the camera roam, so the dome has to enclose
+                // the furthest the user can pull back to.
+                camDist: (controls && controls.maxDistance && isFinite(controls.maxDistance))
+                    ? controls.maxDistance
+                    : camera.position.length() * 3,
+                settings: state.stageSettings
             });
-            floorMesh.rotateX(-Math.PI / 2);
-            floorMesh.position.y = box.min.y;
-            scene.add(floorMesh);
-            perf.reflector = `${w}x${h}`;
-            console.log(`Reflector floor ${w}x${h} (capped at ${REFLECTOR_MAX})`);
+            floorMesh = state.stage.floor;
+            perf.reflector = state.stage.resolution + 'px';
+            console.log(`Stage built — floor r=${state.stage.radius.toFixed(2)}, ` +
+                `dome r=${state.stage.domeRadius.toFixed(2)}, reflection ${state.stage.resolution}px`);
+        }
+
+        /** Re-create the stage, for settings that change geometry rather than uniforms. */
+        function rebuildStudioStage() {
+            if (state.stage) { state.stage.dispose(); state.stage = null; floorMesh = null; }
+            buildStudioStage();
         }
 
         function updateHud() {
@@ -2036,6 +2931,21 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
 
         window.addEventListener('DOMContentLoaded', () => {
             initThree();
+
+            // The panel shell must exist before any of the wiring below looks up
+            // a generated control by id.
+            buildFixedFields();
+            buildStagePanel();
+            buildScenePanel();
+            buildPostPanel();
+            buildTabs();
+            setupSearch();
+            setupResizer();
+
+            $('#btnCopyStage').addEventListener('click', copyStageJSON);
+            $('#btnPasteStage').addEventListener('click', pasteStageJSON);
+            $('#btnResetStage').addEventListener('click', resetStageJSON);
+
             status('Ready. Load the model to begin.');
 
             // Generator list comes from GENERATORS, so adding one is a single edit.
@@ -2057,10 +2967,8 @@ ${body.replace(/></g, '>\n<').split('\n').map(l => '    ' + l).join('\n')}
                 $('#o_' + id).textContent = id === 'inv' ? (+e.target.value ? 'on' : 'off') : e.target.value;
                 updateProcUniforms(); invalidateBake();
             }));
-            $('#rot').addEventListener('input', e => {
-                $('#o_rot').textContent = e.target.value + '°';
-                updateProcUniforms();
-            });
+            // #rot is generated per-generator by rebuildParams(), and its widget
+            // already calls updateProcUniforms, so there is nothing to wire here.
 
             // Emissive presets — first one is the exact factory value.
             const cols = [['#ff9a36', 'factory [1,0.605,0.214]'], ['#ffffff', 'white'], ['#ffd27f', 'warm gold'],

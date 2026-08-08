@@ -454,6 +454,11 @@
             blur: function () {
                 const src = floor.getRenderTarget && floor.getRenderTarget();
                 if (!src) return;
+                // A host's selective-bloom pass swaps meshes to a flat dark
+                // material; if that is in place there are no uniforms to write to,
+                // and blurring now would target a material nobody displays.
+                const mat = floor.material;
+                if (!mat || !mat.uniforms || !mat.uniforms.tBlur) return;
                 const prev = renderer.getRenderTarget();
                 const u = blurMat.uniforms;
 
@@ -468,7 +473,7 @@
                 renderer.render(blurScene, blurCam);
 
                 renderer.setRenderTarget(prev);
-                floor.material.uniforms.tBlur.value = blurRT[1].texture;
+                mat.uniforms.tBlur.value = blurRT[1].texture;
             },
 
             setVisible: function (on) {
