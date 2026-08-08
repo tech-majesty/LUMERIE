@@ -13,7 +13,7 @@
 const config = {
     base: 'Red',
     rim: 'Golden Ring',
-    pattern: 'Triangle'
+    pattern: 'Arabic'
 };
 
 // Configuration names mapping

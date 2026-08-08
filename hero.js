@@ -44,7 +44,9 @@
     const FRAME_H = { wide: 0.40, narrow: 0.60 };
     const FRAME_AIM = { wide: 0.075, narrow: 0.045 };
 
-    const FINISH = { base: 'Red', rim: 'Golden Ring', pattern: 'Triangle' };
+    // Where the lamp starts on a fresh page load. It is NOT restored on exit:
+    // see closeConfigurator.
+    const FINISH = { base: 'Red', rim: 'Golden Ring', pattern: 'Arabic' };
 
     // How much of the lamp goes into the floor's reflection. 1 is untouched.
     const REFLECTION_DIM = 0.35;
@@ -290,12 +292,7 @@
             // bar that sits at 100% while the stage still builds looks stuck.
             onProgress: function (pct) { setProgress(Math.min(pct * 0.94, 94)); },
             onLoad: function () {
-                if (typeof config !== 'undefined') {
-                    config.base = FINISH.base;
-                    config.rim = FINISH.rim;
-                    config.pattern = FINISH.pattern;
-                    viewer.updateMaterials();
-                }
+                applyFinish(FINISH);
                 // The lamp's mirror image in the floor reads a stop hot once the
                 // camera pulls back far enough to show much floor. This dims only
                 // that — the dome, the halo and every value in the stage preset
@@ -423,12 +420,16 @@
     }
 
     /*
-     *  The hero is a fixed brand shot — red body, golden ring — but a visitor
-     *  who has been configuring should not lose their work by pressing Back.
-     *  So the two views keep separate finishes: closing stores whatever was
-     *  selected and puts the hero's back on, opening restores the stored one.
+     *  ONE FINISH FOR THE WHOLE VISIT.
+     *
+     *  The hero used to be pinned to the brand shot: leaving the configurator
+     *  crossfaded the lamp back to red, gold and Arabic, and reopening it
+     *  restored what you had picked. Two views, two finishes, and pressing Back
+     *  looked like it had thrown the configuration away.
+     *
+     *  Now there is one. Whatever is selected stays selected until the page is
+     *  reloaded, at which point config in viewer.js starts it over at FINISH.
      */
-    let savedFinish = null;
 
     function applyFinish(f) {
         if (typeof config === 'undefined' || !viewer) return;
@@ -454,77 +455,6 @@
      * happen at the start, where the camera is accelerating and it reads far
      * less than the body colour did.
      */
-    // Live crossfade tweens. They write material colours every frame, so
-    // anything that changes a material has to stop them first — otherwise a
-    // swatch clicked while a fade is still running is immediately painted over
-    // by the fade's next onUpdate, and the lamp ignores the click.
-    let finishTweens = [];
-
-    function killFinishTweens() {
-        finishTweens.forEach(function (t) { t.kill(); });
-        finishTweens = [];
-    }
-
-    function crossfadeFinish(next, duration) {
-        killFinishTweens();
-        if (!window.gsap || !viewer || !viewer.model) { applyFinish(next); return; }
-
-        const read = function () {
-            const out = new Map();
-            viewer.model.traverse(function (n) {
-                if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
-                const m = n.material;
-                out.set(m, {
-                    color: m.color ? m.color.clone() : null,
-                    metalness: m.metalness,
-                    roughness: m.roughness,
-                    envMapIntensity: m.envMapIntensity
-                });
-            });
-            return out;
-        };
-
-        const before = read();
-        applyFinish(next);
-        const after = read();
-
-        after.forEach(function (to, m) {
-            const from = before.get(m);
-            if (!from) return;                       // new material, nothing to fade from
-
-            const proxy = { t: 0 };
-            if (from.color && to.color) m.color.copy(from.color);
-            if (from.metalness !== undefined) m.metalness = from.metalness;
-            if (from.roughness !== undefined) m.roughness = from.roughness;
-            if (from.envMapIntensity !== undefined) m.envMapIntensity = from.envMapIntensity;
-
-            finishTweens.push(gsap.to(proxy, {
-                t: 1,
-                duration: duration,
-                ease: 'power2.inOut',
-                overwrite: true,
-                onUpdate: function () {
-                    const t = proxy.t;
-                    if (from.color && to.color) m.color.copy(from.color).lerp(to.color, t);
-                    if (to.metalness !== undefined) m.metalness = from.metalness + (to.metalness - from.metalness) * t;
-                    if (to.roughness !== undefined) m.roughness = from.roughness + (to.roughness - from.roughness) * t;
-                    if (to.envMapIntensity !== undefined) {
-                        m.envMapIntensity = from.envMapIntensity + (to.envMapIntensity - from.envMapIntensity) * t;
-                    }
-                    viewer.requestRender();
-                },
-                // Land on the exact target rather than the last interpolated
-                // step, or repeated open/close cycles drift a unit at a time.
-                onComplete: function () {
-                    if (to.color) m.color.copy(to.color);
-                    if (to.metalness !== undefined) m.metalness = to.metalness;
-                    if (to.roughness !== undefined) m.roughness = to.roughness;
-                    if (to.envMapIntensity !== undefined) m.envMapIntensity = to.envMapIntensity;
-                }
-            }));
-        });
-    }
-
     /** Move the sidebar's active states onto whatever config now holds. */
     function syncControlButtons() {
         [['base', config.base], ['rim', config.rim], ['pattern', config.pattern]]
@@ -540,8 +470,6 @@
         if (cfgOpen || animating || !viewer || !viewer.model) return;
         cfgOpen = true;
         animating = true;
-
-        if (savedFinish) crossfadeFinish(savedFinish, 0.9);
 
         // The canvas is pinned to the hero, so the hero has to be the viewport.
         window.scrollTo({ top: 0, behavior: 'instant' });
@@ -604,11 +532,6 @@
         animating = true;
 
         setOpenPart(null);
-
-        if (typeof config !== 'undefined') {
-            savedFinish = { base: config.base, rim: config.rim, pattern: config.pattern };
-        }
-        crossfadeFinish(FINISH, 0.9);
 
         document.body.classList.remove('cfg-open');
         const cfg = el('cfg');
@@ -875,12 +798,9 @@
             });
         });
 
-        // Clicking inside a popover must not count as clicking away from it —
-        // and it must cancel any finish crossfade still in flight, or the fade
-        // paints over the choice on its very next frame.
+        // Clicking inside a popover must not count as clicking away from it.
         hsLayer.querySelectorAll('.hs-pop').forEach(function (p) {
             p.addEventListener('click', function (e) { e.stopPropagation(); });
-            p.addEventListener('pointerdown', killFinishTweens, true);
         });
 
         const canvas = viewer.renderer.domElement;
