@@ -455,9 +455,9 @@
      *  The two panels are nowhere near each other, so only one is ever on
      *  screen and there is never anything to arbitrate.
      *
-     *  Above 900px only. Below it the splits collapse to a single column, so
-     *  the lamp would land behind the type instead of beside it; landing.css
-     *  shows the render there instead.
+     *  At every width. Under 900 the split is one column, so the dock goes
+     *  full bleed and the copy sits over it under a wash; landing.css handles
+     *  that switch. There is no render fallback any more.
      *
      *  Framing is a crop-in on the top of the product, the way the hero is,
      *  rather than the configurator's whole-object shot: the ring, the glass
@@ -593,9 +593,25 @@
         trioGroup = group;
     }
 
+    /*
+     *  Three lamps need a landscape frame. On a portrait phone the group is
+     *  0.626 wide against a frame that is 0.46 as wide as it is tall, so
+     *  fitting all three puts the camera nine units back and the products
+     *  become specks. The two outer copies stand down instead and the closing
+     *  panel shows the one in the middle, framed properly.
+     */
+    function trioCollapsed() {
+        return !viewer || !viewer.camera || viewer.camera.aspect < 0.95;
+    }
+
     function showTrio(on) {
         if (!trioGroup) return;
         trioGroup.visible = on;
+        const solo = trioCollapsed();
+        trioGroup.children.forEach(function (child, i) {
+            // Index 1 is the red one, on the axis. It is the one that stays.
+            child.visible = !solo || i === 1;
+        });
         // The centre of the three IS a copy, not the original, so the original
         // has to get out of the way or it stands inside its own clone.
         if (viewer && viewer.model) viewer.model.visible = !on;
@@ -657,8 +673,10 @@
     // The composer is three scene renders and two whole-scene traversals per
     // frame. A 14-second oscillation does not need 60 of those a second, and
     // the pointer is eased anyway, so the loop is capped. 40 is under the rate
-    // at which the drift starts to look stepped and a third off the GPU.
-    const DOCK_FPS = 40;
+    // at which the drift starts to look stepped and a third off the GPU. On a
+    // touch device there is no pointer to answer and a smaller screen to see
+    // it on, so 24 is plenty and the battery notices the difference.
+    const DOCK_FPS = window.matchMedia('(pointer: coarse)').matches ? 24 : 40;
 
     let heroSlot = null;
     let dockMQ = null;
@@ -680,7 +698,7 @@
         // bounding box, and 0.92 leaves a little air at the widest point.
         const roll = Math.abs(entry.roll);
         const wide = MODEL_W * Math.cos(roll) + MODEL_H * Math.sin(roll)
-            + (entry.trio ? TRIO_SPREAD : 0);
+            + (entry.trio && !trioCollapsed() ? TRIO_SPREAD : 0);
         const forWidth = wide / (entry.fitW * 2 * t * c.aspect);
         return Math.max(forHeight, forWidth);
     }
@@ -843,7 +861,19 @@
         });
         if (!DOCKS.some(function (e) { return e.panel && e.node; })) return;
 
-        dockMQ = window.matchMedia('(min-width: 900px)');
+        /*
+         *  Every width.
+         *
+         *  The docks were desktop only because under 900 the split collapses
+         *  and the lamp would have sat behind the type. landing.css now takes
+         *  the dock full bleed at those widths with a wash over it, the way
+         *  the closing panel already works everywhere, so there is no reason
+         *  left to show a phone a picture of the product when it can have the
+         *  product. The query is kept rather than removed because the dock
+         *  code reads it in three places and a always-true query is clearer
+         *  than three deleted conditions.
+         */
+        dockMQ = window.matchMedia('(min-width: 1px)');
 
         let queued = false;
         const tick = function () {
@@ -948,6 +978,7 @@
             } else if (osOpen) {
                 applyOsCamera();
             } else if (activeDock) {
+                if (activeDock.trio) showTrio(true);
                 applyDockCamera();
             } else if (!animating) {
                 applyHeroCamera();
@@ -1498,9 +1529,9 @@
     let osRAF = 0;
     let osLast = 0;
     let osVeil = null;
-    let osSavedPattern = null;
     let osSavedMap = null;
     let osSavedColour = null;
+    let osSavedPbr = null;
     const osRay = new THREE.Raycaster();
 
     function glassNormal() { return new THREE.Vector3(GLASS_N[0], GLASS_N[1], GLASS_N[2]).normalize(); }
@@ -1714,10 +1745,6 @@
         osMesh.visible = true;
         if (osVeil) { osVeil.visible = true; osVeil.material.opacity = 0; sizeOsVeil(); }
         takeOverGlass(true);
-        // The visitor's own light pattern is put aside, so Ambience can relight
-        // the lamp for the length of the demo without quietly overwriting a
-        // configuration they chose. closeOS puts it back.
-        if (typeof config !== 'undefined') osSavedPattern = config.pattern;
         startOsLoop();
 
         const done = function () {
@@ -1805,30 +1832,46 @@
             if (osSavedMap !== null) return;
             osSavedMap = m.map || false;
             osSavedColour = m.color.clone();
+            osSavedPbr = {
+                metalness: m.metalness,
+                roughness: m.roughness,
+                envMapIntensity: m.envMapIntensity
+            };
             m.map = null;
             m.color.setHex(0x0a0908);
+            /*
+             *  Not just dark: MATTE.
+             *
+             *  The screen face is 0.090 in radius and the interface disc is
+             *  0.0655, so a ring of bare mesh shows between the two. Painting
+             *  it near black was not enough — this material is the rim finish,
+             *  metalness 1 against a warm environment map, and a black metal
+             *  reflects its surroundings rather than absorbing them. The ring
+             *  came back as a wide olive band round the interface, which is
+             *  the yellow that had no business being there.
+             *
+             *  Dropping metalness and the environment contribution turns the
+             *  ring into what it should be: unlit glass around a lit screen.
+             */
+            m.metalness = 0;
+            m.roughness = 0.85;
+            m.envMapIntensity = 0.12;
             m.needsUpdate = true;
         } else {
             if (osSavedMap === null) return;
             m.map = osSavedMap || null;
             if (osSavedColour) m.color.copy(osSavedColour);
+            if (osSavedPbr) {
+                m.metalness = osSavedPbr.metalness;
+                m.roughness = osSavedPbr.roughness;
+                m.envMapIntensity = osSavedPbr.envMapIntensity;
+            }
             m.needsUpdate = true;
             osSavedMap = null;
             osSavedColour = null;
+            osSavedPbr = null;
         }
         if (viewer) viewer.requestRender();
-    }
-
-    /** Undo whatever Ambience did to the light while the interface was up. */
-    function restorePattern() {
-        if (osSavedPattern == null || typeof config === 'undefined' || !viewer) return;
-        if (config.pattern !== osSavedPattern) {
-            config.pattern = osSavedPattern;
-            viewer.updateMaterials();
-            if (typeof updateConfigurationName === 'function') updateConfigurationName();
-            syncControlButtons();
-        }
-        osSavedPattern = null;
     }
 
     function closeOS() {
@@ -1840,7 +1883,6 @@
             osOpen = false;
             animating = false;
             takeOverGlass(false);
-            restorePattern();
             stopOsLoop();
             if (osMesh) { osMesh.visible = false; osMesh.material.opacity = 0; }
             if (osVeil) { osVeil.visible = false; osVeil.material.opacity = 0; }
@@ -1901,16 +1943,15 @@
     function initOS() {
         if (!window.MajestyOS) return;
 
-        // Ambience is not a mime. Picking a mood relights the real lamp the
-        // screen is sitting in, through the path the configurator uses.
-        window.MajestyOS.onMood = function (pattern) {
-            if (typeof config === 'undefined' || !viewer) return;
-            config.pattern = pattern;
-            viewer.updateMaterials();
-            if (typeof updateConfigurationName === 'function') updateConfigurationName();
-            syncControlButtons();
-            viewer.requestRender();
-        };
+        /*
+         *  Ambience does NOT relight the lamp.
+         *
+         *  It did, and it was the wrong call twice over. The visitor may have
+         *  configured a light pattern deliberately, and having a demo screen
+         *  swap it underneath them is startling rather than impressive; and
+         *  the pattern is the product's finish, not its mood, so the mapping
+         *  was never honest. The mood is a state the interface holds.
+         */
 
         window.MajestyOS.onChange = function () {
             if (!osTexture) return;

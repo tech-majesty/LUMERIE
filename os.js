@@ -294,13 +294,6 @@
         ctx.fillStyle = sh;
         ctx.fillRect(0, 0, S, S);
 
-        // A warm bloom low on the disc, picked up off the lamp's own light. It
-        // is what stops the bottom third going flat and dead.
-        const warm = ctx.createRadialGradient(C, S * 0.98, 10, C, S * 0.98, S * 0.66);
-        warm.addColorStop(0, 'rgba(200, 160, 74, 0.10)');
-        warm.addColorStop(1, 'rgba(200, 160, 74, 0)');
-        ctx.fillStyle = warm;
-        ctx.fillRect(0, 0, S, S);
         ctx.restore();
 
         ctx.save();
@@ -777,7 +770,7 @@
         const m = MOODS[state.mood];
         sectionHead(indexOfView('ambience'), 'Ambience', m.k + ' · ' + m.note);
 
-        const cy = 596, r0 = 108, r1 = 232;
+        const cy = 560, r0 = 100, r1 = 206;
         MOODS.forEach(function (mm, i) {
             const a0 = -Math.PI / 2 + i * (Math.PI * 2 / 3) + 0.04;
             const a1 = a0 + (Math.PI * 2 / 3) - 0.08;
@@ -786,9 +779,8 @@
 
             const hx = C + Math.cos(mid) * (r0 + r1) / 2;
             const hy = cy + Math.sin(mid) * (r0 + r1) / 2;
-            const hv = hit('mood' + i, hx - 92, hy - 76, 184, 152, function () {
+            const hv = hit('mood' + i, hx - 88, hy - 72, 176, 144, function () {
                 state.mood = i;
-                if (api.onMood) api.onMood(mm.pattern);
                 toast(mm.k);
             });
 

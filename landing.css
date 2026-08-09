@@ -1245,11 +1245,60 @@ body.cfg-open .hs-layer {
  *  has to supply one. It is the hero's gradient, re-centred on the dock, or
  *  the lamp would be lit from a halo standing on nothing.
  */
-.lamp-dock {
+/* -------------------------------------------------------------------------
+ *  UNDER 900px the split collapses to one column, so a dock in the right hand
+ *  half would sit behind the type. The lamp does not go away and there is no
+ *  render fallback at any width: the dock goes FULL BLEED and the copy sits
+ *  over it under a wash, which is the same arrangement the closing panel uses
+ *  everywhere. A phone gets the real product, not a picture of it.
+ * ---------------------------------------------------------------------- */
+.vp.has-dock>img {
     display: none;
 }
 
+.vp.has-dock::after {
+    background: rgba(14, 12, 11, 0.58);
+}
+
+.lamp-dock {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.lamp-dock::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: rgba(14, 12, 11, 0.5);
+}
+
+/* Over a lamp rather than over a flat panel. */
+.vp.has-dock .t-body,
+.vp.has-dock .list-row p,
+.vp.has-dock .meta span {
+    color: var(--text);
+}
+
 @media (min-width: 900px) {
+    /* Back to side by side: the dock takes the right half and the copy the
+       left, so neither needs a wash over the other. */
+    .lamp-dock {
+        inset: 0 0 0 auto;
+        width: 54%;
+    }
+
+    .lamp-dock::after {
+        background: none;
+    }
+
+    .vp.has-dock::after {
+        background: none;
+    }
+
     /* No lit box. hero.js drops the stage's backdrop dome while the canvas is
        docked, so the panel is the page's own background and the lamp stands
        on it rather than inside a rectangle of studio. */
@@ -1257,25 +1306,9 @@ body.cfg-open .hs-layer {
         background: var(--bg);
     }
 
-    .vp.has-dock>img {
-        display: none;
-    }
-
-    .vp.has-dock::after {
-        background: none;
-    }
-
-    .lamp-dock {
-        display: block;
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 54%;
-        height: 100%;
-        z-index: 0;
-        pointer-events: none;
-        /* Only the left edge needs softening: the other three sit on the
-           viewport edge, where there is nothing to seam against. */
+    /* Only the left edge needs softening: the other three sit on the viewport
+       edge, where there is nothing to seam against. */
+    .lamp-dock:not(.bleed) {
         -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18%);
         mask-image: linear-gradient(to right, transparent 0, #000 18%);
     }
@@ -1288,10 +1321,8 @@ body.cfg-open .hs-layer {
        positioned with a z-index, so it is its own stacking context and the
        scrim at 3 sits above the canvas without escaping. */
     .lamp-dock.bleed {
-        left: 0;
+        inset: 0;
         width: 100%;
-        -webkit-mask-image: none;
-        mask-image: none;
     }
 
     /* One flat wash across the whole panel, not a gradient and not a vignette.
