@@ -984,16 +984,23 @@ class ThreeViewer {
             const dim = viewer.model && f < 0.999;
 
             if (dim) {
-                viewer.model.traverse(function (n) {
-                    if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
-                    const m = n.material;
-                    if (saved.has(m)) return;
-                    saved.set(m, {
-                        color: m.color ? m.color.clone() : null,
-                        emissiveIntensity: m.emissiveIntensity
+                // The landing page's closing panel puts two extra lamps in the
+                // scene. They are not children of viewer.model, so without this
+                // they would reflect at full strength beside a dimmed one.
+                const roots = [viewer.model].concat(viewer.dimExtras || []);
+                roots.forEach(function (root) {
+                    if (!root) return;
+                    root.traverse(function (n) {
+                        if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
+                        const m = n.material;
+                        if (saved.has(m)) return;
+                        saved.set(m, {
+                            color: m.color ? m.color.clone() : null,
+                            emissiveIntensity: m.emissiveIntensity
+                        });
+                        if (m.color) m.color.multiplyScalar(f);
+                        if (m.emissiveIntensity !== undefined) m.emissiveIntensity *= f;
                     });
-                    if (m.color) m.color.multiplyScalar(f);
-                    if (m.emissiveIntensity !== undefined) m.emissiveIntensity *= f;
                 });
             }
 

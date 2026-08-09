@@ -1280,21 +1280,49 @@ body.cfg-open .hs-layer {
         mask-image: linear-gradient(to right, transparent 0, #000 18%);
     }
 
-    /* The copy column has to stop before the lamp starts, and since the shot
-       went to a close-up the lamp is much wider than it was: measured at
-       1440x900 it runs from 696 to 1366, so a 34rem column ending at 680 left
-       16px between the list rules and the ring. 31rem ends at 632.
-
-       Narrowing the copy is the right side of that trade — the alternative is
-       pulling the camera back, which is the opposite of what the close-up is
-       for. */
-    .vp.has-dock .vp-split {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
-        align-items: center;
+    /* The closing panel's dock is the whole viewport, with the copy over it
+       rather than beside it, so nothing needs masking and everything needs a
+       scrim. The scrim has to live INSIDE the dock: the canvas container is
+       z-index 2, and .vp::after is behind the whole panel at -1, so a panel
+       level scrim would paint under the lamp instead of over it. The dock is
+       positioned with a z-index, so it is its own stacking context and the
+       scrim at 3 sits above the canvas without escaping. */
+    .lamp-dock.bleed {
+        left: 0;
+        width: 100%;
+        -webkit-mask-image: none;
+        mask-image: none;
     }
 
-    .vp.has-dock .vp-split>div {
-        max-width: 31rem;
+    /* No scrim. The composition keeps the type and the product apart instead:
+       the camera looks down into the group so the lamps sit low in the frame,
+       and a wash over the middle of a transparent canvas was reading as a
+       smudge rather than as depth. */
+
+    /* There is no side-by-side to lay out on this one, so the split rules must
+       not narrow it. */
+    .vp.has-dock.bleed .vp-copy {
+        max-width: none;
+    }
+
+    /* The dim body tone is right on a flat panel and marginal over a lit
+       sleeve, and this is the one paragraph on the page that has to be read
+       before a button is pressed. */
+    .vp.has-dock.bleed .t-body {
+        color: var(--text);
+    }
+
+    /* Smaller than the page's display size, and sitting high in the panel. The
+       statement and the three lamps are sharing one viewport with no scrim
+       between them, so every line the type gives back is a band of product
+       that can be seen. */
+    .vp.has-dock.bleed .t-display {
+        font-size: clamp(2.2rem, 4.5vw, 3.9rem);
+    }
+
+    .vp.has-dock.bleed .vp-copy {
+        padding-top: clamp(3.5rem, 8vh, 5.5rem);
+        padding-bottom: clamp(10rem, 24vh, 16rem);
     }
 }
 

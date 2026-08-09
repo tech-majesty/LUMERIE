@@ -164,6 +164,153 @@
         onScroll();
     }
 
+    /* -------------------------------------------------------------------------
+     *  Smooth scrolling, and a snap that only nudges
+     *
+     *  Two things at once, both about the wheel and only about the wheel.
+     *
+     *  1. WEIGHT. The wheel writes to a target and the page eases toward it, so
+     *     a notch of the wheel arrives as a short decelerating move instead of
+     *     a jump. GAIN below 1 makes the same gesture travel less far, which is
+     *     what "slightly slower" means; EASE is how quickly the page catches up
+     *     with where the wheel has already asked it to be.
+     *
+     *  2. SNAP, minimally. CSS scroll snapping was removed because even
+     *     `proximity` grabs the page mid-gesture. This does the opposite: it
+     *     waits until the wheel has been still for a moment AND the easing has
+     *     landed, and only then, only if a panel edge is already within 14% of
+     *     the viewport, does it move — through the same easing, at a gentler
+     *     rate, so it reads as the page settling rather than as a magnet.
+     *
+     *  Only the wheel is intercepted. Touch has its own momentum and hijacking
+     *  it is how sites end up feeling broken; keyboard, scrollbar dragging and
+     *  anchor links all still scroll natively, and the loop resyncs from the
+     *  real scroll position whenever it is not the one driving.
+     *
+     *  window.scrollTo(x, y) obeys the document's CSS scroll-behavior, which is
+     *  `smooth` — so per-frame writes would each start their own animation and
+     *  the page would lag seconds behind the wheel. The document is switched to
+     *  `auto` for the duration of the loop and switched back after, which
+     *  leaves anchor links smooth.
+     * ---------------------------------------------------------------------- */
+    const SCROLL_GAIN = 0.78;    // wheel travel multiplier
+    const SCROLL_EASE = 0.10;    // share of the remaining distance per frame
+    const SNAP_EASE = 0.055;     // gentler: the snap should not feel driven
+    const SNAP_IDLE_MS = 150;    // quiet wheel before a snap is considered
+    const SNAP_RANGE = 0.14;     // share of viewport height, max snap distance
+
+    let ssTarget = 0;
+    let ssRAF = 0;
+    let ssLastWheel = 0;
+    let ssPos = 0;
+    let ssLastWrite = 0;
+    let ssSnapping = false;
+    let ssSnapDone = false;
+
+    function scrollMax() {
+        return Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    }
+
+    /** Wheel deltas arrive in pixels, lines or pages depending on the device. */
+    function wheelPixels(e) {
+        if (e.deltaMode === 1) return e.deltaY * 16;
+        if (e.deltaMode === 2) return e.deltaY * (window.innerHeight || 1);
+        return e.deltaY;
+    }
+
+    function nearestPanelTop() {
+        const vh = window.innerHeight || 1;
+        const reach = vh * SNAP_RANGE;
+        let best = null;
+        let bestGap = reach;
+        document.querySelectorAll('.hero, .vp').forEach(function (panel) {
+            const gap = panel.getBoundingClientRect().top;
+            if (Math.abs(gap) < Math.abs(bestGap)) { bestGap = gap; best = panel; }
+        });
+        if (!best || Math.abs(bestGap) < 1) return null;
+        return Math.min(scrollMax(), Math.max(0, window.scrollY + bestGap));
+    }
+
+    function ssStop() {
+        if (ssRAF) { cancelAnimationFrame(ssRAF); ssRAF = 0; }
+        document.documentElement.style.scrollBehavior = '';
+    }
+
+    function ssFrame() {
+        ssRAF = requestAnimationFrame(ssFrame);
+        if (cfgOpen) { ssStop(); return; }
+
+        // Someone else moved the page — an anchor, openConfigurator's jump to
+        // the top, the browser restoring a position. Whoever it was outranks a
+        // wheel gesture that has already been let go of, and without this the
+        // loop drags the page straight back to a target nobody asked for. The
+        // tolerance is for the browser rounding our sub-pixel write to a device
+        // pixel, which is also why the loop keeps its own float position rather
+        // than reading scrollY back: at the tail of a move the per-frame step is
+        // a fraction of a pixel, and a read-back loop stalls there forever.
+        if (Math.abs(window.scrollY - ssLastWrite) > 3) { ssStop(); return; }
+
+        const now = (window.performance && performance.now ? performance.now() : 0);
+        const gap = ssTarget - ssPos;
+
+        if (Math.abs(gap) < 0.5) {
+            if (now - ssLastWheel < SNAP_IDLE_MS) return;
+            if (ssSnapDone) {
+                // Land ON the edge. Stopping at "within half a pixel" leaves a
+                // hairline of the previous panel at the top of the window.
+                if (ssSnapping) { ssPos = ssLastWrite = ssTarget; window.scrollTo(0, ssTarget); }
+                ssStop();
+                return;
+            }
+            const snapTo = nearestPanelTop();
+            ssSnapDone = true;
+            if (snapTo === null) { ssStop(); return; }
+            ssTarget = snapTo;
+            ssSnapping = true;
+            return;
+        }
+
+        ssPos += gap * (ssSnapping ? SNAP_EASE : SCROLL_EASE);
+        ssLastWrite = ssPos;
+        window.scrollTo(0, ssPos);
+    }
+
+    function initSmoothScroll() {
+        // Touch scrolling already has momentum and a rubber band, and taking it
+        // over is how a page ends up fighting the finger. Reduced motion means
+        // the browser's own scrolling, unmodified.
+        if (window.matchMedia('(pointer: coarse)').matches) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        window.addEventListener('wheel', function (e) {
+            if (cfgOpen || e.ctrlKey) return;   // ctrl+wheel is a zoom gesture
+            e.preventDefault();
+
+            const now = (window.performance && performance.now ? performance.now() : 0);
+            // Not driving yet, or the page was moved by something else since the
+            // last notch: pick up from wherever it actually is.
+            if (!ssRAF || Math.abs(ssTarget - window.scrollY) > window.innerHeight) {
+                ssPos = ssTarget = window.scrollY;
+            }
+            ssTarget = Math.min(scrollMax(), Math.max(0, ssTarget + wheelPixels(e) * SCROLL_GAIN));
+            ssLastWheel = now;
+            ssSnapping = false;
+            ssSnapDone = false;
+
+            if (!ssRAF) {
+                ssPos = ssLastWrite = window.scrollY;
+                document.documentElement.style.scrollBehavior = 'auto';
+                ssRAF = requestAnimationFrame(ssFrame);
+            }
+        }, { passive: false });
+
+        // Anything that is not the wheel — an anchor, a keypress, the scrollbar
+        // — should not have to fight a stale target.
+        ['pointerdown', 'keydown'].forEach(function (type) {
+            window.addEventListener(type, function () { if (ssRAF) ssStop(); }, { passive: true });
+        });
+    }
+
     /**
      * Stop the viewer tweening to its own 'front' pose.
      *
@@ -357,8 +504,101 @@
             yaw: o.yaw * Math.PI / 180,
             pitch: o.pitch * Math.PI / 180,
             roll: o.roll * Math.PI / 180,
-            finish: o.finish || null
+            finish: o.finish || null,
+            trio: !!o.trio,
+            // Share of the frame's width the subject is allowed to cover. A
+            // close-up wants nearly all of it; a lineup of three wants air, or
+            // the outer rings sit on the window edge.
+            fitW: o.fitW || 0.92
         };
+    }
+
+    /* -------------------------------------------------------------------------
+     *  Three lamps at once
+     *
+     *  The closing panel shows three configurations side by side rather than
+     *  one. Every material path in viewer.js reads the single global `config`
+     *  and writes to shared material objects, so three different finishes
+     *  cannot be live at the same time — not without rewriting updateMaterials
+     *  to take a target and a finish, and everything it calls with it.
+     *
+     *  They do not have to be live. The finish is applied to the ONE model as
+     *  usual, and the result is cloned: geometry is shared by reference, and
+     *  the materials are cloned so each copy keeps the look it was built with.
+     *  Three snapshots, taken once at load, and after them the visitor's own
+     *  selection is put back on the original. Nothing about the single-model
+     *  path changes.
+     *
+     *  Two things clone() does not bring:
+     *
+     *  - onBeforeCompile. Material.copy() does not copy it, so the logo emboss
+     *    light — which is a patch on the material's shader, not a scene light —
+     *    is re-attached per copy below.
+     *  - membership of the reflection dimmer, which walks viewer.model. The
+     *    group is registered as an extra root, or these three would reflect at
+     *    full strength beside a dimmed hero.
+     * ---------------------------------------------------------------------- */
+    /*
+     *  A triangle, not a line. Red stands forward on the axis and the other two
+     *  sit back and out, so the group reads as an arrangement seen from above
+     *  rather than as three products on a shelf. The camera is pitched well
+     *  down to look into it, which is also why the two at the back are raised
+     *  slightly: from up here, further away is further UP the frame, and level
+     *  bases would put their rings behind red's.
+     */
+    const TRIO = [
+        { base: 'Black', rim: 'Golden Ring', pattern: 'Data Rain', x: -0.215, z: -0.150 },
+        { base: 'Red', rim: 'Golden Ring', pattern: 'Arabic', x: 0.000, z: 0.150 },
+        { base: 'Gold', rim: 'Golden Ring', pattern: 'Ladder', x: 0.215, z: -0.150 }
+    ];
+    const TRIO_SPREAD = 0.43;    // outermost centres, apart
+    let trioGroup = null;
+
+    function buildTrio() {
+        if (trioGroup || !viewer || !viewer.model || typeof config === 'undefined') return;
+        if (typeof THREE === 'undefined') return;
+
+        const keep = { base: config.base, rim: config.rim, pattern: config.pattern };
+        const group = new THREE.Group();
+        group.visible = false;
+
+        TRIO.forEach(function (spec) {
+            applyFinish(spec);
+            const copy = viewer.model.clone(true);
+            // A coded pattern's material is built by makeSiteMaterial, which
+            // draws the motif from an onBeforeCompile patch. Material.copy()
+            // does not carry that, so a cloned one compiles without the mask
+            // and the sleeve comes out a blank white glow — which is exactly
+            // what the first attempt looked like. They are already one material
+            // per recipe and the three panels use three different recipes, so
+            // these are shared rather than copied.
+            const codedMats = new Set(Object.keys(viewer._codedMaterials || {})
+                .map(function (k) { return viewer._codedMaterials[k]; }));
+
+            copy.traverse(function (n) {
+                if (!n.isMesh || !n.material || Array.isArray(n.material)) return;
+                if (!codedMats.has(n.material)) n.material = n.material.clone();
+                if (n.name === 'Logo' && window.MajestyLogoLight) {
+                    window.MajestyLogoLight.attach(THREE, n, window.MajestyLogoLight.current());
+                }
+            });
+            copy.position.x += spec.x;
+            copy.position.z += spec.z || 0;
+            group.add(copy);
+        });
+
+        applyFinish(keep);
+        viewer.scene.add(group);
+        viewer.dimExtras = (viewer.dimExtras || []).concat([group]);
+        trioGroup = group;
+    }
+
+    function showTrio(on) {
+        if (!trioGroup) return;
+        trioGroup.visible = on;
+        // The centre of the three IS a copy, not the original, so the original
+        // has to get out of the way or it stands inside its own clone.
+        if (viewer && viewer.model) viewer.model.visible = !on;
     }
 
     const DOCKS = [
@@ -371,6 +611,17 @@
             frameH: 0.25, aimY: 0.108, rise: 0.07,
             yaw: 15, pitch: 7, roll: 3.5,
             finish: { base: 'Gold', pattern: 'Ladder' }
+        }),
+        // The closing frame. Full bleed with the copy over it, so this one is
+        // composed like the hero: squared up, the whole product, no Dutch
+        // angle — a tilted horizon behind centred type reads as a mistake.
+        // The drift is wider and slower to compensate for standing still.
+        //
+        // No finish: this is the only panel that shows what the VISITOR has
+        // configured, which is the argument the button under it is making.
+        dockEntry('contact', 'closeDock', {
+            frameH: 0.78, aimY: 0.356, rise: 0.04,
+            yaw: 0, pitch: 16, roll: 0, trio: true, fitW: 0.86
         })
     ];
 
@@ -423,8 +674,9 @@
         // wider than the dock. Rolled, the width it has to fit is the rotated
         // bounding box, and 0.92 leaves a little air at the widest point.
         const roll = Math.abs(entry.roll);
-        const wide = MODEL_W * Math.cos(roll) + MODEL_H * Math.sin(roll);
-        const forWidth = wide / (0.92 * 2 * t * c.aspect);
+        const wide = MODEL_W * Math.cos(roll) + MODEL_H * Math.sin(roll)
+            + (entry.trio ? TRIO_SPREAD : 0);
+        const forWidth = wide / (entry.fitW * 2 * t * c.aspect);
         return Math.max(forHeight, forWidth);
     }
 
@@ -495,6 +747,7 @@
         // backdrop dome comes off so the canvas is transparent behind it and
         // the panel is the page's own background rather than a lit box.
         if (viewer.stage && viewer.stage.setBackdropVisible) viewer.stage.setBackdropVisible(false);
+        showTrio(entry.trio);
 
         /*
          *  Each panel shows a specific configuration, and neither of them is
@@ -538,6 +791,7 @@
         // hero, every configurator angle and the cart thumbnail all inherit it.
         if (viewer && viewer.camera) viewer.camera.up.set(0, 1, 0);
         if (viewer && viewer.stage && viewer.stage.setBackdropVisible) viewer.stage.setBackdropVisible(true);
+        showTrio(false);
         if (savedFinish) { applyFinish(savedFinish); savedFinish = null; }
         if (viewer) viewer.onWindowResize();
         computeFraming();
@@ -644,6 +898,7 @@
                 buildWordmark();
                 claimCamera();
                 applyHeroCamera();
+                buildTrio();
                 dismissPreloader();
                 // A reload part-way down the page lands on the precision panel
                 // with the canvas still in the hero. Nothing has scrolled since
@@ -1485,6 +1740,7 @@
         initYear();
         initCursorCta();
         initScrollParallax();
+        initSmoothScroll();
         initLampDock();
         armConfigurator();
         mountViewer();
