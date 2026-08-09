@@ -1479,7 +1479,15 @@
     const GLASS_N = [0, 0.8102, 0.5862];
     const GLASS_C = [0, 0.105, 0.0007];
     const GLASS_R = 0.0655;
-    const OS_FILL = 0.74;        // share of the short viewport axis the disc fills
+    const OS_FILL = 0.66;        // share of the short viewport axis the disc fills
+    /*
+     *  Not dead on the normal. Straight down it, the disc is a perfect circle
+     *  filling the frame and the lamp disappears behind its own screen: there
+     *  is nothing left to say this is a product. Coming in 11 degrees above the
+     *  normal keeps the type square enough to read while leaving the ring, the
+     *  bezel and a little of the body in shot.
+     */
+    const OS_TILT = 11 * Math.PI / 180;
     const OS_LIFT = 0.0016;      // off the surface, so the two do not z-fight
 
     let osOpen = false;
@@ -1587,13 +1595,21 @@
         return Math.max(need / (2 * t), need / (2 * t * c.aspect));
     }
 
+    /** The eye direction: the glass normal, tipped back toward the room. */
+    function osEyeDir() {
+        const n = glassNormal();
+        const right = new THREE.Vector3(1, 0, 0);
+        return n.clone().applyAxisAngle(right, -OS_TILT).normalize();
+    }
+
     function applyOsCamera() {
         if (!viewer || !viewer.camera) return;
         const c = viewer.camera;
-        const n = glassNormal();
         const ctr = glassCentre();
         c.up.copy(glassUp());
-        c.position.copy(ctr).addScaledVector(n, osCameraDistance());
+        // A tilted eye sees the disc as an ellipse, so it needs to sit further
+        // back for the SHORT axis of that ellipse to still fill the frame.
+        c.position.copy(ctr).addScaledVector(osEyeDir(), osCameraDistance() / Math.cos(OS_TILT));
         c.lookAt(ctr);
         viewer.requestRender();
     }
@@ -1665,8 +1681,8 @@
 
         claimCamera();
         const c = viewer.camera;
-        const n = glassNormal(), ctr = glassCentre();
-        const toPos = ctr.clone().addScaledVector(n, osCameraDistance());
+        const ctr = glassCentre();
+        const toPos = ctr.clone().addScaledVector(osEyeDir(), osCameraDistance() / Math.cos(OS_TILT));
         const toUp = glassUp();
         const fromPos = c.position.clone();
         const fromUp = c.up.clone();

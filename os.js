@@ -286,54 +286,6 @@
         ctx.restore();
     }
 
-    /** Course progress, as an arc following the bezel. The circle is the UI. */
-    function drawProgress() {
-        const r = C - 34;
-        const from = Math.PI * 1.18, to = Math.PI * 1.82;
-        const t = anim('course', GUEST.course / GUEST.courses, 4);
-        ctx.save();
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(C, C, r, from, to);
-        ctx.strokeStyle = 'rgba(255,250,242,0.10)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(C, C, r, from, from + (to - from) * t);
-        ctx.strokeStyle = GOLD;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    function drawTopBar(fade) {
-        const y = 152;
-        ctx.save();
-        ctx.globalAlpha = fade;
-
-        const d = new Date();
-        label(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'),
-            C, y, { size: 22, colour: FAINT, align: 'center', tracking: 4 });
-
-        if (state.view !== 'home' && !state.pending) {
-            const h = hit('back', C - 232, y - 40, 76, 72, function () { nav('home'); });
-            label('←', C - 194, y + 8, { size: 30, colour: h > 0.4 ? INK : DIM, align: 'center' });
-            hairline(y + 20, C - 214, C - 174, 0.06 + h * 0.22);
-        }
-
-        const n = state.order.reduce(function (a, i) { return a + i.q; }, 0);
-        const cartIn = anim('cartIn', n ? 1 : 0, 10);
-        if (cartIn > 0.01) {
-            const h = hit('cart', C + 156, y - 40, 76, 72, function () { nav('order'); });
-            ctx.globalAlpha = fade * cartIn;
-            ctx.beginPath();
-            ctx.arc(C + 194, y - 8, 21 + h * 2, 0, Math.PI * 2);
-            ctx.fillStyle = GOLD;
-            ctx.fill();
-            label(String(n || ''), C + 194, y, { size: 22, weight: 500, colour: '#14100e', align: 'center' });
-        }
-        ctx.restore();
-    }
 
     function drawToast(fade) {
         const on = state.toast && Date.now() < state.toastUntil ? 1 : 0;
@@ -351,340 +303,510 @@
         ctx.restore();
     }
 
-    /* ----- shared blocks ------------------------------------------------------ */
+    /* -------------------------------------------------------------------------
+     *  The visual language
+     *
+     *  A circular screen should be laid out radially. The first pass here was a
+     *  column of rows with a circle drawn round it, which is the same mistake as
+     *  a card inside a bezel: the shape of the hardware was decoration rather
+     *  than structure.
+     *
+     *  So: the home screen is a dial. A hub in the middle carrying the table's
+     *  state, six satellites on a ring around it, labels outside those. Inside a
+     *  section, the language changes to big soft pills stacked in the middle of
+     *  the disc, because that is the shape that survives being clipped by a
+     *  circle, and a round control returns to the dial.
+     *
+     *  Everything is large. A screen a diner reaches across a laid table for is
+     *  not a phone held at 30cm.
+     * ---------------------------------------------------------------------- */
 
-    function eyebrow(str, y) {
-        label(str.toUpperCase(), C, y, { size: 19, colour: GOLD, align: 'center', tracking: 6 });
+    /** A small context pill, the way a section announces itself. */
+    function chip(str, y, id, fn) {
+        const w = measure(str.toUpperCase(), 20, 400) + 62;
+        const a = id ? hit(id, C - w / 2, y - 24, w, 48, fn) : 0;
+        ctx.save();
+        roundRect(C - w / 2, y - 24, w, 48, 24);
+        ctx.fillStyle = 'rgba(255,250,242,' + (0.055 + a * 0.09) + ')';
+        ctx.fill();
+        ctx.restore();
+        label(str.toUpperCase(), C, y + 7,
+            { size: 20, colour: a > 0.4 ? INK : DIM, align: 'center', tracking: 4 });
+        return w;
     }
 
-    function heading(str, y, size) {
-        label(str, C, y, { size: size || 46, weight: 300, colour: INK, align: 'center' });
-    }
-
-    function lede(str, y, max) {
-        const words = str.split(' ');
-        const lines = [];
-        let line = '';
-        words.forEach(function (w) {
-            const t = line ? line + ' ' + w : w;
-            if (measure(t, 23, 300) > (max || 500) && line) { lines.push(line); line = w; }
-            else line = t;
-        });
-        if (line) lines.push(line);
-        lines.forEach(function (l, i) {
-            label(l, C, y + i * 32, { size: 23, colour: FAINT, align: 'center' });
-        });
-        return y + lines.length * 32;
+    function bigTitle(str, y, size) {
+        label(str, C, y, { size: size || 54, weight: 300, colour: INK, align: 'center' });
     }
 
     /**
-     * A line in a list. No card, no fill: a hairline above, and on hover a gold
-     * tick grows from the left edge while the row eases across to meet it.
+     * The wide pill that carries every option inside a section.
+     *
+     * Left label, right value, and an optional fill that runs from the left the
+     * way a level does. The dotted spine is what keeps it from reading as a
+     * button: it says this row has positions, not one action.
      */
-    function listRow(id, y, h, fn) {
-        const a = hit(id, L - 16, y, (R - L) + 32, h, fn);
-        hairline(y, L, R, 0.09 + a * 0.06);
-        if (a > 0.01) {
+    function pillRow(id, y, left, right, o) {
+        o = o || {};
+        const w = 640, h = 96, x = C - w / 2;
+        const a = hit(id, x, y, w, h, o.fn);
+
+        ctx.save();
+        roundRect(x, y, w, h, h / 2);
+        ctx.fillStyle = 'rgba(255,250,242,' + (0.05 + a * 0.05) + ')';
+        ctx.fill();
+
+        if (o.fill != null) {
             ctx.save();
+            roundRect(x, y, w, h, h / 2);
+            ctx.clip();
+            ctx.fillStyle = 'rgba(255,250,242,' + (0.07 + a * 0.04) + ')';
+            ctx.fillRect(x, y, w * Math.max(0, Math.min(1, o.fill)), h);
+            ctx.restore();
+            // The head of the fill, as a bright bar rather than a knob.
+            const hx = x + w * Math.max(0, Math.min(1, o.fill));
             ctx.beginPath();
-            ctx.moveTo(L - 14, y + h / 2 - 11 * a);
-            ctx.lineTo(L - 14, y + h / 2 + 11 * a);
-            ctx.strokeStyle = alpha(GOLD, a);
-            ctx.lineWidth = 2.5;
+            ctx.moveTo(hx, y + 26);
+            ctx.lineTo(hx, y + h - 26);
+            ctx.strokeStyle = alpha(GOLD_SOFT, 0.9);
+            ctx.lineWidth = 3;
             ctx.lineCap = 'round';
             ctx.stroke();
-            ctx.restore();
+        } else if (o.dots !== false) {
+            for (let i = 1; i <= 5; i++) {
+                ctx.beginPath();
+                ctx.arc(x + w * (0.34 + i * 0.083), y + h / 2, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,250,242,0.16)';
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+
+        label(clip(left, 300, 30, 300), x + 42, y + h / 2 + 11,
+            { size: 30, weight: 300, colour: o.muted ? DIM : INK });
+        if (right != null) {
+            label(String(right), x + w - 42, y + h / 2 + 11,
+                { size: 30, weight: 300, colour: o.accent ? GOLD : INK, align: 'right' });
+        }
+        if (o.sub) {
+            label(clip(o.sub, 300, 19, 300), x + 42, y + h / 2 + 34, { size: 19, colour: FAINT });
         }
         return a;
     }
 
-    /** The one solid shape on a screen. Outlined at rest, filled on hover. */
-    function action(str, y, enabled, id, fn) {
-        const a = enabled ? hit(id, C - 150, y - 34, 300, 68, fn) : 0;
-        const w = measure(str, 25, 400) + 86;
+    /** A round control. Solid when it is the thing to press, outlined otherwise. */
+    function roundBtn(id, cx, cy, r, glyph, o) {
+        o = o || {};
+        const a = o.disabled ? 0 : hit(id, cx - r, cy - r, r * 2, r * 2, o.fn);
         ctx.save();
-        ctx.globalAlpha = enabled ? 1 : 0.32;
-        roundRect(C - w / 2, y - 33, w, 66, 33);
-        ctx.fillStyle = 'rgba(247,244,240,' + (0.06 + a * 0.94) + ')';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(247,244,240,' + (0.34 - a * 0.34) + ')';
-        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = o.disabled ? 0.3 : 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + a * 2, 0, Math.PI * 2);
+        if (o.solid) {
+            ctx.fillStyle = a > 0.5 ? '#ffffff' : INK;
+            ctx.fill();
+        } else {
+            ctx.fillStyle = 'rgba(255,250,242,' + (0.06 + a * 0.08) + ')';
+            ctx.fill();
+        }
+        ctx.restore();
+        label(glyph, cx, cy + (o.dy == null ? 12 : o.dy), {
+            size: o.size || 34, weight: 300, align: 'center',
+            colour: o.solid ? '#14100e' : (a > 0.4 ? INK : DIM)
+        });
+        return a;
+    }
+
+    /* ----- icons, drawn as strokes ------------------------------------------ */
+
+    function icon(name, cx, cy, s, colour) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(s / 24, s / 24);
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = 1.7;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        if (name === 'menu') {
+            ctx.moveTo(-9, -7); ctx.lineTo(9, -7);
+            ctx.moveTo(-9, 0); ctx.lineTo(9, 0);
+            ctx.moveTo(-9, 7); ctx.lineTo(3, 7);
+        } else if (name === 'ambience') {
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            for (let i = 0; i < 8; i++) {
+                const a = i * Math.PI / 4;
+                ctx.moveTo(Math.cos(a) * 8.5, Math.sin(a) * 8.5);
+                ctx.lineTo(Math.cos(a) * 11.5, Math.sin(a) * 11.5);
+            }
+        } else if (name === 'service') {
+            ctx.moveTo(-10, 5); ctx.lineTo(10, 5);
+            ctx.moveTo(-8, 5); ctx.arc(0, 5, 8, Math.PI, 0);
+            ctx.moveTo(0, -3); ctx.lineTo(0, -7);
+        } else if (name === 'order') {
+            ctx.moveTo(-7, -10); ctx.lineTo(7, -10); ctx.lineTo(7, 10);
+            ctx.lineTo(4, 7.5); ctx.lineTo(0, 10); ctx.lineTo(-4, 7.5); ctx.lineTo(-7, 10);
+            ctx.closePath();
+            ctx.moveTo(-3.5, -5); ctx.lineTo(3.5, -5);
+            ctx.moveTo(-3.5, 0); ctx.lineTo(3.5, 0);
+        } else if (name === 'feedback') {
+            const R = 10, r2 = 4.2;
+            for (let i = 0; i < 10; i++) {
+                const rad = i % 2 ? r2 : R;
+                const a = -Math.PI / 2 + i * Math.PI / 5;
+                const px = Math.cos(a) * rad, py = Math.sin(a) * rad;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (name === 'bill') {
+            ctx.moveTo(-11, -6.5); ctx.lineTo(11, -6.5); ctx.lineTo(11, 6.5); ctx.lineTo(-11, 6.5);
+            ctx.closePath();
+            ctx.moveTo(-11, -2); ctx.lineTo(11, -2);
+            ctx.moveTo(-7, 3); ctx.lineTo(-2, 3);
+        }
         ctx.stroke();
         ctx.restore();
-        const mix = a;
-        label(str, C, y + 9, {
-            size: 25, weight: 400, align: 'center',
-            colour: 'rgb(' + Math.round(247 - 227 * mix) + ',' + Math.round(244 - 228 * mix) + ',' + Math.round(240 - 226 * mix) + ')'
-        });
     }
 
     /* ----- screens ------------------------------------------------------------ */
 
-    function screenHome() {
-        eyebrow('Good evening', 296);
-        heading(GUEST.name, 358, 52);
-        label('Table ' + GUEST.table + ' · ' + GUEST.covers + ' covers · Course ' +
-            GUEST.course + ' of ' + GUEST.courses,
-            C, 400, { size: 21, colour: FAINT, align: 'center' });
+    const DIAL = [
+        { k: 'Menu', i: 'menu', v: 'menu' },
+        { k: 'Favourites', i: 'feedback', v: 'feedback' },
+        { k: 'Order', i: 'order', v: 'order' },
+        { k: 'Bill', i: 'bill', v: 'bill' },
+        { k: 'Service', i: 'service', v: 'service' },
+        { k: 'Ambience', i: 'ambience', v: 'ambience' }
+    ];
 
-        let y = 452;
-        HOME.forEach(function (t, i) {
-            const a = listRow('home' + i, y, 82, function () { nav(t[1]); });
-            label(t[0], L + a * 10, y + 52, { size: 30, weight: 300, colour: INK });
+    function screenHome() {
+        const RING = 268, IC = 58, LAB = 350;
+
+        // The hub. It is the only thing on the dial that is not a destination:
+        // it is where the table's own state lives.
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(C, C, 126, 0, Math.PI * 2);
+        const hg = ctx.createRadialGradient(C, C - 46, 10, C, C, 132);
+        hg.addColorStop(0, 'rgba(62,56,50,1)');
+        hg.addColorStop(0.72, 'rgba(34,30,27,1)');
+        hg.addColorStop(1, 'rgba(22,19,17,1)');
+        ctx.fillStyle = hg;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,250,242,0.16)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        // Course progress, as a gold arc riding the hub's shoulder.
+        const t = anim('course', GUEST.course / GUEST.courses, 4);
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(C, C, 143, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
+        ctx.strokeStyle = GOLD;
+        ctx.lineWidth = 5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(C, C, 143, -Math.PI / 2 + Math.PI * 2 * t, Math.PI * 1.5);
+        ctx.strokeStyle = 'rgba(255,250,242,0.16)';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+        ctx.restore();
+
+        label('TABLE ' + GUEST.table, C, C - 18, { size: 21, colour: GOLD, align: 'center', tracking: 5 });
+        label(GUEST.name, C, C + 24, { size: 34, weight: 300, colour: INK, align: 'center' });
+        label('Course ' + GUEST.course + ' of ' + GUEST.courses, C, C + 58,
+            { size: 19, colour: FAINT, align: 'center' });
+
+        DIAL.forEach(function (d, i) {
+            const ang = -Math.PI / 2 + i * Math.PI / 3;
+            const x = C + Math.cos(ang) * RING;
+            const y = C + Math.sin(ang) * RING;
+            const a = hit('dial' + i, x - IC - 6, y - IC - 6, (IC + 6) * 2, (IC + 6) * 2,
+                function () { nav(d.v); });
+
             ctx.save();
-            ctx.globalAlpha = 0.25 + a * 0.75;
-            label('→', R - a * 10, y + 52, { size: 24, colour: a > 0.4 ? GOLD : FAINT, align: 'right' });
+            ctx.beginPath();
+            ctx.arc(x, y, IC + a * 4, 0, Math.PI * 2);
+            const sg = ctx.createLinearGradient(x, y - IC, x, y + IC);
+            sg.addColorStop(0, 'rgba(255,250,242,' + (0.13 + a * 0.10) + ')');
+            sg.addColorStop(1, 'rgba(255,250,242,' + (0.06 + a * 0.08) + ')');
+            ctx.fillStyle = sg;
+            ctx.fill();
+            ctx.strokeStyle = a > 0.02 ? alpha(GOLD, 0.1 + a * 0.7) : 'rgba(255,250,242,0.12)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
             ctx.restore();
-            y += 82;
+
+            icon(d.i, x, y, 48 + a * 3, a > 0.4 ? GOLD_SOFT : 'rgba(247,244,240,0.92)');
+
+            const lx = C + Math.cos(ang) * LAB;
+            const ly = C + Math.sin(ang) * LAB;
+            label(d.k, lx, ly + 8, {
+                size: 24, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.72)', align: 'center'
+            });
         });
-        hairline(y, L, R);
+    }
+
+    /** Every section shares this: a chip, a title, and a way back to the dial. */
+    function sectionHead(chipText, titleText, titleSize) {
+        chip(chipText, 210);
+        if (titleText) bigTitle(titleText, 300, titleSize);
+    }
+
+    function backHub(y) {
+        roundBtn('back', C, y || 826, 40, '←', { fn: function () { nav('home'); }, size: 32, dy: 11 });
     }
 
     function screenMenu() {
-        eyebrow('The menu', 268);
+        sectionHead('The menu', null);
 
-        // Categories as one line of type, not as tabs. The active one is bright
-        // and carries a rule; the rest step back.
-        const gap = 34;
+        const gap = 18;
         let total = -gap;
-        MENU.forEach(function (g) { total += measure(g.group, 24, 400) + gap; });
+        MENU.forEach(function (g) { total += measure(g.group.toUpperCase(), 20, 400) + 62 + gap; });
         let x = C - total / 2;
         MENU.forEach(function (g, i) {
-            const w = measure(g.group, 24, 400);
-            const a = hit('tab' + i, x - 10, 300, w + 20, 46, function () { state.group = i; });
-            const live = i === state.group ? 1 : 0;
-            const lit = anim('tabLit' + i, live, 10);
-            label(g.group, x, 330, {
-                size: 24, weight: 400,
-                colour: lit > 0.5 ? INK : (a > 0.4 ? DIM : FAINT)
-            });
-            if (lit > 0.01) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(x + w / 2 - (w / 2 + 4) * lit, 344);
-                ctx.lineTo(x + w / 2 + (w / 2 + 4) * lit, 344);
-                ctx.strokeStyle = alpha(GOLD, lit);
-                ctx.lineWidth = 2;
+            const w = measure(g.group.toUpperCase(), 20, 400) + 62;
+            const live = anim('tabLit' + i, i === state.group ? 1 : 0, 11);
+            const a = hit('tab' + i, x, 268, w, 48, function () { state.group = i; });
+            ctx.save();
+            roundRect(x, 268, w, 48, 24);
+            ctx.fillStyle = live > 0.02 ? alpha(GOLD, 0.14 + live * 0.1)
+                : 'rgba(255,250,242,' + (0.045 + a * 0.06) + ')';
+            ctx.fill();
+            if (live > 0.02) {
+                ctx.strokeStyle = alpha(GOLD, live * 0.6);
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
-                ctx.restore();
             }
+            ctx.restore();
+            label(g.group.toUpperCase(), x + w / 2, 299,
+                { size: 20, colour: live > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : DIM), align: 'center', tracking: 4 });
             x += w + gap;
         });
 
-        let y = 392;
+        let y = 360;
         MENU[state.group].items.forEach(function (it, i) {
-            const a = listRow('dish' + state.group + '_' + i, y, 104, function () {
-                const f = state.order.filter(function (o) { return o.n === it.n; })[0];
-                if (f) f.q++; else state.order.push({ n: it.n, p: it.p, q: 1 });
-                state.fired = false;
-                toast(it.n.split(',')[0] + ' added');
+            pillRow('dish' + state.group + '_' + i, y, it.n, it.p, {
+                sub: it.d, dots: false, accent: true,
+                fn: function () {
+                    const f = state.order.filter(function (o) { return o.n === it.n; })[0];
+                    if (f) f.q++; else state.order.push({ n: it.n, p: it.p, q: 1 });
+                    state.fired = false;
+                    toast(it.n.split(',')[0] + ' added');
+                }
             });
-            const dx = a * 10;
-            label(clip(it.n, 430, 26, 300), L + dx, y + 44, { size: 26, weight: 300, colour: INK });
-            label(clip(it.d, 430, 20, 300), L + dx, y + 74, { size: 20, colour: FAINT });
-            label(String(it.p), R - dx, y + 50,
-                { size: 24, colour: a > 0.4 ? GOLD_SOFT : GOLD, align: 'right' });
-            y += 104;
+            y += 110;
         });
-        hairline(y, L, R);
-        label('AED · tap to add', C, y + 40, { size: 18, colour: FAINT, align: 'center', tracking: 3 });
+
+        const n = state.order.reduce(function (a, o) { return a + o.q; }, 0);
+        if (n) roundBtn('toOrder', C + 92, 826, 40, String(n), { fn: function () { nav('order'); }, size: 28, solid: true, dy: 10 });
+        backHub();
     }
 
     function screenOrder() {
-        eyebrow(state.fired ? 'With the kitchen' : 'Your order', 262);
+        sectionHead(state.fired ? 'With the kitchen' : 'Your order', null);
 
         if (!state.order.length) {
-            lede('Nothing yet. Everything on the menu comes to this screen.', 350, 460);
-            action('Open the menu', 470, true, 'toMenu', function () { nav('menu'); });
+            bigTitle('Nothing yet', 400, 46);
+            lede('Everything on the menu comes to this screen.', 452, 460);
+            roundBtn('toMenu', C, 560, 52, '＋', { fn: function () { nav('menu'); }, size: 34, solid: true, dy: 12 });
+            backHub();
             return;
         }
 
-        let y = 320;
-        state.order.forEach(function (o, i) {
-            listRow('item' + i, y, 92, null);
-            label(clip(o.n, 380, 25, 300), L, y + 40, { size: 25, weight: 300, colour: INK });
-            label('AED ' + o.p, L, y + 70, { size: 19, colour: FAINT });
-
-            [['−', -1, 0], ['+', 1, 1]].forEach(function (b) {
-                const cx = R - (b[2] === 0 ? 108 : 16);
-                const a = hit('q' + i + '_' + b[2], cx - 26, y + 20, 52, 52, function () {
-                    o.q += b[1];
-                    if (o.q <= 0) state.order.splice(i, 1);
+        let y = 300;
+        state.order.slice(0, 3).forEach(function (o, i) {
+            pillRow('item' + i, y, o.n, null, { dots: false, sub: 'AED ' + o.p });
+            const yc = y + 48;
+            roundBtn('q' + i + '_0', C + 214, yc, 30, '−', {
+                size: 30, dy: 10, fn: function () {
+                    o.q--; if (o.q <= 0) state.order.splice(i, 1);
                     state.fired = false;
-                });
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(cx, y + 46, 22, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(255,250,242,' + (0.12 + a * 0.3) + ')';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-                ctx.restore();
-                label(b[0], cx, y + 55, { size: 24, colour: a > 0.4 ? INK : DIM, align: 'center' });
+                }
             });
-            label(String(o.q), R - 62, y + 55, { size: 23, colour: INK, align: 'center' });
-            y += 92;
+            label(String(o.q), C + 262, yc + 10, { size: 26, colour: INK, align: 'center' });
+            roundBtn('q' + i + '_1', C + 310, yc, 30, '+', {
+                size: 30, dy: 10, fn: function () { o.q++; state.fired = false; }
+            });
+            y += 110;
         });
-        hairline(y, L, R);
 
-        y += 46;
-        label('TOTAL', L, y, { size: 18, colour: FAINT, tracking: 4 });
         const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
-        label('AED ' + anim('total', total, 7).toLocaleString('en-US', { maximumFractionDigits: 0 }),
-            R, y + 4, { size: 30, weight: 300, colour: INK, align: 'right' });
+        label('TOTAL', C, y + 26, { size: 19, colour: FAINT, align: 'center', tracking: 5 });
+        label('AED ' + Math.round(anim('total', total, 7)).toLocaleString('en-US'),
+            C, y + 78, { size: 46, weight: 300, colour: INK, align: 'center' });
 
         if (state.fired) {
             const d = new Date();
             label('Fired at ' + String(d.getHours()).padStart(2, '0') + ':' +
                 String(d.getMinutes()).padStart(2, '0') + ' · Chef Karim has it',
-                C, y + 78, { size: 21, colour: GOLD, align: 'center' });
+                C, y + 128, { size: 21, colour: GOLD, align: 'center' });
         } else {
-            action('Send to the kitchen', y + 88, true, 'fire', function () {
-                state.fired = true;
-                toast('The kitchen has your order');
+            roundBtn('fire', C, y + 152, 46, '↑', {
+                solid: true, size: 34, dy: 12,
+                fn: function () { state.fired = true; toast('The kitchen has your order'); }
             });
         }
+        backHub(y + 152 > 780 ? 900 : 826);
     }
 
+    /**
+     * The mood wheel. Three wedges around the hub, the live one bright and
+     * reaching further out. A circular control for a circular screen, and the
+     * one screen where the shape of the hardware is doing real work.
+     */
     function screenAmbience() {
-        eyebrow('Ambience', 262);
-        lede('The table sets its own light. The room follows.', 306, 480);
+        sectionHead('Ambience', null);
 
-        let y = 372;
+        const cy = C + 40, r0 = 96, r1 = 250;
         MOODS.forEach(function (m, i) {
-            const a = listRow('mood' + i, y, 100, function () {
+            const a0 = -Math.PI / 2 + i * (Math.PI * 2 / 3) + 0.035;
+            const a1 = a0 + (Math.PI * 2 / 3) - 0.07;
+            const mid = (a0 + a1) / 2;
+            const live = anim('moodLit' + i, i === state.mood ? 1 : 0, 9);
+
+            // A wedge is not a rectangle, so it gets its own hit box around the
+            // point the label sits at. Close enough at this size, and it keeps
+            // the hit list to plain rectangles.
+            const hx = C + Math.cos(mid) * (r0 + r1) / 2;
+            const hy = cy + Math.sin(mid) * (r0 + r1) / 2;
+            const hv = hit('mood' + i, hx - 92, hy - 76, 184, 152, function () {
                 state.mood = i;
                 if (api.onMood) api.onMood(m.pattern);
                 toast(m.k);
             });
-            const lit = anim('moodLit' + i, i === state.mood ? 1 : 0, 9);
-            const dx = a * 10;
-            label(m.k, L + 30 + dx, y + 46, {
-                size: 27, weight: 300,
-                colour: lit > 0.5 ? INK : (a > 0.4 ? INK : DIM)
-            });
-            label(m.note, L + 30 + dx, y + 74, { size: 20, colour: FAINT });
 
-            // The live mood is a dot that fills, not a highlighted card.
+            const grow = live * 16 + hv * 8;
             ctx.save();
             ctx.beginPath();
-            ctx.arc(L + 8, y + 50, 6, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255,250,242,0.2)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            if (lit > 0.01) {
-                ctx.beginPath();
-                ctx.arc(L + 8, y + 50, 6 * lit, 0, Math.PI * 2);
-                ctx.fillStyle = GOLD;
-                ctx.fill();
-            }
+            ctx.arc(C, cy, r1 + grow, a0, a1);
+            ctx.arc(C, cy, r0, a1, a0, true);
+            ctx.closePath();
+            // The unchosen wedges are present, not hidden. Reference points at
+            // a petal chart: the whole wheel reads, and the live one is simply
+            // the brightest and the furthest out.
+            ctx.fillStyle = live > 0.02
+                ? 'rgba(240,236,230,' + (0.14 + live * 0.76) + ')'
+                : 'rgba(255,250,242,' + (0.13 + hv * 0.08) + ')';
+            ctx.fill();
             ctx.restore();
-            y += 100;
+
+            const tx = C + Math.cos(mid) * ((r0 + r1) / 2 + grow / 2);
+            const ty = cy + Math.sin(mid) * ((r0 + r1) / 2 + grow / 2);
+            const dark = live > 0.5;
+            label(m.k, tx, ty, {
+                size: 27, weight: 400, align: 'center',
+                colour: dark ? '#14100e' : (hv > 0.4 ? INK : DIM)
+            });
+            label(m.note, tx, ty + 30, {
+                size: 18, align: 'center',
+                colour: dark ? 'rgba(20,16,14,0.62)' : FAINT
+            });
         });
-        hairline(y, L, R);
 
         const warm = anim('warm', MOODS[state.mood].warm, 6);
-        const bw = R - L;
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(L, y + 44);
-        ctx.lineTo(R, y + 44);
-        ctx.strokeStyle = 'rgba(255,250,242,0.12)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(L, y + 44);
-        ctx.lineTo(L + bw * warm / 100, y + 44);
-        const lg = ctx.createLinearGradient(L, 0, R, 0);
-        lg.addColorStop(0, GOLD);
-        lg.addColorStop(1, GOLD_SOFT);
-        ctx.strokeStyle = lg;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.restore();
-        label('WARMTH ' + Math.round(warm) + '%', C, y + 84,
-            { size: 18, colour: FAINT, align: 'center', tracking: 4 });
+        label(Math.round(warm) + '%', C, cy + 10, { size: 40, weight: 300, colour: INK, align: 'center' });
+        label('WARMTH', C, cy + 42, { size: 16, colour: FAINT, align: 'center', tracking: 4 });
+
+        backHub(890);
     }
 
     function screenService() {
-        eyebrow('Service', 262);
-        lede('No hand raised, no eye caught, no waiting.', 306, 480);
-
+        sectionHead('Service', 'Anything you need', 44);
         let y = 372;
         SERVICE.forEach(function (s, i) {
-            const a = listRow('svc' + i, y, 96, function () { toast(s.done); });
-            label(s.k, L + a * 10, y + 56, { size: 26, weight: 300, colour: INK });
-            ctx.save();
-            ctx.globalAlpha = 0.28 + a * 0.72;
-            label('→', R - a * 10, y + 56, { size: 22, colour: a > 0.4 ? GOLD : FAINT, align: 'right' });
-            ctx.restore();
-            y += 96;
+            pillRow('svc' + i, y, s.k, '→', { dots: false, fn: function () { toast(s.done); } });
+            y += 110;
         });
-        hairline(y, L, R);
+        backHub(y + 40);
+    }
+
+    function screenBill() {
+        sectionHead('The bill', null);
+        const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
+        const service = Math.round(total * 0.1);
+
+        label('AED ' + (total + service).toLocaleString('en-US'), C, 380,
+            { size: 64, weight: 300, colour: INK, align: 'center' });
+        label(total ? 'Including 10% service' : 'Nothing on the table yet', C, 424,
+            { size: 21, colour: FAINT, align: 'center' });
+
+        let y = 470;
+        [['Split evenly', String(GUEST.covers) + ' ways'],
+        ['Add gratuity', '10%'],
+        ['Email the receipt', '→']].forEach(function (r, i) {
+            pillRow('bill' + i, y, r[0], r[1], {
+                dots: false, muted: !total,
+                fn: total ? function () { toast(r[0] + ' · noted'); } : null
+            });
+            y += 110;
+        });
+        backHub(y + 40);
     }
 
     function screenFeedback() {
         if (state.sent) {
-            eyebrow('Thank you', 380);
-            lede('It reaches the floor manager before you have finished your coffee.', 436, 460);
-            action('Back to the table', 566, true, 'fbBack', function () { nav('home'); });
+            sectionHead('Thank you', null);
+            bigTitle('Noted', 420, 52);
+            lede('It reaches the floor manager before you have finished your coffee.', 480, 460);
+            backHub(700);
             return;
         }
 
-        eyebrow('Feedback', 274);
-        heading('How was tonight?', 336, 40);
+        sectionHead('Feedback', 'How was tonight?', 44);
 
-        const sw = 76;
+        // Stars on an arc, the way the dial puts everything on an arc.
+        const ar = 210, ay = C + 96;
         for (let i = 1; i <= 5; i++) {
-            const cx = C + (i - 3) * sw;
-            const a = hit('star' + i, cx - sw / 2, 388, sw, 80, function () { state.stars = i; });
+            const ang = Math.PI * (1.18 + (i - 1) * 0.16);
+            const x = C + Math.cos(ang) * ar;
+            const y = ay + Math.sin(ang) * ar;
+            const a = hit('star' + i, x - 44, y - 44, 88, 88, function () { state.stars = i; });
             const lit = anim('starLit' + i, i <= state.stars ? 1 : 0, 13);
             ctx.save();
-            ctx.translate(cx, 436);
-            ctx.scale(1 + lit * 0.1 + a * 0.06, 1 + lit * 0.1 + a * 0.06);
-            label('★', 0, 16, {
-                size: 48, align: 'center',
-                colour: lit > 0.02
-                    ? 'rgba(200,160,74,' + lit + ')'
-                    : 'rgba(255,250,242,' + (0.14 + a * 0.14) + ')'
-            });
+            ctx.translate(x, y);
+            ctx.scale(1 + lit * 0.16 + a * 0.08, 1 + lit * 0.16 + a * 0.08);
+            ctx.beginPath();
+            ctx.arc(0, 0, 38, 0, Math.PI * 2);
+            ctx.fillStyle = lit > 0.02 ? alpha(GOLD, 0.1 + lit * 0.16)
+                : 'rgba(255,250,242,' + (0.05 + a * 0.06) + ')';
+            ctx.fill();
             ctx.restore();
+            icon('feedback', x, y, 40, lit > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : 'rgba(247,244,240,0.42)'));
         }
 
-        let x = L, y = 506;
+        let x = C - 300, y = C + 200;
         TAGS.forEach(function (t, i) {
-            const w = measure(t, 20, 300) + 44;
-            if (x + w > R) { x = L; y += 56; }
+            const w = measure(t, 20, 300) + 52;
+            if (x + w > C + 300) { x = C - 300; y += 60; }
             const on = state.tags.indexOf(t) >= 0;
             const lit = anim('tagLit' + i, on ? 1 : 0, 12);
-            const a = hit('tag' + i, x, y, w, 46, function () {
+            const a = hit('tag' + i, x, y, w, 50, function () {
                 const k = state.tags.indexOf(t);
                 if (k >= 0) state.tags.splice(k, 1); else state.tags.push(t);
             });
             ctx.save();
-            roundRect(x, y, w, 46, 23);
-            ctx.fillStyle = 'rgba(255,250,242,' + (lit * 0.13) + ')';
+            roundRect(x, y, w, 50, 25);
+            ctx.fillStyle = 'rgba(255,250,242,' + (0.045 + lit * 0.12 + a * 0.05) + ')';
             ctx.fill();
-            ctx.strokeStyle = 'rgba(255,250,242,' + (0.11 + a * 0.13 + lit * 0.1) + ')';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
             ctx.restore();
-            label(t, x + w / 2, y + 29, {
-                size: 20, align: 'center',
-                colour: lit > 0.5 ? INK : DIM
-            });
-            x += w + 12;
+            label(t, x + w / 2, y + 32, { size: 20, align: 'center', colour: lit > 0.5 ? INK : DIM });
+            x += w + 14;
         });
 
-        action('Send', y + 118, state.stars > 0, 'send', function () {
-            state.sent = true;
-            toast('Sent, with thanks');
+        roundBtn('send', C, y + 116, 46, '→', {
+            solid: true, size: 34, dy: 12, disabled: !state.stars,
+            fn: function () { state.sent = true; toast('Sent, with thanks'); }
         });
+        backHub(y + 116 > 800 ? 940 : 880);
     }
 
     const SCREENS = {
         home: screenHome, menu: screenMenu, order: screenOrder,
-        ambience: screenAmbience, service: screenService, feedback: screenFeedback
+        ambience: screenAmbience, service: screenService,
+        feedback: screenFeedback, bill: screenBill
     };
 
     /* ----- the loop ----------------------------------------------------------- */
@@ -706,10 +828,6 @@
         if (!ctx) return;
         hits = [];
         drawBase();
-        // The progress arc follows the bezel, so it is drawn before the scale:
-        // it belongs to the hardware, not to the layout.
-        drawProgress();
-
         ctx.save();
         ctx.translate(C, C);
         ctx.scale(SCALE, SCALE);
@@ -719,7 +837,6 @@
         // one screen is drawn per frame, so the hit list is never ambiguous.
         const vis = anim('vis', state.pending ? 0 : 1, 13);
 
-        drawTopBar(vis);
 
         ctx.save();
         ctx.globalAlpha = vis;
