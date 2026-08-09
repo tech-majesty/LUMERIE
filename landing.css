@@ -1202,22 +1202,33 @@ html {
             rgba(14, 12, 11, 0.35) 100%);
 }
 
-/* Shifts the subject of a centred render off to one side so the copy on the
-   other side is not sitting on top of the product. */
+/* Shifts the subject of a centred image off to one side so the copy on the
+   other side is not sitting on top of the product.
+ *
+ *  THE SCALE AND THE SHIFT ARE PAIRED, not chosen separately. Scaling by S
+ *  overhangs the container by (S-1)/2 on each side, and translateX(p) moves the
+ *  image by p x S of the container, so the image only stays edge to edge while
+ *
+ *      p * S  <=  (S - 1) / 2
+ *
+ *  The previous pair broke that: 1.16 with 9% overshot by 2.4% of the width and
+ *  left a bare strip down one edge, and because the settled state scaled back to
+ *  1.12 while keeping the same 9%, the strip grew to 4.1% once the reveal
+ *  finished. 1.28/7% clears it by 5% and 1.24/7% by 3.3%. */
 .vp.push-right>img {
-    transform: scale(1.16) translateX(9%);
+    transform: scale(1.28) translateX(7%);
 }
 
 .vp.push-right.in>img {
-    transform: scale(1.12) translateX(9%);
+    transform: scale(1.24) translateX(7%);
 }
 
 .vp.push-left>img {
-    transform: scale(1.16) translateX(-9%);
+    transform: scale(1.28) translateX(-7%);
 }
 
 .vp.push-left.in>img {
-    transform: scale(1.12) translateX(-9%);
+    transform: scale(1.24) translateX(-7%);
 }
 
 /* A panel with no photograph: the type is the image. */
