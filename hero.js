@@ -312,27 +312,29 @@
      *  the lamp would land behind the type instead of beside it; landing.css
      *  shows the render there instead.
      *
-     *  Framing is the configurator's, not the hero's — the whole product, not
-     *  a close-up on its top — and the camera dollies vertically across the
-     *  pass so the lamp rides up the frame faster than the panel is moving.
-     *  The model itself never turns: a turntable would undo the stillness the
-     *  hero establishes.
+     *  Framing is a crop-in on the top of the product, the way the hero is,
+     *  rather than the configurator's whole-object shot: the ring, the glass
+     *  and the top of the sleeve fill the frame and the base runs off the
+     *  bottom. The camera dollies vertically across the pass, so the lamp
+     *  rides up the frame faster than the panel is moving.
+     *
+     *  Unlike the hero, this camera is never still. Two out-of-phase
+     *  oscillations drift the yaw and the pitch, and the pointer adds to both.
+     *  The MODEL still never turns — the shot moves around a fixed object,
+     *  which reads as a camera on a head rather than as a turntable.
      * ---------------------------------------------------------------------- */
     /*
      *  A DOCK ENTRY, FIELD BY FIELD
      *
-     *  fill / rise are paired. The model sits in the frame covering `fill` of
-     *  its height, so there is (1 - fill) / 2 of clear frame at each end, and
-     *  the camera's travel is rise / 2 in each direction. Not cropping needs
+     *  frameH is how much of the world the frame covers vertically, in the
+     *  same units as the hero's FRAME_H: the lamp is 0.362 tall, so ~0.27 is a
+     *  close-up on its top three quarters. aimY is the world height the camera
+     *  looks at — positive is up the product, and it is what puts the ring in
+     *  the frame and the base out of it.
      *
-     *      rise / 2  <  (1 - fill) / 2
-     *
-     *  aim breaks the symmetry on purpose. Centred, the ring would pass under
-     *  the fixed nav at one end of the travel; aiming above the model's centre
-     *  pushes it down the frame, and what gives instead is the bottom of the
-     *  base, cropping into the floor it already stands on. Of the two, that is
-     *  the one to lose. Both entries are measured to keep the ring at least
-     *  90px clear of a nav that ends at 79.
+     *  rise is the parallax travel across the pass, as a share of frame height.
+     *  It is small here on purpose: the shot is already tight, and at this
+     *  magnification a large travel would swing the ring off the top.
      *
      *  yaw / pitch / roll are the shot. yaw swings the camera round so the ring
      *  is read along its curve rather than as a circle; pitch lifts it enough
@@ -344,43 +346,85 @@
      *  a flatter pitch on the story panel — because the same shot twice in one
      *  scroll reads as a mistake rather than as a motif.
      *
-     *  Only roll costs frame. The lamp is a solid of revolution, so yaw changes
-     *  nothing about its silhouette; rolling by θ needs H·cosθ + W·sinθ of
-     *  height, 3.4% over H at 3.5° and 3.9% at 4°. Both are inside the margin.
+     *  finish is the configuration the panel shows. It overrides whatever is
+     *  selected for the duration of the panel and is put back on the way out;
+     *  see dock() for why that is safe against the visit's own selection.
      */
     function dockEntry(id, slot, o) {
         return {
             id: id, slot: slot, panel: null, node: null,
-            fill: o.fill, rise: o.rise, aim: o.aim,
+            frameH: o.frameH, aimY: o.aimY, rise: o.rise,
             yaw: o.yaw * Math.PI / 180,
             pitch: o.pitch * Math.PI / 180,
-            roll: o.roll * Math.PI / 180
+            roll: o.roll * Math.PI / 180,
+            finish: o.finish || null
         };
     }
 
     const DOCKS = [
-        dockEntry('story', 'storyDock',
-            { fill: 0.88, rise: 0.09, aim: 0.030, yaw: -19, pitch: 3, roll: -4 }),
-        dockEntry('precision', 'lampDock',
-            { fill: 0.86, rise: 0.10, aim: 0.028, yaw: 15, pitch: 7, roll: 3.5 })
+        dockEntry('story', 'storyDock', {
+            frameH: 0.27, aimY: 0.100, rise: 0.07,
+            yaw: -19, pitch: 3, roll: -4,
+            finish: { base: 'Black', pattern: 'Data Rain' }
+        }),
+        dockEntry('precision', 'lampDock', {
+            frameH: 0.25, aimY: 0.108, rise: 0.07,
+            yaw: 15, pitch: 7, roll: 3.5,
+            finish: { base: 'Gold', pattern: 'Ladder' }
+        })
     ];
+
+    /* -------------------------------------------------------------------------
+     *  Life
+     *
+     *  Two sine drifts and a pointer offset, all on the CAMERA. The periods are
+     *  deliberately not multiples of each other, so yaw and pitch never come
+     *  back into phase and the motion never visibly repeats — 14 and 19 seconds
+     *  resync once every 266.
+     *
+     *  Roll is left out of it. A Dutch angle that wobbles is seasickness, not
+     *  life; the tilt has to read as a decision the camera operator made.
+     *
+     *  The pointer is eased rather than followed, at a rate slow enough that a
+     *  flick across the window arrives about a third of a second later. Direct
+     *  tracking on a 10-degree lens is twitchy out of all proportion to the
+     *  mouse movement.
+     * ---------------------------------------------------------------------- */
+    const DRIFT_YAW = 5.5 * Math.PI / 180;
+    const DRIFT_YAW_MS = 14000;
+    const DRIFT_PITCH = 1.6 * Math.PI / 180;
+    const DRIFT_PITCH_MS = 19000;
+    const POINTER_YAW = 6 * Math.PI / 180;
+    const POINTER_PITCH = 3.5 * Math.PI / 180;
+    const POINTER_EASE = 0.07;
+
+    // The composer is three scene renders and two whole-scene traversals per
+    // frame. A 14-second oscillation does not need 60 of those a second, and
+    // the pointer is eased anyway, so the loop is capped. 40 is under the rate
+    // at which the drift starts to look stepped and a third off the GPU.
+    const DOCK_FPS = 40;
 
     let heroSlot = null;
     let dockMQ = null;
     let activeDock = null;
     let dockProgress = 0.5;
+    let dockRAF = 0;
+    let dockLastFrame = 0;
+    let pointerX = 0, pointerY = 0;      // target, -1 to 1 across the window
+    let pointerEX = 0, pointerEY = 0;    // eased, what the camera actually uses
+    let savedFinish = null;
 
     function dockDistance(entry) {
         const c = viewer.camera;
         const t = Math.tan((c.fov * Math.PI) / 360);
-        // Whichever of the two constraints puts the camera further back wins,
-        // for the same reason configuratorDistance() does it: the dock is a
-        // tall narrow column, where the binding dimension can be the WIDTH.
-        // Rolled, so the height it has to fit is the rotated bounding box.
+        const forHeight = entry.frameH / (2 * t);
+        // A close-up is allowed to run the lamp off the sides — that is what
+        // makes it a close-up — but not to the point where the silhouette is
+        // wider than the dock. Rolled, the width it has to fit is the rotated
+        // bounding box, and 0.92 leaves a little air at the widest point.
         const roll = Math.abs(entry.roll);
-        const rolled = MODEL_H * Math.cos(roll) + MODEL_W * Math.sin(roll);
-        const forHeight = rolled / (entry.fill * 2 * t);
-        const forWidth = MODEL_W / (entry.fill * 0.72 * 2 * t * c.aspect);
+        const wide = MODEL_W * Math.cos(roll) + MODEL_H * Math.sin(roll);
+        const forWidth = wide / (0.92 * 2 * t * c.aspect);
         return Math.max(forHeight, forWidth);
     }
 
@@ -392,21 +436,50 @@
         const halfHeight = d * Math.tan((c.fov * Math.PI) / 360);
         // dockProgress runs 0 (panel entering from below) to 1 (panel gone off
         // the top). The camera falls across that, which sends the lamp up.
-        const drift = entry.aim - (dockProgress - 0.5) * 2 * entry.rise * halfHeight;
+        const aim = entry.aimY - (dockProgress - 0.5) * 2 * entry.rise * halfHeight;
 
-        // The drift is applied to the eye AND the target, so the whole rig
-        // slides vertically and the pose itself never changes. Panning the
-        // target instead would swing the lamp against the stage's halo, which
-        // is fixed in world space.
-        const horizontal = d * Math.cos(entry.pitch);
+        const t = (window.performance && performance.now ? performance.now() : 0);
+        const yaw = entry.yaw
+            + DRIFT_YAW * Math.sin((t / DRIFT_YAW_MS) * Math.PI * 2)
+            + pointerEX * POINTER_YAW;
+        const pitch = entry.pitch
+            + DRIFT_PITCH * Math.sin((t / DRIFT_PITCH_MS) * Math.PI * 2)
+            - pointerEY * POINTER_PITCH;
+
+        // The aim is applied to the eye AND the target, so the whole rig slides
+        // vertically and the shot itself never changes. Panning the target
+        // instead would swing the lamp against the stage's halo, which is fixed
+        // in world space.
+        const horizontal = d * Math.cos(pitch);
         c.up.set(Math.sin(entry.roll), Math.cos(entry.roll), 0);
         c.position.set(
-            horizontal * Math.sin(entry.yaw),
-            d * Math.sin(entry.pitch) + drift,
-            horizontal * Math.cos(entry.yaw)
+            horizontal * Math.sin(yaw),
+            d * Math.sin(pitch) + aim,
+            horizontal * Math.cos(yaw)
         );
-        c.lookAt(0, drift, 0);
+        c.lookAt(0, aim, 0);
         viewer.requestRender();
+    }
+
+    function dockFrame() {
+        dockRAF = requestAnimationFrame(dockFrame);
+        if (!activeDock || document.hidden) return;
+
+        const now = (window.performance && performance.now ? performance.now() : 0);
+        if (now - dockLastFrame < 1000 / DOCK_FPS) return;
+        dockLastFrame = now;
+
+        pointerEX += (pointerX - pointerEX) * POINTER_EASE;
+        pointerEY += (pointerY - pointerEY) * POINTER_EASE;
+        applyDockCamera();
+    }
+
+    function startDockLoop() {
+        if (!dockRAF) { dockLastFrame = 0; dockRAF = requestAnimationFrame(dockFrame); }
+    }
+
+    function stopDockLoop() {
+        if (dockRAF) { cancelAnimationFrame(dockRAF); dockRAF = 0; }
     }
 
     function dock(entry) {
@@ -422,12 +495,39 @@
         // backdrop dome comes off so the canvas is transparent behind it and
         // the panel is the page's own background rather than a lit box.
         if (viewer.stage && viewer.stage.setBackdropVisible) viewer.stage.setBackdropVisible(false);
+
+        /*
+         *  Each panel shows a specific configuration, and neither of them is
+         *  necessarily the one the visitor has chosen. So the selection is put
+         *  aside here and restored in undock(), which keeps the "one finish for
+         *  the whole visit" rule intact: the configurator reopens on whatever
+         *  was picked, not on the last panel scrolled past.
+         *
+         *  The swap is instant rather than tweened, and it can be, because dock
+         *  fires the moment the panel's top edge crosses the bottom of the
+         *  window — the canvas is on screen but the lamp, which sits in the
+         *  middle of it, is still a screen-height below the fold.
+         *
+         *  The rim is deliberately not part of it. The two panels specify a
+         *  body and a pattern; whatever ring is selected stays on.
+         */
+        if (entry.finish && typeof config !== 'undefined') {
+            savedFinish = { base: config.base, rim: config.rim, pattern: config.pattern };
+            applyFinish({
+                base: entry.finish.base,
+                rim: entry.finish.rim || savedFinish.rim,
+                pattern: entry.finish.pattern
+            });
+        }
+
         viewer.onWindowResize();
+        startDockLoop();
     }
 
     function undock() {
         if (!activeDock) return;
         activeDock = null;
+        stopDockLoop();
         const container = el('threeCanvasContainer');
         // First child, not last: the veil and the hero foot are painted over
         // the canvas and DOM order is the tie-break between positioned
@@ -438,6 +538,7 @@
         // hero, every configurator angle and the cart thumbnail all inherit it.
         if (viewer && viewer.camera) viewer.camera.up.set(0, 1, 0);
         if (viewer && viewer.stage && viewer.stage.setBackdropVisible) viewer.stage.setBackdropVisible(true);
+        if (savedFinish) { applyFinish(savedFinish); savedFinish = null; }
         if (viewer) viewer.onWindowResize();
         computeFraming();
         sizeWordmark();
@@ -491,6 +592,25 @@
             queued = true;
             requestAnimationFrame(function () { queued = false; syncDock(); });
         };
+
+        // One listener for both panels, on the window rather than on either
+        // dock: the lamp should answer the pointer anywhere on the panel, not
+        // only when it is over the canvas, and a pointer that leaves the canvas
+        // mid-swing would otherwise freeze the camera where it left.
+        window.addEventListener('pointermove', function (e) {
+            if (!activeDock) return;
+            const w = window.innerWidth || 1;
+            const h = window.innerHeight || 1;
+            pointerX = Math.max(-1, Math.min(1, (e.clientX / w) * 2 - 1));
+            pointerY = Math.max(-1, Math.min(1, (e.clientY / h) * 2 - 1));
+        }, { passive: true });
+
+        // Coming back to a page left on a panel, the eased pointer is wherever
+        // it was and the real one is nowhere. Recentre instead of holding a
+        // stale offset.
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) { pointerX = 0; pointerY = 0; }
+        });
 
         window.addEventListener('scroll', tick, { passive: true });
         window.addEventListener('resize', tick);

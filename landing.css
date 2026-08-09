@@ -1128,16 +1128,13 @@ body.cfg-open .hs-layer {
  *
  *  The page is a sequence of full-height panels rather than a column of
  *  stacked blocks. Each one is a photograph or a render at full bleed with a
- *  small amount of type over it, and the scroll snaps between them, so the
- *  page is paced like a lookbook instead of a brochure.
+ *  small amount of type over it, so the page is paced like a lookbook
+ *  instead of a brochure.
  *
- *  Snap is `proximity`, not `mandatory`: mandatory hijacks the scroll and
- *  fights anyone reading a long panel or using a trackpad with momentum.
+ *  There is no scroll snapping. Even `proximity` pulls the page around under
+ *  anyone using a trackpad with momentum, and the panels are legible wherever
+ *  they happen to sit; the pacing comes from their height, not from magnets.
  */
-
-html {
-    scroll-snap-type: y proximity;
-}
 
 .vp {
     position: relative;
@@ -1145,7 +1142,6 @@ html {
     display: grid;
     align-items: center;
     overflow: hidden;
-    scroll-snap-align: start;
     isolation: isolate;
 }
 
@@ -1284,19 +1280,21 @@ html {
         mask-image: linear-gradient(to right, transparent 0, #000 18%);
     }
 
-    /* The copy column has to stop before the lamp starts, and the lamp is a
-       fixed WIDTH in pixels however wide the dock is: the framing binds on
-       height, so the model is 0.216 world units across a frame whose height is
-       the window's, and the dock's width cancels out of the projection. At a
-       900px window that is ~447px of lamp, centred in the dock. 1.15fr of a
-       centred shell ran the list rules under it; this pair leaves 129px. */
+    /* The copy column has to stop before the lamp starts, and since the shot
+       went to a close-up the lamp is much wider than it was: measured at
+       1440x900 it runs from 696 to 1366, so a 34rem column ending at 680 left
+       16px between the list rules and the ring. 31rem ends at 632.
+
+       Narrowing the copy is the right side of that trade — the alternative is
+       pulling the camera back, which is the opposite of what the close-up is
+       for. */
     .vp.has-dock .vp-split {
         grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
         align-items: center;
     }
 
     .vp.has-dock .vp-split>div {
-        max-width: 34rem;
+        max-width: 31rem;
     }
 }
 
