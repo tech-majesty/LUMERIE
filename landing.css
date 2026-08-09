@@ -1193,6 +1193,11 @@ html {
     background: rgba(14, 12, 11, 0.62);
 }
 
+/* For photographs with bright highlights under the copy. */
+.vp.scrim-heavy::after {
+    background: rgba(14, 12, 11, 0.74);
+}
+
 /* Mirror of the default, for the panels whose copy sits on the right. */
 .vp.scrim-right::after {
     background: linear-gradient(260deg,
@@ -1325,6 +1330,14 @@ html {
     align-items: start;
 }
 
+/* Columns centred against each other. For two blocks of unequal length, such
+   as one long pull quote beside two short ones, this reads more balanced than
+   either edge: the shorter column sits in the middle of the taller one rather
+   than hanging off its top or bottom. */
+.vp-split.mid {
+    align-items: center;
+}
+
 @media (max-width: 900px) {
     .vp-split {
         grid-template-columns: minmax(0, 1fr);
@@ -1379,24 +1392,50 @@ html {
     }
 }
 
-/* A quote big enough to be the only thing on a panel. */
-.vp-quote {
-    font-size: clamp(1.5rem, 3.2vw, 2.9rem);
-    font-weight: 400;
-    line-height: 1.22;
-    letter-spacing: -0.035em;
-    color: var(--text);
-    max-width: 20ch;
-    margin: 0;
+/* Testimonials.
+ *
+ *  All three are remarks from people who tested the product, so all three are
+ *  set the same. Previously one ran at 2.9rem as a pull quote and the other two
+ *  at 0.875rem as supporting text, which read as one endorsement plus two
+ *  footnotes rather than as three of the same thing.
+ *
+ *  A rule above each and nothing else. No box: three bordered panels of praise
+ *  is the layout every template reaches for.
+ */
+.quote-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1.5rem, 3.5vw, 3.25rem);
 }
 
-.vp-quote+cite {
+.quote-row figure {
+    margin: 0;
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--line-strong);
+}
+
+.quote-row p {
+    margin: 0;
+    font-size: clamp(1.05rem, 1.4vw, 1.3rem);
+    line-height: 1.42;
+    letter-spacing: -0.022em;
+    color: var(--text);
+}
+
+.quote-row cite {
     display: block;
-    margin-top: 1.8rem;
+    margin-top: 1rem;
     font-style: normal;
-    font-size: 0.86rem;
-    line-height: 1.6;
+    font-size: 0.85rem;
+    line-height: 1.45;
     color: var(--text-2);
+}
+
+@media (max-width: 900px) {
+    .quote-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.6rem;
+    }
 }
 
 
