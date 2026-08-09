@@ -1298,11 +1298,31 @@ html {
     align-items: end;
 }
 
+/* Copy in the SECOND column of the split. Panels that put their text on the
+   right were doing it with margin-left:auto and a magic max-width, which lands
+   the left edge wherever the measure happens to fall instead of on the same
+   column every other panel uses. */
+.vp-split>.col-right {
+    grid-column: 2;
+}
+
+/* Both columns starting at the same y. The default for a bottom-anchored panel
+   is align-items:end, which lines up the BOTTOMS: fine when the two columns are
+   the same height, and visibly crooked when one is a pull quote and the other
+   is two small paragraphs. */
+.vp-split.tops {
+    align-items: start;
+}
+
 @media (max-width: 900px) {
     .vp-split {
         grid-template-columns: minmax(0, 1fr);
         align-items: start;
         gap: 2rem;
+    }
+
+    .vp-split>.col-right {
+        grid-column: 1;
     }
 }
 
