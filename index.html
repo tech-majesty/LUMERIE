@@ -30,6 +30,9 @@
          landing.css then overrides for a scrolling document. -->
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="landing.css">
+    <!-- The interface that runs on the lamp's screen. Its own sheet: it is a
+         self contained product UI, not page furniture. -->
+    <link rel="stylesheet" href="os.css">
 </head>
 
 <body>
@@ -58,6 +61,11 @@
             <div class="pre-pct" id="prePct">00</div>
         </div>
     </div>
+
+    <!-- The way out of MAJESTY OS. Page chrome, deliberately: the interface
+         itself is a texture on the lamp and has no business carrying a browser
+         control. Clicking anywhere off the glass, or Escape, does the same. -->
+    <button class="os-exit" id="osExit" type="button">Close</button>
 
     <!-- Over the hero, this is the Customize control: it follows the pointer and
          the whole hero is its hit area. hero.js positions it. -->
@@ -873,6 +881,8 @@
     <script src="stage.js"></script>
     <script src="logo-light.js"></script>
     <script src="viewer.js"></script>
+    <!-- Before hero.js, which reads window.MajestyOS when it starts. -->
+    <script src="os.js"></script>
     <script src="hero.js"></script>
     <!-- Attaches to the viewer hero.js publishes; see the note in init(). -->
     <script src="script.js"></script>

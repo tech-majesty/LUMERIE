@@ -156,7 +156,7 @@
                 queued = false;
                 // While the canvas is docked into a panel further down the
                 // page the camera belongs to that panel, not to the hero.
-                if (cfgOpen || animating || activeDock) return;
+                if (cfgOpen || animating || activeDock || osOpen) return;
                 if (updateScrollProgress()) applyHeroCamera();
             });
         };
@@ -816,7 +816,7 @@
      */
     function syncDock() {
         if (!dockMQ || !viewer || !viewer.model) return;
-        if (!dockMQ.matches || cfgOpen || animating) { undock(); return; }
+        if (!dockMQ.matches || cfgOpen || animating || osOpen) { undock(); return; }
 
         const vh = window.innerHeight || 1;
         for (let i = 0; i < DOCKS.length; i++) {
@@ -931,7 +931,7 @@
         // the hero is scrolled away and the configurator is shut.
         const originalRender = viewer.renderFrame.bind(viewer);
         viewer.renderFrame = function () {
-            if (heroVisible || cfgOpen || animating || activeDock) originalRender();
+            if (heroVisible || cfgOpen || animating || activeDock || osOpen) originalRender();
         };
 
         // ThreeViewer's own resize handler updates camera.aspect; this must run
@@ -945,6 +945,8 @@
                     const active = document.querySelector('.camera-btn.active');
                     viewer.setCameraAngle(active ? active.dataset.angle : 'front');
                 }
+            } else if (osOpen) {
+                applyOsCamera();
             } else if (activeDock) {
                 applyDockCamera();
             } else if (!animating) {
@@ -1074,7 +1076,7 @@
     }
 
     function openConfigurator() {
-        if (cfgOpen || animating || !viewer || !viewer.model) return;
+        if (cfgOpen || animating || osOpen || !viewer || !viewer.model) return;
         cfgOpen = true;
         animating = true;
 
@@ -1452,6 +1454,374 @@
      *  Pointer-driven by definition, so it is skipped on touch — the nav button
      *  stays visible there instead (see the hover media queries in the CSS).
      * ---------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------
+     *  The screen on top of the lamp
+     *
+     *  The whole hero is the Customize button, and one disc of it is not: the
+     *  glass runs MAJESTY OS. Three facts about the geometry drive everything
+     *  here, and all three were measured off the model rather than guessed.
+     *
+     *  1. THE GLASS IS ONE FLAT PLANE. All 256 triangles of Screen_Main_(Gold)
+     *     lie within 3 degrees of each other.
+     *  2. IT IS TILTED 35.89 DEGREES toward the viewer. Its normal is
+     *     (0, 0.8102, 0.5862) and its centre is (0, 0.105, 0.0007). A straight
+     *     top down camera looks at this thing nearly edge on, which is why the
+     *     first attempt was wrong.
+     *  3. THE FACE IS 0.090 IN RADIUS, of which the dark glass inside the gold
+     *     bezel is 0.0655. The disc is cut to the glass, not to the face, or
+     *     the interface climbs onto the bezel.
+     *
+     *  So the interface is a disc mesh laid on that plane carrying a
+     *  CanvasTexture, and the camera flies down the plane's own normal. Input
+     *  is a raycast: hit the disc, take the UV, hand it to os.js, which knows
+     *  which control is under that texel.
+     * ---------------------------------------------------------------------- */
+    const GLASS_N = [0, 0.8102, 0.5862];
+    const GLASS_C = [0, 0.105, 0.0007];
+    const GLASS_R = 0.0655;
+    const OS_FILL = 0.74;        // share of the short viewport axis the disc fills
+    const OS_LIFT = 0.0016;      // off the surface, so the two do not z-fight
+
+    let osOpen = false;
+    let osMesh = null;
+    let osTexture = null;
+    let glassMesh = null;
+    let osRAF = 0;
+    let osLast = 0;
+    const osRay = new THREE.Raycaster();
+
+    function glassNormal() { return new THREE.Vector3(GLASS_N[0], GLASS_N[1], GLASS_N[2]).normalize(); }
+    function glassCentre() { return new THREE.Vector3(GLASS_C[0], GLASS_C[1], GLASS_C[2]); }
+
+    /** The in-plane up direction, so the interface is not drawn on its side. */
+    function glassUp() {
+        return new THREE.Vector3().crossVectors(glassNormal(), new THREE.Vector3(1, 0, 0)).normalize();
+    }
+
+    /** The lamp's own screen mesh, looked up once. Needed for hit testing long
+     *  before the interface is built, so it is separate from buildOsScreen. */
+    function findGlass() {
+        if (glassMesh || !viewer || !viewer.model) return glassMesh;
+        viewer.model.traverse(function (n) {
+            if (n.name === 'Screen_Main_(Gold)') glassMesh = n;
+        });
+        return glassMesh;
+    }
+
+    function buildOsScreen() {
+        if (osMesh || !viewer || !viewer.model || !window.MajestyOS) return;
+        findGlass();
+
+        const tex = new THREE.CanvasTexture(window.MajestyOS.canvas());
+        tex.anisotropy = viewer.renderer.capabilities.getMaxAnisotropy();
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        if (THREE.sRGBEncoding !== undefined) tex.encoding = THREE.sRGBEncoding;
+        osTexture = tex;
+
+        // Basic, not standard: a screen emits its own picture. Lighting it
+        // would tint the interface with whatever the room is doing, and the
+        // stage's key is warm enough to turn white type gold.
+        const mat = new THREE.MeshBasicMaterial({
+            map: tex, transparent: true, opacity: 0, depthWrite: false, side: THREE.FrontSide
+        });
+        if ('toneMapped' in mat) mat.toneMapped = false;
+
+        osMesh = new THREE.Mesh(new THREE.CircleGeometry(GLASS_R, 128), mat);
+        osMesh.name = 'OS_Screen';
+        osMesh.visible = false;
+        osMesh.renderOrder = 8;
+        osMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), glassNormal());
+        osMesh.position.copy(glassCentre()).addScaledVector(glassNormal(), OS_LIFT);
+        viewer.scene.add(osMesh);
+    }
+
+    /** Normalised device coordinates for a client point over the canvas. */
+    function osNdc(x, y) {
+        const container = el('threeCanvasContainer');
+        if (!container) return null;
+        const r = container.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        if (x < r.left || x > r.right || y < r.top || y > r.bottom) return null;
+        return new THREE.Vector2(
+            ((x - r.left) / r.width) * 2 - 1,
+            -((y - r.top) / r.height) * 2 + 1
+        );
+    }
+
+    /** UV under the pointer on the OS disc, or null. */
+    function osUv(x, y) {
+        if (!osMesh || !osMesh.visible) return null;
+        const nd = osNdc(x, y);
+        if (!nd) return null;
+        osRay.setFromCamera(nd, viewer.camera);
+        const hits = osRay.intersectObject(osMesh, false);
+        return hits.length ? hits[0].uv : null;
+    }
+
+    /**
+     * Is the pointer over the lamp's glass, with nothing in front of it?
+     *
+     * Raycast against the whole model rather than the screen alone: from a low
+     * angle the base stands in front of the screen, and hit testing the screen
+     * on its own would report a hit through the body of the product.
+     */
+    function overScreen(x, y) {
+        if (cfgOpen || animating || activeDock || osOpen) return false;
+        if (!viewer || !viewer.model || !findGlass()) return false;
+        const nd = osNdc(x, y);
+        if (!nd) return false;
+        osRay.setFromCamera(nd, viewer.camera);
+        const hits = osRay.intersectObject(viewer.model, true);
+        if (!hits.length || hits[0].object !== glassMesh) return false;
+        // Only the dark glass, not the gold bezel around it.
+        const p = hits[0].point;
+        return Math.hypot(p.x - GLASS_C[0], p.z - GLASS_C[2]) <= GLASS_R;
+    }
+
+    function osCameraDistance() {
+        const c = viewer.camera;
+        const t = Math.tan((c.fov * Math.PI) / 360);
+        const need = (2 * GLASS_R) / OS_FILL;
+        return Math.max(need / (2 * t), need / (2 * t * c.aspect));
+    }
+
+    function applyOsCamera() {
+        if (!viewer || !viewer.camera) return;
+        const c = viewer.camera;
+        const n = glassNormal();
+        const ctr = glassCentre();
+        c.up.copy(glassUp());
+        c.position.copy(ctr).addScaledVector(n, osCameraDistance());
+        c.lookAt(ctr);
+        viewer.requestRender();
+    }
+
+    /* ----- the frame loop while the interface is up ------------------------- */
+
+    function osFrame(now) {
+        osRAF = requestAnimationFrame(osFrame);
+        if (!osOpen || !window.MajestyOS) return;
+        const dt = osLast ? Math.min((now - osLast) / 1000, 0.05) : 0.016;
+        osLast = now;
+        if (window.MajestyOS.tick(dt)) {
+            osTexture.needsUpdate = true;
+            viewer.requestRender();
+        }
+    }
+
+    function startOsLoop() {
+        if (!osRAF) { osLast = 0; osRAF = requestAnimationFrame(osFrame); }
+    }
+
+    function stopOsLoop() {
+        if (osRAF) { cancelAnimationFrame(osRAF); osRAF = 0; }
+    }
+
+    function osTouch(x, y, press) {
+        if (!osOpen || !window.MajestyOS) return false;
+        const uv = osUv(x, y);
+        const changed = press
+            ? (uv ? window.MajestyOS.press(uv.x, uv.y) : false)
+            : window.MajestyOS.hover(uv ? uv.x : null, uv ? uv.y : null);
+        if (changed) {
+            window.MajestyOS.redraw();
+            osTexture.needsUpdate = true;
+            viewer.requestRender();
+        }
+        document.body.classList.toggle('os-pointing',
+            !!uv && window.MajestyOS.hasPointer());
+        return !!uv;
+    }
+
+    /* ----- opening and closing ---------------------------------------------- */
+
+    function openOS() {
+        if (osOpen || cfgOpen || animating || !viewer || !viewer.model) return;
+        buildOsScreen();
+        if (!osMesh) return;
+
+        osOpen = true;
+        animating = true;
+        document.body.classList.remove('cursor-cta', 'over-screen');
+        document.body.classList.add('os-open');
+        window.MajestyOS.reset();
+        osTexture.needsUpdate = true;
+        osMesh.visible = true;
+        startOsLoop();
+
+        const done = function () {
+            animating = false;
+            applyOsCamera();
+        };
+
+        if (!window.gsap) {
+            osMesh.material.opacity = 1;
+            applyOsCamera();
+            done();
+            return;
+        }
+
+        claimCamera();
+        const c = viewer.camera;
+        const n = glassNormal(), ctr = glassCentre();
+        const toPos = ctr.clone().addScaledVector(n, osCameraDistance());
+        const toUp = glassUp();
+        const fromPos = c.position.clone();
+        const fromUp = c.up.clone();
+        const fromAim = currentAim();
+        const rig = { t: 0 };
+        const pos = new THREE.Vector3(), up = new THREE.Vector3(), aim = new THREE.Vector3();
+
+        gsap.to(rig, {
+            t: 1, duration: 1.2, ease: 'power3.inOut',
+            onUpdate: function () {
+                pos.copy(fromPos).lerp(toPos, rig.t);
+                up.copy(fromUp).lerp(toUp, rig.t).normalize();
+                aim.set(fromAim.x, fromAim.y, fromAim.z).lerp(ctr, rig.t);
+                c.up.copy(up);
+                c.position.copy(pos);
+                c.lookAt(aim);
+                viewer.requestRender();
+            },
+            onComplete: done
+        });
+
+        // The interface fades up over the tail of the move, so the lamp is
+        // already facing you by the time there is anything to read.
+        gsap.to(osMesh.material, {
+            opacity: 1, duration: 0.7, delay: 0.45, ease: 'power2.out',
+            onUpdate: function () { viewer.requestRender(); }
+        });
+
+        if (wordPlane) {
+            gsap.to(wordPlane.material, {
+                opacity: 0, duration: 0.5, ease: 'power2.out',
+                onUpdate: function () { viewer.requestRender(); }
+            });
+        }
+    }
+
+    function closeOS() {
+        if (!osOpen || animating) return;
+        animating = true;
+        document.body.classList.remove('os-open', 'os-pointing');
+
+        const done = function () {
+            osOpen = false;
+            animating = false;
+            stopOsLoop();
+            if (osMesh) { osMesh.visible = false; osMesh.material.opacity = 0; }
+            viewer.camera.up.set(0, 1, 0);
+            computeFraming();
+            sizeWordmark();
+            updateScrollProgress();
+            applyHeroCamera();
+            if (wordPlane) wordPlane.material.opacity = 1;
+        };
+
+        if (!window.gsap) { done(); return; }
+
+        const c = viewer.camera;
+        const fromPos = c.position.clone();
+        const fromUp = c.up.clone();
+        const fromAim = glassCentre();
+        const heroY = framing.aimY - parallaxDrop();
+        const toPos = new THREE.Vector3(framing.panX, heroY, framing.dist);
+        const toAim = new THREE.Vector3(framing.panX, heroY, 0);
+        const toUp = new THREE.Vector3(0, 1, 0);
+        const rig = { t: 0 };
+        const pos = new THREE.Vector3(), up = new THREE.Vector3(), aim = new THREE.Vector3();
+
+        gsap.to(osMesh.material, {
+            opacity: 0, duration: 0.4, ease: 'power2.in',
+            onUpdate: function () { viewer.requestRender(); }
+        });
+
+        gsap.to(rig, {
+            t: 1, duration: 1.05, delay: 0.15, ease: 'power3.inOut',
+            onUpdate: function () {
+                pos.copy(fromPos).lerp(toPos, rig.t);
+                up.copy(fromUp).lerp(toUp, rig.t).normalize();
+                aim.copy(fromAim).lerp(toAim, rig.t);
+                c.up.copy(up);
+                c.position.copy(pos);
+                c.lookAt(aim);
+                viewer.requestRender();
+            },
+            onComplete: done
+        });
+
+        if (wordPlane) {
+            gsap.to(wordPlane.material, {
+                opacity: 1, duration: 0.6, delay: 0.5, ease: 'power2.out',
+                onUpdate: function () { viewer.requestRender(); }
+            });
+        }
+    }
+
+    function initOS() {
+        if (!window.MajestyOS) return;
+
+        // Ambience is not a mime. Picking a mood relights the real lamp the
+        // screen is sitting in, through the path the configurator uses.
+        window.MajestyOS.onMood = function (pattern) {
+            if (typeof config === 'undefined' || !viewer) return;
+            config.pattern = pattern;
+            viewer.updateMaterials();
+            if (typeof updateConfigurationName === 'function') updateConfigurationName();
+            syncControlButtons();
+            viewer.requestRender();
+        };
+
+        window.MajestyOS.onChange = function () {
+            if (!osTexture) return;
+            osTexture.needsUpdate = true;
+            if (viewer) viewer.requestRender();
+        };
+
+        const exit = el('osExit');
+        if (exit) exit.addEventListener('click', closeOS);
+
+        window.addEventListener('pointermove', function (e) {
+            if (!osOpen || animating) return;
+            osTouch(e.clientX, e.clientY, false);
+        }, { passive: true });
+
+        window.addEventListener('click', function (e) {
+            if (!osOpen || animating) return;
+            if (exit && exit.contains(e.target)) return;
+            // A tap on a control works it; a tap anywhere else is the way out.
+            if (!osTouch(e.clientX, e.clientY, true)) closeOS();
+        });
+
+        window.addEventListener('resize', function () {
+            if (osOpen && !animating) applyOsCamera();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && osOpen) closeOS();
+        });
+
+        // On a touch device initCursorCta bails out early — there is no cursor
+        // to follow — and the hero's click handler lives inside it. The glass
+        // still has to be tappable, so it gets its own listener here. On a
+        // pointer device this does not run, or the click is handled twice.
+        if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            const hero = document.querySelector('.hero');
+            if (hero) {
+                hero.addEventListener('click', function (e) {
+                    if (cfgOpen || animating || osOpen) return;
+                    if (!overScreen(e.clientX, e.clientY)) return;
+                    e.stopPropagation();   // see the note in initCursorCta
+                    openOS();
+                });
+            }
+        }
+    }
+
+
     function initCursorCta() {
         const node = el('cursorCta');
         const hero = document.querySelector('.hero');
@@ -1487,18 +1857,41 @@
             }
 
             document.body.classList.toggle('cursor-cta', overHero);
+            document.body.classList.toggle('over-screen',
+                overHero && overScreen(e.clientX, e.clientY));
+
+            const pill = node.querySelector('.cta-pill');
+            if (pill) {
+                const os = document.body.classList.contains('over-screen');
+                if (pill.dataset.mode !== (os ? 'os' : 'cfg')) {
+                    pill.dataset.mode = os ? 'os' : 'cfg';
+                    pill.innerHTML = os
+                        ? 'Open MAJESTY OS <i>&rarr;</i>'
+                        : 'Customize <i>&rarr;</i>';
+                }
+            }
         }, { passive: true });
 
         document.addEventListener('pointerleave', function () {
-            document.body.classList.remove('cursor-cta');
+            document.body.classList.remove('cursor-cta', 'over-screen');
         });
 
         // The hero itself is the button. The nav sits outside it, so its own
         // links are unaffected.
-        hero.addEventListener('click', function () {
-            if (cfgOpen || animating) return;
-            document.body.classList.remove('cursor-cta');
-            openConfigurator();
+        hero.addEventListener('click', function (e) {
+            if (cfgOpen || animating || osOpen) return;
+            document.body.classList.remove('cursor-cta', 'over-screen');
+            // The glass is a button inside a button, and it wins.
+            if (overScreen(e.clientX, e.clientY)) {
+                // Stop here. initOS puts a click listener on the window that
+                // treats a tap off the interface as the way out, and this very
+                // event would otherwise bubble up to it and shut what it just
+                // opened.
+                e.stopPropagation();
+                openOS();
+            } else {
+                openConfigurator();
+            }
         });
     }
 
@@ -1744,6 +2137,7 @@
         initRotators();
         initYear();
         initCursorCta();
+        initOS();
         initScrollParallax();
         initSmoothScroll();
         initLampDock();

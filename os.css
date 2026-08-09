@@ -1,0 +1,87 @@
+/* =============================================================================
+ *  MAJESTY OS — page chrome only
+ *
+ *  The interface is not here. It is a CanvasTexture painted in os.js and mapped
+ *  onto a disc lying on the lamp's glass, so it is lit, reflected and
+ *  foreshortened with the product. Nothing about it is styleable from CSS, and
+ *  that is the point: a DOM panel over the canvas is a website standing in
+ *  front of a lamp, not a lamp with a screen in it.
+ *
+ *  What is left is the small amount of page that has to react: the way out, the
+ *  furniture that steps aside, and the two cursor states over the glass.
+ * ========================================================================== */
+
+.os-exit {
+    position: fixed;
+    top: clamp(1rem, 3vh, 2rem);
+    right: clamp(1rem, 3vw, 2.5rem);
+    z-index: 60;
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    padding: 0.7em 1.5em;
+    border-radius: 2em;
+    color: var(--text);
+    background: rgba(255, 250, 242, 0.09);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-0.4rem);
+    transition:
+        opacity 0.4s var(--ease),
+        transform 0.5s var(--ease),
+        background 0.25s var(--ease),
+        visibility 0s linear 0.4s;
+}
+
+.os-exit:hover {
+    background: rgba(255, 250, 242, 0.18);
+}
+
+body.os-open .os-exit {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    /* In late, so the camera has arrived before the way out appears. */
+    transition:
+        opacity 0.5s var(--ease) 0.7s,
+        transform 0.6s var(--ease) 0.7s,
+        background 0.25s var(--ease),
+        visibility 0s;
+}
+
+/* The page underneath is inert while the interface is up. */
+body.os-open {
+    overflow: hidden;
+}
+
+body.os-open .nav,
+body.os-open .hero-foot,
+body.os-open .hero-veil,
+body.os-open #cursorCta {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s var(--ease);
+}
+
+/* Over a control inside the interface. There is no element to give a cursor to,
+   so the raycast sets this on the body instead. */
+body.os-open #threeCanvasContainer {
+    cursor: default;
+}
+
+body.os-pointing #threeCanvasContainer {
+    cursor: pointer;
+}
+
+/* Approaching the glass with the interface shut. The hero's pill normally says
+   Customize; on this one disc the click does something else, and the colour
+   change is the only warning a visitor gets. */
+body.over-screen:not(.cfg-open) #cursorCta .cta-pill {
+    background: var(--gold);
+    color: #14100e;
+}
