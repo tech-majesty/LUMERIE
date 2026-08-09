@@ -183,39 +183,47 @@
         </div>
     </section>
 
-    <!-- ===== Our story ===================================================== -->
-    <section class="vp middle" id="story">
+    <!-- ===== Our story =====================================================
+         The second of the two panels that borrow the hero's canvas. Both put
+         their copy in one left column and hand the right half to #storyDock /
+         #lampDock; hero.js moves #threeCanvasContainer between them and the
+         hero. The render below 900px is the fallback — see the note on the
+         precision panel. -->
+    <section class="vp middle push-right has-dock" id="story">
         <img src="assets/renders/red-arabic.webp" alt="LUMERIE in red with the Arabic calligraphy light pattern"
             loading="lazy" decoding="async" style="--pos:70% center">
+        <div class="lamp-dock" id="storyDock" aria-hidden="true"></div>
         <div class="shell vp-copy">
             <div class="vp-split">
-                <div class="reveal">
-                    <p class="lbl"><b>02</b>Our story</p>
-                    <h2 class="t-h1" data-split>It began with <strong>a question.</strong></h2>
-                    <p class="t-body" style="margin-top:1.4rem;max-width:32ch">
-                        How can an industry that revolves around care, emotion and human
-                        connection still operate so blindly?
-                    </p>
-                </div>
-                <div class="reveal" style="--d:120ms">
-                    <p class="t-fade" style="max-width:30ch;margin-bottom:1.8rem">
-                        <strong>We spent years inside luxury hospitality.</strong>
-                        <em>Dining rooms, kitchens, back offices, leadership meetings. We
-                            saw its brilliance and its fragility, and something missing
-                            underneath all of it.</em>
-                    </p>
-                    <div class="meta">
-                        <div>
-                            <b>2019</b>
-                            <span>First prototype on a Dubai table</span>
-                        </div>
-                        <div>
-                            <b>Jumeirah</b>
-                            <span>Live testing across four venues</span>
-                        </div>
-                        <div>
-                            <b>DIFC</b>
-                            <span>Built at Innovation One, AI Campus</span>
+                <div>
+                    <div class="reveal">
+                        <p class="lbl"><b>02</b>Our story</p>
+                        <h2 class="t-h2" data-split>It began with <strong>a question.</strong></h2>
+                        <p class="t-body" style="margin-top:1.3rem">
+                            How can an industry that revolves around care, emotion and human
+                            connection still operate so blindly?
+                        </p>
+                    </div>
+                    <div class="reveal" style="--d:120ms">
+                        <p class="t-fade" style="margin:1.6rem 0 1.8rem">
+                            <strong>We spent years inside luxury hospitality.</strong>
+                            <em>Dining rooms, kitchens, back offices, leadership meetings. We
+                                saw its brilliance and its fragility, and something missing
+                                underneath all of it.</em>
+                        </p>
+                        <div class="meta">
+                            <div>
+                                <b>2019</b>
+                                <span>First prototype on a Dubai table</span>
+                            </div>
+                            <div>
+                                <b>Jumeirah</b>
+                                <span>Live testing across four venues</span>
+                            </div>
+                            <div>
+                                <b>DIFC</b>
+                                <span>Built at Innovation One, AI Campus</span>
+                            </div>
                         </div>
                     </div>
                 </div>
