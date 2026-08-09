@@ -1489,6 +1489,7 @@
      */
     const OS_TILT = 11 * Math.PI / 180;
     const OS_LIFT = 0.0016;      // off the surface, so the two do not z-fight
+    const OS_VEIL = 0.72;        // how far the room steps back behind the screen
 
     let osOpen = false;
     let osMesh = null;
@@ -1496,6 +1497,8 @@
     let glassMesh = null;
     let osRAF = 0;
     let osLast = 0;
+    let osVeil = null;
+    let osSavedPattern = null;
     const osRay = new THREE.Raycaster();
 
     function glassNormal() { return new THREE.Vector3(GLASS_N[0], GLASS_N[1], GLASS_N[2]).normalize(); }
@@ -1543,6 +1546,47 @@
         osMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), glassNormal());
         osMesh.position.copy(glassCentre()).addScaledVector(glassNormal(), OS_LIFT);
         viewer.scene.add(osMesh);
+
+        /*
+         *  The veil. While the interface is up, everything that is not the
+         *  screen steps back.
+         *
+         *  It has to happen in 3D, not in CSS: the interface is inside the
+         *  canvas, so a DOM overlay over the canvas would dim the interface
+         *  along with the lamp. This is a plane parented to the camera, drawn
+         *  after the product and before the screen, with depth testing off so
+         *  it covers the lamp whatever the camera is doing.
+         *
+         *  It darkens rather than blurs. A real blur is another full screen
+         *  post pass on a chain that already runs three scene renders a frame,
+         *  and at this camera distance the lamp is close enough to the screen
+         *  that a blur would have to be very strong to read at all.
+         */
+        osVeil = new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1),
+            new THREE.MeshBasicMaterial({
+                color: 0x070605, transparent: true, opacity: 0,
+                depthTest: false, depthWrite: false
+            })
+        );
+        osVeil.name = 'OS_Veil';
+        osVeil.renderOrder = 7;
+        osVeil.frustumCulled = false;
+        osVeil.visible = false;
+        osVeil.position.set(0, 0, -0.25);
+        viewer.camera.add(osVeil);
+        // Children of a camera only get a world matrix if the camera is itself
+        // in the graph. Re-adding an object already in a scene is a no-op.
+        viewer.scene.add(viewer.camera);
+        sizeOsVeil();
+    }
+
+    function sizeOsVeil() {
+        if (!osVeil || !viewer) return;
+        const c = viewer.camera;
+        const d = 0.25;
+        const h = 2 * d * Math.tan((c.fov * Math.PI) / 360) * 1.3;
+        osVeil.scale.set(h * c.aspect, h, 1);
     }
 
     /** Normalised device coordinates for a client point over the canvas. */
@@ -1611,6 +1655,7 @@
         // back for the SHORT axis of that ellipse to still fill the frame.
         c.position.copy(ctr).addScaledVector(osEyeDir(), osCameraDistance() / Math.cos(OS_TILT));
         c.lookAt(ctr);
+        sizeOsVeil();
         viewer.requestRender();
     }
 
@@ -1665,6 +1710,11 @@
         window.MajestyOS.reset();
         osTexture.needsUpdate = true;
         osMesh.visible = true;
+        if (osVeil) { osVeil.visible = true; osVeil.material.opacity = 0; sizeOsVeil(); }
+        // The visitor's own light pattern is put aside, so Ambience can relight
+        // the lamp for the length of the demo without quietly overwriting a
+        // configuration they chose. closeOS puts it back.
+        if (typeof config !== 'undefined') osSavedPattern = config.pattern;
         startOsLoop();
 
         const done = function () {
@@ -1674,6 +1724,7 @@
 
         if (!window.gsap) {
             osMesh.material.opacity = 1;
+            if (osVeil) osVeil.material.opacity = OS_VEIL;
             applyOsCamera();
             done();
             return;
@@ -1704,8 +1755,15 @@
             onComplete: done
         });
 
-        // The interface fades up over the tail of the move, so the lamp is
-        // already facing you by the time there is anything to read.
+        // The room dims first, then the interface fades up over the tail of the
+        // move, so the lamp is already facing you by the time there is anything
+        // to read.
+        if (osVeil) {
+            gsap.to(osVeil.material, {
+                opacity: OS_VEIL, duration: 0.9, delay: 0.2, ease: 'power2.out',
+                onUpdate: function () { viewer.requestRender(); }
+            });
+        }
         gsap.to(osMesh.material, {
             opacity: 1, duration: 0.7, delay: 0.45, ease: 'power2.out',
             onUpdate: function () { viewer.requestRender(); }
@@ -1719,6 +1777,18 @@
         }
     }
 
+    /** Undo whatever Ambience did to the light while the interface was up. */
+    function restorePattern() {
+        if (osSavedPattern == null || typeof config === 'undefined' || !viewer) return;
+        if (config.pattern !== osSavedPattern) {
+            config.pattern = osSavedPattern;
+            viewer.updateMaterials();
+            if (typeof updateConfigurationName === 'function') updateConfigurationName();
+            syncControlButtons();
+        }
+        osSavedPattern = null;
+    }
+
     function closeOS() {
         if (!osOpen || animating) return;
         animating = true;
@@ -1727,8 +1797,10 @@
         const done = function () {
             osOpen = false;
             animating = false;
+            restorePattern();
             stopOsLoop();
             if (osMesh) { osMesh.visible = false; osMesh.material.opacity = 0; }
+            if (osVeil) { osVeil.visible = false; osVeil.material.opacity = 0; }
             viewer.camera.up.set(0, 1, 0);
             computeFraming();
             sizeWordmark();
@@ -1754,6 +1826,12 @@
             opacity: 0, duration: 0.4, ease: 'power2.in',
             onUpdate: function () { viewer.requestRender(); }
         });
+        if (osVeil) {
+            gsap.to(osVeil.material, {
+                opacity: 0, duration: 0.7, delay: 0.25, ease: 'power2.inOut',
+                onUpdate: function () { viewer.requestRender(); }
+            });
+        }
 
         gsap.to(rig, {
             t: 1, duration: 1.05, delay: 0.15, ease: 'power3.inOut',

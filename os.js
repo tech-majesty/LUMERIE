@@ -170,7 +170,14 @@
 
     /* ----- primitives -------------------------------------------------------- */
 
-    function font(size, weight) { return (weight || 300) + ' ' + size + 'px ' + FONT; }
+    /*
+     *  Default weight is 400, not 300. On a texture that is resampled by the
+     *  GPU, a 300 at 20px loses most of its stem and reads as grey rather than
+     *  as type; the earlier pass was thin everywhere and that is most of what
+     *  looked cheap. 300 is now reserved for display sizes, where it is doing
+     *  the job it is for.
+     */
+    function font(size, weight) { return (weight || 400) + ' ' + size + 'px ' + FONT; }
 
     function alpha(hex, a) {
         // The palette is hex; hairlines and fades need it with an alpha.
@@ -261,26 +268,35 @@
         // Not opaque. The glass underneath still has to read as glass, and the
         // lamp's own reflection in it is half of why this looks like a screen.
         const g = ctx.createRadialGradient(C, C * 0.7, 0, C, C, C);
-        // Near enough opaque. The lamp's own screen carries a baked MAJESTY
-        // crown, and at anything under about 0.99 it ghosts up through the
-        // interface and reads as a printing fault rather than as glass.
-        g.addColorStop(0, 'rgba(11, 10, 9, 0.992)');
-        g.addColorStop(0.7, 'rgba(7, 6, 6, 0.995)');
-        g.addColorStop(1, 'rgba(4, 4, 4, 0.998)');
+        // Graphite, not black. Near enough opaque — the lamp's own screen
+        // carries a baked MAJESTY crown and under about 0.99 it ghosts through
+        // — but black at this size reads as a hole cut in the product rather
+        // than as a lit surface, and it gives the type nothing to sit on.
+        g.addColorStop(0, 'rgba(41, 38, 35, 0.992)');
+        g.addColorStop(0.62, 'rgba(28, 26, 24, 0.995)');
+        g.addColorStop(1, 'rgba(17, 16, 15, 0.998)');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, S, S);
 
-        const sh = ctx.createLinearGradient(S * 0.1, 0, S * 0.75, S * 0.66);
-        sh.addColorStop(0, 'rgba(255, 250, 242, 0.07)');
-        sh.addColorStop(0.5, 'rgba(255, 250, 242, 0)');
+        const sh = ctx.createLinearGradient(S * 0.08, 0, S * 0.8, S * 0.72);
+        sh.addColorStop(0, 'rgba(255, 250, 242, 0.10)');
+        sh.addColorStop(0.55, 'rgba(255, 250, 242, 0)');
         ctx.fillStyle = sh;
+        ctx.fillRect(0, 0, S, S);
+
+        // A warm bloom low on the disc, picked up off the lamp's own light. It
+        // is what stops the bottom third going flat and dead.
+        const warm = ctx.createRadialGradient(C, S * 0.98, 10, C, S * 0.98, S * 0.66);
+        warm.addColorStop(0, 'rgba(200, 160, 74, 0.10)');
+        warm.addColorStop(1, 'rgba(200, 160, 74, 0)');
+        ctx.fillStyle = warm;
         ctx.fillRect(0, 0, S, S);
         ctx.restore();
 
         ctx.save();
         ctx.beginPath();
         ctx.arc(C, C, C - 7, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(232, 214, 176, 0.18)';
+        ctx.strokeStyle = 'rgba(232, 214, 176, 0.26)';
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
@@ -331,12 +347,12 @@
         ctx.fill();
         ctx.restore();
         label(str.toUpperCase(), C, y + 7,
-            { size: 20, colour: a > 0.4 ? INK : DIM, align: 'center', tracking: 4 });
+            { size: 19, weight: 500, colour: a > 0.4 ? INK : DIM, align: 'center', tracking: 5 });
         return w;
     }
 
     function bigTitle(str, y, size) {
-        label(str, C, y, { size: size || 54, weight: 300, colour: INK, align: 'center' });
+        label(str, C, y, { size: size || 54, weight: 300, colour: INK, align: 'center' });  // display size, thin is right here
     }
 
     /**
@@ -382,14 +398,14 @@
         }
         ctx.restore();
 
-        label(clip(left, 300, 30, 300), x + 42, y + h / 2 + 11,
-            { size: 30, weight: 300, colour: o.muted ? DIM : INK });
+        label(clip(left, 300, 30, 400), x + 42, y + h / 2 + 11,
+            { size: 30, weight: 400, colour: o.muted ? DIM : INK });
         if (right != null) {
             label(String(right), x + w - 42, y + h / 2 + 11,
-                { size: 30, weight: 300, colour: o.accent ? GOLD : INK, align: 'right' });
+                { size: 30, weight: 400, colour: o.accent ? GOLD : INK, align: 'right' });
         }
         if (o.sub) {
-            label(clip(o.sub, 300, 19, 300), x + 42, y + h / 2 + 34, { size: 19, colour: FAINT });
+            label(clip(o.sub, 300, 19, 400), x + 42, y + h / 2 + 34, { size: 19, colour: FAINT });
         }
         return a;
     }
@@ -479,74 +495,132 @@
         { k: 'Ambience', i: 'ambience', v: 'ambience' }
     ];
 
+    /**
+     * The dial.
+     *
+     * A thick segmented ring with an icon in each wedge, and a large light knob
+     * in the middle. The knob is the brightest thing on the screen on purpose:
+     * on a black glass disc it is the one element that reads as hardware rather
+     * than as software, and it gives the eye somewhere to start.
+     *
+     * The wedges carry icons only. Six labels on a ring is a wheel of words at
+     * six different angles; instead the knob names whatever the hand is over,
+     * so there is exactly one label on screen and it is always in the same
+     * place, at the size the eye is already focused on.
+     */
     function screenHome() {
-        const RING = 268, IC = 58, LAB = 350;
+        const R0 = 168, R1 = 306, GAP = 0.026;
+        const KNOB = 138;
 
-        // The hub. It is the only thing on the dial that is not a destination:
-        // it is where the table's own state lives.
+        // Ring bed, so the wedges sit in something rather than float.
         ctx.save();
         ctx.beginPath();
-        ctx.arc(C, C, 126, 0, Math.PI * 2);
-        const hg = ctx.createRadialGradient(C, C - 46, 10, C, C, 132);
-        hg.addColorStop(0, 'rgba(62,56,50,1)');
-        hg.addColorStop(0.72, 'rgba(34,30,27,1)');
-        hg.addColorStop(1, 'rgba(22,19,17,1)');
-        ctx.fillStyle = hg;
+        ctx.arc(C, C, R1 + 6, 0, Math.PI * 2);
+        ctx.arc(C, C, R0 - 6, Math.PI * 2, 0, true);
+        ctx.fillStyle = 'rgba(255,250,242,0.035)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,250,242,0.16)';
-        ctx.lineWidth = 2;
+        ctx.restore();
+
+        let named = null;
+
+        DIAL.forEach(function (d, i) {
+            const step = Math.PI * 2 / DIAL.length;
+            // Start at the top and centre the first wedge on twelve o'clock.
+            const a0 = -Math.PI / 2 - step / 2 + i * step + GAP / 2;
+            const a1 = a0 + step - GAP;
+            const mid = (a0 + a1) / 2;
+
+            const ix = C + Math.cos(mid) * (R0 + R1) / 2;
+            const iy = C + Math.sin(mid) * (R0 + R1) / 2;
+            const a = hit('dial' + i, ix - 62, iy - 62, 124, 124, function () { nav(d.v); });
+            if (a > 0.5) named = d.k;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(C, C, R1, a0, a1);
+            ctx.arc(C, C, R0, a1, a0, true);
+            ctx.closePath();
+            const wg = ctx.createRadialGradient(C, C, R0, C, C, R1);
+            wg.addColorStop(0, 'rgba(255,250,242,' + (0.10 + a * 0.13) + ')');
+            wg.addColorStop(1, 'rgba(255,250,242,' + (0.05 + a * 0.10) + ')');
+            ctx.fillStyle = wg;
+            ctx.fill();
+            ctx.restore();
+
+            icon(d.i, ix, iy, 52 + a * 3,
+                a > 0.4 ? '#ffffff' : 'rgba(247,244,240,0.66)');
+        });
+
+        /*
+         *  The knob. A light disc with a bevel: a bright rim at the top left
+         *  where the room's key would catch it, a dark one at the bottom right,
+         *  and a face that falls off toward the edge. Three gradients, and it
+         *  stops looking like a filled circle.
+         */
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(C, C + 5, KNOB + 9, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.filter = 'blur(14px)';
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(C, C, KNOB + 7, 0, Math.PI * 2);
+        const bevel = ctx.createLinearGradient(C - KNOB, C - KNOB, C + KNOB, C + KNOB);
+        bevel.addColorStop(0, 'rgba(255,252,246,0.95)');
+        bevel.addColorStop(0.5, 'rgba(190,183,171,0.75)');
+        bevel.addColorStop(1, 'rgba(120,114,104,0.85)');
+        ctx.fillStyle = bevel;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(C, C, KNOB, 0, Math.PI * 2);
+        const face = ctx.createLinearGradient(C - KNOB * 0.7, C - KNOB, C + KNOB * 0.6, C + KNOB);
+        face.addColorStop(0, '#fbf8f2');
+        face.addColorStop(0.55, '#efeae0');
+        face.addColorStop(1, '#d9d3c7');
+        ctx.fillStyle = face;
+        ctx.fill();
+        ctx.restore();
+
+        // Machined ring, the way a real control has a turned edge.
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(C, C, KNOB - 13, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(20,16,14,0.10)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
 
-        // Course progress, as a gold arc riding the hub's shoulder.
+        // Course progress, riding the knob's shoulder in gold.
         const t = anim('course', GUEST.course / GUEST.courses, 4);
         ctx.save();
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(C, C, 143, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
+        ctx.arc(C, C, KNOB + 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
         ctx.strokeStyle = GOLD;
-        ctx.lineWidth = 5;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(C, C, 143, -Math.PI / 2 + Math.PI * 2 * t, Math.PI * 1.5);
-        ctx.strokeStyle = 'rgba(255,250,242,0.16)';
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 4;
         ctx.stroke();
         ctx.restore();
 
-        label('TABLE ' + GUEST.table, C, C - 18, { size: 21, colour: GOLD, align: 'center', tracking: 5 });
-        label(GUEST.name, C, C + 24, { size: 34, weight: 300, colour: INK, align: 'center' });
-        label('Course ' + GUEST.course + ' of ' + GUEST.courses, C, C + 58,
-            { size: 19, colour: FAINT, align: 'center' });
-
-        DIAL.forEach(function (d, i) {
-            const ang = -Math.PI / 2 + i * Math.PI / 3;
-            const x = C + Math.cos(ang) * RING;
-            const y = C + Math.sin(ang) * RING;
-            const a = hit('dial' + i, x - IC - 6, y - IC - 6, (IC + 6) * 2, (IC + 6) * 2,
-                function () { nav(d.v); });
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, IC + a * 4, 0, Math.PI * 2);
-            const sg = ctx.createLinearGradient(x, y - IC, x, y + IC);
-            sg.addColorStop(0, 'rgba(255,250,242,' + (0.13 + a * 0.10) + ')');
-            sg.addColorStop(1, 'rgba(255,250,242,' + (0.06 + a * 0.08) + ')');
-            ctx.fillStyle = sg;
-            ctx.fill();
-            ctx.strokeStyle = a > 0.02 ? alpha(GOLD, 0.1 + a * 0.7) : 'rgba(255,250,242,0.12)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.restore();
-
-            icon(d.i, x, y, 48 + a * 3, a > 0.4 ? GOLD_SOFT : 'rgba(247,244,240,0.92)');
-
-            const lx = C + Math.cos(ang) * LAB;
-            const ly = C + Math.sin(ang) * LAB;
-            label(d.k, lx, ly + 8, {
-                size: 24, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.72)', align: 'center'
-            });
+        const sub = anim('knobSub', named ? 1 : 0, 14);
+        label('TABLE ' + GUEST.table, C, C - 26,
+            { size: 19, weight: 500, colour: 'rgba(20,16,14,0.45)', align: 'center', tracking: 5 });
+        label(GUEST.name, C, C + 16,
+            { size: 34, weight: 400, colour: '#14100e', align: 'center' });
+        ctx.save();
+        ctx.globalAlpha = 1;
+        label(named || ('Course ' + GUEST.course + ' of ' + GUEST.courses), C, C + 50, {
+            size: 19, weight: 500, align: 'center',
+            colour: named
+                ? 'rgba(150,112,30,' + (0.5 + sub * 0.5) + ')'
+                : 'rgba(20,16,14,0.42)'
         });
+        ctx.restore();
     }
 
     /** Every section shares this: a chip, a title, and a way back to the dial. */
@@ -555,8 +629,32 @@
         if (titleText) bigTitle(titleText, 300, titleSize);
     }
 
-    function backHub(y) {
-        roundBtn('back', C, y || 826, 40, '←', { fn: function () { nav('home'); }, size: 32, dy: 11 });
+    /*
+     *  The way back, and it has to be obvious.
+     *
+     *  It was a bare arrow in a faint circle, low on the disc where the glass
+     *  curves away, and it was genuinely hard to find. It is now a labelled
+     *  pill in the same place on every screen, bright enough to be the second
+     *  thing the eye lands on after the title.
+     */
+    function backPill(y) {
+        // Clamped: some screens run long and would otherwise push this onto the
+        // curve of the disc, where half of it is clipped by the bezel.
+        const yy = Math.min(y || 838, 862);
+        const str = 'Back';
+        const w = measure(str, 24, 400) + 108;
+        const h = 62;
+        const a = hit('back', C - w / 2, yy - h / 2, w, h, function () { nav('home'); });
+        ctx.save();
+        roundRect(C - w / 2, yy - h / 2, w, h, h / 2);
+        ctx.fillStyle = 'rgba(255,250,242,' + (0.10 + a * 0.10) + ')';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,250,242,' + (0.14 + a * 0.18) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+        label('←', C - w / 2 + 34, yy + 10, { size: 26, colour: a > 0.4 ? GOLD_SOFT : DIM });
+        label(str, C + 14, yy + 9, { size: 24, weight: 400, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.82)' });
     }
 
     function screenMenu() {
@@ -602,7 +700,7 @@
 
         const n = state.order.reduce(function (a, o) { return a + o.q; }, 0);
         if (n) roundBtn('toOrder', C + 92, 826, 40, String(n), { fn: function () { nav('order'); }, size: 28, solid: true, dy: 10 });
-        backHub();
+        backPill();
     }
 
     function screenOrder() {
@@ -612,7 +710,7 @@
             bigTitle('Nothing yet', 400, 46);
             lede('Everything on the menu comes to this screen.', 452, 460);
             roundBtn('toMenu', C, 560, 52, '＋', { fn: function () { nav('menu'); }, size: 34, solid: true, dy: 12 });
-            backHub();
+            backPill();
             return;
         }
 
@@ -649,7 +747,7 @@
                 fn: function () { state.fired = true; toast('The kitchen has your order'); }
             });
         }
-        backHub(y + 152 > 780 ? 900 : 826);
+        backPill(y + 152 > 780 ? 900 : 826);
     }
 
     /**
@@ -710,7 +808,7 @@
         label(Math.round(warm) + '%', C, cy + 10, { size: 40, weight: 300, colour: INK, align: 'center' });
         label('WARMTH', C, cy + 42, { size: 16, colour: FAINT, align: 'center', tracking: 4 });
 
-        backHub(890);
+        backPill(890);
     }
 
     function screenService() {
@@ -720,7 +818,7 @@
             pillRow('svc' + i, y, s.k, '→', { dots: false, fn: function () { toast(s.done); } });
             y += 110;
         });
-        backHub(y + 40);
+        backPill(y + 40);
     }
 
     function screenBill() {
@@ -743,7 +841,7 @@
             });
             y += 110;
         });
-        backHub(y + 40);
+        backPill(y + 40);
     }
 
     function screenFeedback() {
@@ -751,7 +849,7 @@
             sectionHead('Thank you', null);
             bigTitle('Noted', 420, 52);
             lede('It reaches the floor manager before you have finished your coffee.', 480, 460);
-            backHub(700);
+            backPill(700);
             return;
         }
 
@@ -800,7 +898,7 @@
             solid: true, size: 34, dy: 12, disabled: !state.stars,
             fn: function () { state.sent = true; toast('Sent, with thanks'); }
         });
-        backHub(y + 116 > 800 ? 940 : 880);
+        backPill(y + 116 > 800 ? 940 : 880);
     }
 
     const SCREENS = {
