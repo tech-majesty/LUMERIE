@@ -1487,7 +1487,7 @@
      *  normal keeps the type square enough to read while leaving the ring, the
      *  bezel and a little of the body in shot.
      */
-    const OS_TILT = 11 * Math.PI / 180;
+    const OS_TILT = 24 * Math.PI / 180;
     const OS_LIFT = 0.0016;      // off the surface, so the two do not z-fight
     const OS_VEIL = 0.72;        // how far the room steps back behind the screen
 
@@ -1499,6 +1499,8 @@
     let osLast = 0;
     let osVeil = null;
     let osSavedPattern = null;
+    let osSavedMap = null;
+    let osSavedColour = null;
     const osRay = new THREE.Raycaster();
 
     function glassNormal() { return new THREE.Vector3(GLASS_N[0], GLASS_N[1], GLASS_N[2]).normalize(); }
@@ -1711,6 +1713,7 @@
         osTexture.needsUpdate = true;
         osMesh.visible = true;
         if (osVeil) { osVeil.visible = true; osVeil.material.opacity = 0; sizeOsVeil(); }
+        takeOverGlass(true);
         // The visitor's own light pattern is put aside, so Ambience can relight
         // the lamp for the length of the demo without quietly overwriting a
         // configuration they chose. closeOS puts it back.
@@ -1777,6 +1780,45 @@
         }
     }
 
+    /**
+     * Hand the lamp's own screen over to the interface, and take it back.
+     *
+     * The glass carries a baked MAJESTY crown at 800 square. Laying the
+     * interface over it meant either an almost opaque overlay — which killed
+     * the glass — or a crown ghosting up through the type. Neither is what a
+     * screen does when it turns on.
+     *
+     * So the crown comes off for the duration: the mesh's own map is set aside
+     * and its colour dropped to near black, which leaves the interface as the
+     * only thing on the surface and lets it go back to being translucent, the
+     * way glass with something lit behind it actually looks.
+     *
+     * The map is not simply REPLACED with the interface, tempting as that is.
+     * This mesh's UVs are a planar projection of a dished surface and they
+     * distort by up to 12% toward the rim; the interface would arrive visibly
+     * warped. The disc mesh carrying it has exact circle UVs instead.
+     */
+    function takeOverGlass(on) {
+        if (!findGlass()) return;
+        const m = glassMesh.material;
+        if (on) {
+            if (osSavedMap !== null) return;
+            osSavedMap = m.map || false;
+            osSavedColour = m.color.clone();
+            m.map = null;
+            m.color.setHex(0x0a0908);
+            m.needsUpdate = true;
+        } else {
+            if (osSavedMap === null) return;
+            m.map = osSavedMap || null;
+            if (osSavedColour) m.color.copy(osSavedColour);
+            m.needsUpdate = true;
+            osSavedMap = null;
+            osSavedColour = null;
+        }
+        if (viewer) viewer.requestRender();
+    }
+
     /** Undo whatever Ambience did to the light while the interface was up. */
     function restorePattern() {
         if (osSavedPattern == null || typeof config === 'undefined' || !viewer) return;
@@ -1797,6 +1839,7 @@
         const done = function () {
             osOpen = false;
             animating = false;
+            takeOverGlass(false);
             restorePattern();
             stopOsLoop();
             if (osMesh) { osMesh.visible = false; osMesh.material.opacity = 0; }

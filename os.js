@@ -268,13 +268,15 @@
         // Not opaque. The glass underneath still has to read as glass, and the
         // lamp's own reflection in it is half of why this looks like a screen.
         const g = ctx.createRadialGradient(C, C * 0.7, 0, C, C, C);
-        // Graphite, not black. Near enough opaque — the lamp's own screen
-        // carries a baked MAJESTY crown and under about 0.99 it ghosts through
-        // — but black at this size reads as a hole cut in the product rather
-        // than as a lit surface, and it gives the type nothing to sit on.
-        g.addColorStop(0, 'rgba(41, 38, 35, 0.992)');
-        g.addColorStop(0.62, 'rgba(28, 26, 24, 0.995)');
-        g.addColorStop(1, 'rgba(17, 16, 15, 0.998)');
+        // Translucent, because it can be now: hero.js takes the baked MAJESTY
+        // crown off the mesh underneath for the duration, so there is nothing
+        // left to ghost through and the surface can behave like glass with
+        // something lit behind it. Graphite rather than black — black at this
+        // size reads as a hole cut in the product and gives the type nothing to
+        // sit on.
+        g.addColorStop(0, 'rgba(44, 41, 37, 0.90)');
+        g.addColorStop(0.62, 'rgba(29, 27, 25, 0.93)');
+        g.addColorStop(1, 'rgba(17, 16, 15, 0.96)');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, S, S);
 
@@ -398,14 +400,15 @@
         }
         ctx.restore();
 
-        label(clip(left, 300, 30, 400), x + 42, y + h / 2 + 11,
+        label(clip(left, right == null ? 540 : 420, 30, 400), x + 42, y + h / 2 + (o.sub ? 2 : 11),
             { size: 30, weight: 400, colour: o.muted ? DIM : INK });
         if (right != null) {
             label(String(right), x + w - 42, y + h / 2 + 11,
                 { size: 30, weight: 400, colour: o.accent ? GOLD : INK, align: 'right' });
         }
         if (o.sub) {
-            label(clip(o.sub, 300, 19, 400), x + 42, y + h / 2 + 34, { size: 19, colour: FAINT });
+            label(clip(o.sub, right == null ? 540 : 420, 19, 400), x + 42, y + h / 2 + 30,
+                { size: 19, colour: 'rgba(247,244,240,0.5)' });
         }
         return a;
     }
@@ -623,68 +626,118 @@
         ctx.restore();
     }
 
-    /** Every section shares this: a chip, a title, and a way back to the dial. */
-    function sectionHead(chipText, titleText, titleSize) {
-        chip(chipText, 210);
-        if (titleText) bigTitle(titleText, 300, titleSize);
-    }
-
-    /*
-     *  The way back, and it has to be obvious.
+    /* -------------------------------------------------------------------------
+     *  ONE LAYOUT, EVERY SECTION
      *
-     *  It was a bare arrow in a faint circle, low on the disc where the glass
-     *  curves away, and it was genuinely hard to find. It is now a labelled
-     *  pill in the same place on every screen, bright enough to be the second
-     *  thing the eye lands on after the title.
-     */
-    function backPill(y) {
-        // Clamped: some screens run long and would otherwise push this onto the
-        // curve of the disc, where half of it is clipped by the bezel.
-        const yy = Math.min(y || 838, 862);
-        const str = 'Back';
-        const w = measure(str, 24, 400) + 108;
-        const h = 62;
-        const a = hit('back', C - w / 2, yy - h / 2, w, h, function () { nav('home'); });
+     *  Fixed bands, so nothing moves between screens and the hand learns the
+     *  interface in one visit rather than reading it every time:
+     *
+     *      TITLE   232          what this is, and a rule under it
+     *      BODY    316 - 760    the only part that differs
+     *      ACTION  848          Back on the left, the primary action beside it
+     *
+     *  Every hit box is at least 88 across in design space, which at the size
+     *  this disc sits on screen is comfortably past what a fingertip needs. One
+     *  primary action per screen and never more; if a screen has no forward
+     *  move, the action band carries Back alone, centred.
+     * ---------------------------------------------------------------------- */
+    const BAND = { title: 232, body: 316, action: 848 };
+
+    function sectionHead(titleText) {
+        label(titleText.toUpperCase(), C, BAND.title,
+            { size: 21, weight: 500, colour: GOLD, align: 'center', tracking: 6 });
         ctx.save();
-        roundRect(C - w / 2, yy - h / 2, w, h, h / 2);
-        ctx.fillStyle = 'rgba(255,250,242,' + (0.10 + a * 0.10) + ')';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,250,242,' + (0.14 + a * 0.18) + ')';
+        ctx.beginPath();
+        ctx.moveTo(C - 84, BAND.title + 22);
+        ctx.lineTo(C + 84, BAND.title + 22);
+        ctx.strokeStyle = 'rgba(200,160,74,0.28)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
-        label('←', C - w / 2 + 34, yy + 10, { size: 26, colour: a > 0.4 ? GOLD_SOFT : DIM });
-        label(str, C + 14, yy + 9, { size: 24, weight: 400, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.82)' });
+    }
+
+    /**
+     * The action band. Back is always in the same place and always says so; the
+     * primary action, when a screen has one, sits beside it and is the only
+     * filled shape on the screen.
+     */
+    function actionBar(primary) {
+        const bx = primary ? C - 118 : C;
+        const bw = measure('Back', 23, 500) + 96;
+        const a = hit('back', bx - bw / 2, BAND.action - 36, bw, 72, function () { nav('home'); });
+        ctx.save();
+        roundRect(bx - bw / 2, BAND.action - 34, bw, 68, 34);
+        ctx.fillStyle = 'rgba(255,250,242,' + (0.09 + a * 0.09) + ')';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,250,242,' + (0.16 + a * 0.16) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+        label('←', bx - bw / 2 + 32, BAND.action + 10,
+            { size: 24, colour: a > 0.4 ? GOLD_SOFT : DIM });
+        label('Back', bx + 12, BAND.action + 9,
+            { size: 23, weight: 500, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.84)' });
+
+        if (!primary) return;
+        const pw = measure(primary.label, 23, 500) + 104;
+        const px = C + 118;
+        const pa = primary.disabled ? 0
+            : hit('primary', px - pw / 2, BAND.action - 36, pw, 72, primary.fn);
+        ctx.save();
+        ctx.globalAlpha = primary.disabled ? 0.34 : 1;
+        roundRect(px - pw / 2, BAND.action - 34, pw, 68, 34);
+        ctx.fillStyle = pa > 0.5 ? '#ffffff' : INK;
+        ctx.fill();
+        ctx.restore();
+        label(primary.label, px, BAND.action + 9,
+            { size: 23, weight: 500, colour: '#14100e', align: 'center' });
+    }
+
+    /** A live count, top right, so the order is never out of sight. */
+    function cartBadge() {
+        const n = state.order.reduce(function (a, i) { return a + i.q; }, 0);
+        const t = anim('cartIn', n ? 1 : 0, 11);
+        if (t < 0.02) return;
+        const x = C + 208, y = BAND.title - 4;
+        const a = hit('cart', x - 44, y - 44, 88, 88, function () { nav('order'); });
+        ctx.save();
+        ctx.globalAlpha = t;
+        ctx.beginPath();
+        ctx.arc(x, y, 30 + a * 3, 0, Math.PI * 2);
+        ctx.fillStyle = a > 0.4 ? GOLD_SOFT : GOLD;
+        ctx.fill();
+        ctx.restore();
+        label(String(n || ''), x, y + 10,
+            { size: 25, weight: 600, colour: '#14100e', align: 'center' });
     }
 
     function screenMenu() {
-        sectionHead('The menu', null);
+        sectionHead('The menu');
+        cartBadge();
 
-        const gap = 18;
+        const gap = 16;
         let total = -gap;
-        MENU.forEach(function (g) { total += measure(g.group.toUpperCase(), 20, 400) + 62 + gap; });
+        MENU.forEach(function (g) { total += measure(g.group, 21, 500) + 60 + gap; });
         let x = C - total / 2;
         MENU.forEach(function (g, i) {
-            const w = measure(g.group.toUpperCase(), 20, 400) + 62;
+            const w = measure(g.group, 21, 500) + 60;
             const live = anim('tabLit' + i, i === state.group ? 1 : 0, 11);
-            const a = hit('tab' + i, x, 268, w, 48, function () { state.group = i; });
+            const a = hit('tab' + i, x - 4, BAND.body - 26, w + 8, 72, function () { state.group = i; });
             ctx.save();
-            roundRect(x, 268, w, 48, 24);
-            ctx.fillStyle = live > 0.02 ? alpha(GOLD, 0.14 + live * 0.1)
-                : 'rgba(255,250,242,' + (0.045 + a * 0.06) + ')';
+            roundRect(x, BAND.body - 18, w, 56, 28);
+            ctx.fillStyle = live > 0.02
+                ? 'rgba(240,236,230,' + (0.10 + live * 0.82) + ')'
+                : 'rgba(255,250,242,' + (0.06 + a * 0.06) + ')';
             ctx.fill();
-            if (live > 0.02) {
-                ctx.strokeStyle = alpha(GOLD, live * 0.6);
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            }
             ctx.restore();
-            label(g.group.toUpperCase(), x + w / 2, 299,
-                { size: 20, colour: live > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : DIM), align: 'center', tracking: 4 });
+            label(g.group, x + w / 2, BAND.body + 18, {
+                size: 21, weight: 500, align: 'center',
+                colour: live > 0.5 ? '#14100e' : (a > 0.4 ? INK : DIM)
+            });
             x += w + gap;
         });
 
-        let y = 360;
+        let y = BAND.body + 78;
         MENU[state.group].items.forEach(function (it, i) {
             pillRow('dish' + state.group + '_' + i, y, it.n, it.p, {
                 sub: it.d, dots: false, accent: true,
@@ -695,96 +748,89 @@
                     toast(it.n.split(',')[0] + ' added');
                 }
             });
-            y += 110;
+            y += 112;
         });
 
         const n = state.order.reduce(function (a, o) { return a + o.q; }, 0);
-        if (n) roundBtn('toOrder', C + 92, 826, 40, String(n), { fn: function () { nav('order'); }, size: 28, solid: true, dy: 10 });
-        backPill();
+        actionBar(n ? { label: 'Review ' + n, fn: function () { nav('order'); } } : null);
     }
 
     function screenOrder() {
-        sectionHead(state.fired ? 'With the kitchen' : 'Your order', null);
+        sectionHead(state.fired ? 'With the kitchen' : 'Your order');
 
         if (!state.order.length) {
-            bigTitle('Nothing yet', 400, 46);
-            lede('Everything on the menu comes to this screen.', 452, 460);
-            roundBtn('toMenu', C, 560, 52, '＋', { fn: function () { nav('menu'); }, size: 34, solid: true, dy: 12 });
-            backPill();
+            bigTitle('Nothing yet', 452, 46);
+            lede('Everything you choose from the menu arrives here.', 508, 440);
+            actionBar({ label: 'Open the menu', fn: function () { nav('menu'); } });
             return;
         }
 
-        let y = 300;
+        let y = BAND.body;
         state.order.slice(0, 3).forEach(function (o, i) {
             pillRow('item' + i, y, o.n, null, { dots: false, sub: 'AED ' + o.p });
             const yc = y + 48;
-            roundBtn('q' + i + '_0', C + 214, yc, 30, '−', {
+            roundBtn('q' + i + '_0', C + 212, yc, 32, '−', {
                 size: 30, dy: 10, fn: function () {
                     o.q--; if (o.q <= 0) state.order.splice(i, 1);
                     state.fired = false;
                 }
             });
-            label(String(o.q), C + 262, yc + 10, { size: 26, colour: INK, align: 'center' });
-            roundBtn('q' + i + '_1', C + 310, yc, 30, '+', {
+            label(String(o.q), C + 262, yc + 10,
+                { size: 25, weight: 500, colour: INK, align: 'center' });
+            roundBtn('q' + i + '_1', C + 312, yc, 32, '+', {
                 size: 30, dy: 10, fn: function () { o.q++; state.fired = false; }
             });
-            y += 110;
+            y += 112;
         });
 
         const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
-        label('TOTAL', C, y + 26, { size: 19, colour: FAINT, align: 'center', tracking: 5 });
+        label('TOTAL', C - 320, y + 44, { size: 18, weight: 500, colour: FAINT, tracking: 5 });
         label('AED ' + Math.round(anim('total', total, 7)).toLocaleString('en-US'),
-            C, y + 78, { size: 46, weight: 300, colour: INK, align: 'center' });
+            C + 320, y + 50, { size: 38, weight: 300, colour: INK, align: 'right' });
 
         if (state.fired) {
             const d = new Date();
             label('Fired at ' + String(d.getHours()).padStart(2, '0') + ':' +
                 String(d.getMinutes()).padStart(2, '0') + ' · Chef Karim has it',
-                C, y + 128, { size: 21, colour: GOLD, align: 'center' });
+                C, y + 108, { size: 21, colour: GOLD, align: 'center' });
+            actionBar(null);
         } else {
-            roundBtn('fire', C, y + 152, 46, '↑', {
-                solid: true, size: 34, dy: 12,
+            actionBar({
+                label: 'Send to kitchen',
                 fn: function () { state.fired = true; toast('The kitchen has your order'); }
             });
         }
-        backPill(y + 152 > 780 ? 900 : 826);
     }
 
     /**
-     * The mood wheel. Three wedges around the hub, the live one bright and
-     * reaching further out. A circular control for a circular screen, and the
-     * one screen where the shape of the hardware is doing real work.
+     * The mood wheel. Three wedges around a hub, the chosen one brighter and
+     * reaching further out. The one screen where the shape of the hardware is
+     * doing real work rather than being decorated around.
      */
     function screenAmbience() {
-        sectionHead('Ambience', null);
+        sectionHead('Ambience');
 
-        const cy = C + 40, r0 = 96, r1 = 250;
+        const cy = 552, r0 = 104, r1 = 226;
         MOODS.forEach(function (m, i) {
-            const a0 = -Math.PI / 2 + i * (Math.PI * 2 / 3) + 0.035;
-            const a1 = a0 + (Math.PI * 2 / 3) - 0.07;
+            const a0 = -Math.PI / 2 + i * (Math.PI * 2 / 3) + 0.04;
+            const a1 = a0 + (Math.PI * 2 / 3) - 0.08;
             const mid = (a0 + a1) / 2;
             const live = anim('moodLit' + i, i === state.mood ? 1 : 0, 9);
 
-            // A wedge is not a rectangle, so it gets its own hit box around the
-            // point the label sits at. Close enough at this size, and it keeps
-            // the hit list to plain rectangles.
             const hx = C + Math.cos(mid) * (r0 + r1) / 2;
             const hy = cy + Math.sin(mid) * (r0 + r1) / 2;
-            const hv = hit('mood' + i, hx - 92, hy - 76, 184, 152, function () {
+            const hv = hit('mood' + i, hx - 88, hy - 72, 176, 144, function () {
                 state.mood = i;
                 if (api.onMood) api.onMood(m.pattern);
                 toast(m.k);
             });
 
-            const grow = live * 16 + hv * 8;
+            const grow = live * 18 + hv * 8;
             ctx.save();
             ctx.beginPath();
             ctx.arc(C, cy, r1 + grow, a0, a1);
             ctx.arc(C, cy, r0, a1, a0, true);
             ctx.closePath();
-            // The unchosen wedges are present, not hidden. Reference points at
-            // a petal chart: the whole wheel reads, and the live one is simply
-            // the brightest and the furthest out.
             ctx.fillStyle = live > 0.02
                 ? 'rgba(240,236,230,' + (0.14 + live * 0.76) + ')'
                 : 'rgba(255,250,242,' + (0.13 + hv * 0.08) + ')';
@@ -795,43 +841,47 @@
             const ty = cy + Math.sin(mid) * ((r0 + r1) / 2 + grow / 2);
             const dark = live > 0.5;
             label(m.k, tx, ty, {
-                size: 27, weight: 400, align: 'center',
+                size: 26, weight: 500, align: 'center',
                 colour: dark ? '#14100e' : (hv > 0.4 ? INK : DIM)
             });
-            label(m.note, tx, ty + 30, {
+            label(m.note, tx, ty + 28, {
                 size: 18, align: 'center',
-                colour: dark ? 'rgba(20,16,14,0.62)' : FAINT
+                colour: dark ? 'rgba(20,16,14,0.6)' : FAINT
             });
         });
 
         const warm = anim('warm', MOODS[state.mood].warm, 6);
-        label(Math.round(warm) + '%', C, cy + 10, { size: 40, weight: 300, colour: INK, align: 'center' });
-        label('WARMTH', C, cy + 42, { size: 16, colour: FAINT, align: 'center', tracking: 4 });
+        label(Math.round(warm) + '%', C, cy + 8,
+            { size: 38, weight: 300, colour: INK, align: 'center' });
+        label('WARMTH', C, cy + 38,
+            { size: 16, weight: 500, colour: FAINT, align: 'center', tracking: 4 });
 
-        backPill(890);
+        actionBar(null);
     }
 
     function screenService() {
-        sectionHead('Service', 'Anything you need', 44);
-        let y = 372;
+        sectionHead('Service');
+        lede('No hand raised, no eye caught, no waiting.', BAND.body + 4, 460);
+
+        let y = BAND.body + 62;
         SERVICE.forEach(function (s, i) {
             pillRow('svc' + i, y, s.k, '→', { dots: false, fn: function () { toast(s.done); } });
-            y += 110;
+            y += 108;
         });
-        backPill(y + 40);
+        actionBar(null);
     }
 
     function screenBill() {
-        sectionHead('The bill', null);
+        sectionHead('The bill');
         const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
         const service = Math.round(total * 0.1);
 
-        label('AED ' + (total + service).toLocaleString('en-US'), C, 380,
-            { size: 64, weight: 300, colour: INK, align: 'center' });
-        label(total ? 'Including 10% service' : 'Nothing on the table yet', C, 424,
-            { size: 21, colour: FAINT, align: 'center' });
+        label('AED ' + (total + service).toLocaleString('en-US'), C, BAND.body + 78,
+            { size: 62, weight: 300, colour: INK, align: 'center' });
+        label(total ? 'Including 10% service' : 'Nothing on the table yet', C, BAND.body + 118,
+            { size: 20, colour: FAINT, align: 'center' });
 
-        let y = 470;
+        let y = BAND.body + 168;
         [['Split evenly', String(GUEST.covers) + ' ways'],
         ['Add gratuity', '10%'],
         ['Email the receipt', '→']].forEach(function (r, i) {
@@ -839,68 +889,68 @@
                 dots: false, muted: !total,
                 fn: total ? function () { toast(r[0] + ' · noted'); } : null
             });
-            y += 110;
+            y += 108;
         });
-        backPill(y + 40);
+        actionBar(total ? { label: 'Settle', fn: function () { toast('Settling, one moment'); } } : null);
     }
 
     function screenFeedback() {
         if (state.sent) {
-            sectionHead('Thank you', null);
-            bigTitle('Noted', 420, 52);
-            lede('It reaches the floor manager before you have finished your coffee.', 480, 460);
-            backPill(700);
+            sectionHead('Thank you');
+            bigTitle('Noted', 452, 52);
+            lede('It reaches the floor manager before you have finished your coffee.',
+                516, 440);
+            actionBar(null);
             return;
         }
 
-        sectionHead('Feedback', 'How was tonight?', 44);
+        sectionHead('Feedback');
+        bigTitle('How was tonight?', BAND.body + 42, 42);
 
-        // Stars on an arc, the way the dial puts everything on an arc.
-        const ar = 210, ay = C + 96;
+        const sw = 96;
         for (let i = 1; i <= 5; i++) {
-            const ang = Math.PI * (1.18 + (i - 1) * 0.16);
-            const x = C + Math.cos(ang) * ar;
-            const y = ay + Math.sin(ang) * ar;
-            const a = hit('star' + i, x - 44, y - 44, 88, 88, function () { state.stars = i; });
+            const x = C + (i - 3) * sw;
+            const y = BAND.body + 148;
+            const a = hit('star' + i, x - 46, y - 46, 92, 92, function () { state.stars = i; });
             const lit = anim('starLit' + i, i <= state.stars ? 1 : 0, 13);
             ctx.save();
             ctx.translate(x, y);
-            ctx.scale(1 + lit * 0.16 + a * 0.08, 1 + lit * 0.16 + a * 0.08);
+            ctx.scale(1 + lit * 0.14 + a * 0.08, 1 + lit * 0.14 + a * 0.08);
             ctx.beginPath();
-            ctx.arc(0, 0, 38, 0, Math.PI * 2);
-            ctx.fillStyle = lit > 0.02 ? alpha(GOLD, 0.1 + lit * 0.16)
-                : 'rgba(255,250,242,' + (0.05 + a * 0.06) + ')';
+            ctx.arc(0, 0, 40, 0, Math.PI * 2);
+            ctx.fillStyle = lit > 0.02 ? alpha(GOLD, 0.12 + lit * 0.2)
+                : 'rgba(255,250,242,' + (0.055 + a * 0.06) + ')';
             ctx.fill();
             ctx.restore();
-            icon('feedback', x, y, 40, lit > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : 'rgba(247,244,240,0.42)'));
+            icon('feedback', x, y, 42,
+                lit > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : 'rgba(247,244,240,0.4)'));
         }
 
-        let x = C - 300, y = C + 200;
+        let x = C - 300, y = BAND.body + 232;
         TAGS.forEach(function (t, i) {
-            const w = measure(t, 20, 300) + 52;
-            if (x + w > C + 300) { x = C - 300; y += 60; }
+            const w = measure(t, 20, 400) + 54;
+            if (x + w > C + 300) { x = C - 300; y += 62; }
             const on = state.tags.indexOf(t) >= 0;
             const lit = anim('tagLit' + i, on ? 1 : 0, 12);
-            const a = hit('tag' + i, x, y, w, 50, function () {
+            const a = hit('tag' + i, x, y - 6, w, 62, function () {
                 const k = state.tags.indexOf(t);
                 if (k >= 0) state.tags.splice(k, 1); else state.tags.push(t);
             });
             ctx.save();
             roundRect(x, y, w, 50, 25);
-            ctx.fillStyle = 'rgba(255,250,242,' + (0.045 + lit * 0.12 + a * 0.05) + ')';
+            ctx.fillStyle = 'rgba(255,250,242,' + (0.05 + lit * 0.13 + a * 0.05) + ')';
             ctx.fill();
             ctx.restore();
-            label(t, x + w / 2, y + 32, { size: 20, align: 'center', colour: lit > 0.5 ? INK : DIM });
+            label(t, x + w / 2, y + 32,
+                { size: 20, align: 'center', colour: lit > 0.5 ? INK : DIM });
             x += w + 14;
         });
 
-        roundBtn('send', C, y + 116, 46, '→', {
-            solid: true, size: 34, dy: 12, disabled: !state.stars,
+        actionBar({
+            label: 'Send', disabled: !state.stars,
             fn: function () { state.sent = true; toast('Sent, with thanks'); }
         });
-        backPill(y + 116 > 800 ? 940 : 880);
     }
-
     const SCREENS = {
         home: screenHome, menu: screenMenu, order: screenOrder,
         ambience: screenAmbience, service: screenService,
