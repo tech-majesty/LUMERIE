@@ -1645,7 +1645,7 @@
     function osEyeDir() {
         const n = glassNormal();
         const right = new THREE.Vector3(1, 0, 0);
-        return n.clone().applyAxisAngle(right, -OS_TILT).normalize();
+        return n.clone().applyAxisAngle(right, OS_TILT).normalize();
     }
 
     function applyOsCamera() {

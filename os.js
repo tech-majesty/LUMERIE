@@ -65,7 +65,15 @@
      *  "atmosphere that adapts light and mood" is Ambience, and Ambience really
      *  does relight the lamp the screen is sitting in.
      * ---------------------------------------------------------------------- */
-    const GUEST = { name: 'Ms Haddad', table: '12', covers: 4, course: 2, courses: 5 };
+    /*
+     *  NO INVENTED GUEST.
+     *
+     *  An earlier pass put a made up diner's name on the hub. It was not from a
+     *  brief, a persona or anything the client supplied, and a fabricated
+     *  person's name sitting on a product demo is not a placeholder, it is a
+     *  claim. The hub carries what the table actually knows about itself.
+     */
+    const TABLE = { number: '12', covers: 4, course: 2, courses: 5 };
 
     const MENU = [
         {
@@ -339,103 +347,6 @@
      *  not a phone held at 30cm.
      * ---------------------------------------------------------------------- */
 
-    /** A small context pill, the way a section announces itself. */
-    function chip(str, y, id, fn) {
-        const w = measure(str.toUpperCase(), 20, 400) + 62;
-        const a = id ? hit(id, C - w / 2, y - 24, w, 48, fn) : 0;
-        ctx.save();
-        roundRect(C - w / 2, y - 24, w, 48, 24);
-        ctx.fillStyle = 'rgba(255,250,242,' + (0.055 + a * 0.09) + ')';
-        ctx.fill();
-        ctx.restore();
-        label(str.toUpperCase(), C, y + 7,
-            { size: 19, weight: 500, colour: a > 0.4 ? INK : DIM, align: 'center', tracking: 5 });
-        return w;
-    }
-
-    function bigTitle(str, y, size) {
-        label(str, C, y, { size: size || 54, weight: 300, colour: INK, align: 'center' });  // display size, thin is right here
-    }
-
-    /**
-     * The wide pill that carries every option inside a section.
-     *
-     * Left label, right value, and an optional fill that runs from the left the
-     * way a level does. The dotted spine is what keeps it from reading as a
-     * button: it says this row has positions, not one action.
-     */
-    function pillRow(id, y, left, right, o) {
-        o = o || {};
-        const w = 640, h = 96, x = C - w / 2;
-        const a = hit(id, x, y, w, h, o.fn);
-
-        ctx.save();
-        roundRect(x, y, w, h, h / 2);
-        ctx.fillStyle = 'rgba(255,250,242,' + (0.05 + a * 0.05) + ')';
-        ctx.fill();
-
-        if (o.fill != null) {
-            ctx.save();
-            roundRect(x, y, w, h, h / 2);
-            ctx.clip();
-            ctx.fillStyle = 'rgba(255,250,242,' + (0.07 + a * 0.04) + ')';
-            ctx.fillRect(x, y, w * Math.max(0, Math.min(1, o.fill)), h);
-            ctx.restore();
-            // The head of the fill, as a bright bar rather than a knob.
-            const hx = x + w * Math.max(0, Math.min(1, o.fill));
-            ctx.beginPath();
-            ctx.moveTo(hx, y + 26);
-            ctx.lineTo(hx, y + h - 26);
-            ctx.strokeStyle = alpha(GOLD_SOFT, 0.9);
-            ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
-            ctx.stroke();
-        } else if (o.dots !== false) {
-            for (let i = 1; i <= 5; i++) {
-                ctx.beginPath();
-                ctx.arc(x + w * (0.34 + i * 0.083), y + h / 2, 2.5, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255,250,242,0.16)';
-                ctx.fill();
-            }
-        }
-        ctx.restore();
-
-        label(clip(left, right == null ? 540 : 420, 30, 400), x + 42, y + h / 2 + (o.sub ? 2 : 11),
-            { size: 30, weight: 400, colour: o.muted ? DIM : INK });
-        if (right != null) {
-            label(String(right), x + w - 42, y + h / 2 + 11,
-                { size: 30, weight: 400, colour: o.accent ? GOLD : INK, align: 'right' });
-        }
-        if (o.sub) {
-            label(clip(o.sub, right == null ? 540 : 420, 19, 400), x + 42, y + h / 2 + 30,
-                { size: 19, colour: 'rgba(247,244,240,0.5)' });
-        }
-        return a;
-    }
-
-    /** A round control. Solid when it is the thing to press, outlined otherwise. */
-    function roundBtn(id, cx, cy, r, glyph, o) {
-        o = o || {};
-        const a = o.disabled ? 0 : hit(id, cx - r, cy - r, r * 2, r * 2, o.fn);
-        ctx.save();
-        ctx.globalAlpha = o.disabled ? 0.3 : 1;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + a * 2, 0, Math.PI * 2);
-        if (o.solid) {
-            ctx.fillStyle = a > 0.5 ? '#ffffff' : INK;
-            ctx.fill();
-        } else {
-            ctx.fillStyle = 'rgba(255,250,242,' + (0.06 + a * 0.08) + ')';
-            ctx.fill();
-        }
-        ctx.restore();
-        label(glyph, cx, cy + (o.dy == null ? 12 : o.dy), {
-            size: o.size || 34, weight: 300, align: 'center',
-            colour: o.solid ? '#14100e' : (a > 0.4 ? INK : DIM)
-        });
-        return a;
-    }
-
     /* ----- icons, drawn as strokes ------------------------------------------ */
 
     function icon(name, cx, cy, s, colour) {
@@ -487,6 +398,176 @@
         ctx.restore();
     }
 
+    /* =========================================================================
+     *  THE SURFACE
+     *
+     *  Frosted glass on a dark ground, type two to three times the size it was,
+     *  and half the elements per screen. The previous pass was a dark theme
+     *  with small type and a lot on every screen, which is why restyling it
+     *  kept producing the same feeling.
+     *
+     *  Canvas2D has no backdrop filter, so a frosted pill is built rather than
+     *  sampled: a light translucent fill, a brighter hairline along the top
+     *  edge where a real sheet of glass catches the room, a darker one along
+     *  the bottom, and a soft drop beneath it. Against a ground this dark it is
+     *  indistinguishable from a blurred backdrop, and it costs nothing.
+     * ====================================================================== */
+
+    const TYPE = {
+        display: 66,     // the one big line on a screen
+        pill: 34,        // anything you can press
+        meta: 22,        // the quiet line under it
+        micro: 18        // tracked capitals
+    };
+
+    /** A sheet of frosted glass. */
+    function glass(x, y, w, h, r, lift) {
+        const l = lift == null ? 0 : lift;
+        ctx.save();
+        // The drop. Soft and short: the sheet is sitting ON the surface.
+        ctx.beginPath();
+        roundRect(x, y + 6, w, h, r);
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.filter = 'blur(10px)';
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        roundRect(x, y, w, h, r);
+        const g = ctx.createLinearGradient(0, y, 0, y + h);
+        g.addColorStop(0, 'rgba(255,250,242,' + (0.115 + l * 0.075) + ')');
+        g.addColorStop(1, 'rgba(255,250,242,' + (0.055 + l * 0.055) + ')');
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.restore();
+
+        // The two edges. This is what makes it read as a sheet rather than a
+        // flat tint: light along the top, dark along the bottom.
+        ctx.save();
+        roundRect(x, y, w, h, r);
+        ctx.clip();
+        ctx.beginPath();
+        ctx.moveTo(x, y + 1);
+        ctx.lineTo(x + w, y + 1);
+        ctx.strokeStyle = 'rgba(255,250,242,' + (0.22 + l * 0.22) + ')';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y + h - 1);
+        ctx.lineTo(x + w, y + h - 1);
+        ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    /* -------------------------------------------------------------------------
+     *  WHERE YOU ARE
+     *
+     *  The thing that was actually missing. A section used to announce itself
+     *  with one small gold line and nothing said how you got there or what else
+     *  there was, so every screen felt like a dead end.
+     *
+     *  Three things now carry it, and they are on every section screen in the
+     *  same place:
+     *
+     *    1. A ring of six ticks just inside the bezel, one per destination on
+     *       the dial, with the one you are in lit and long. It is the dial
+     *       itself, collapsed to a position indicator: you can see there are
+     *       six places and which of them this is, without leaving.
+     *    2. The section name, large, as the first thing on the screen.
+     *    3. A back control that names where it goes rather than pointing.
+     * ---------------------------------------------------------------------- */
+    function whereRing(activeIndex) {
+        // Pre-scale: draw() paints this through a 1.10 scale about the centre,
+        // so a radius written as "just inside the bezel" would land outside it.
+        const r = (C - 28) / SCALE;
+        DIAL.forEach(function (d, i) {
+            const step = Math.PI * 2 / DIAL.length;
+            const ang = -Math.PI / 2 + i * step;
+            const live = anim('whereLit' + i, i === activeIndex ? 1 : 0, 10);
+            const half = (step * 0.30) * (0.42 + live * 0.58);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(C, C, r, ang - half, ang + half);
+            ctx.strokeStyle = live > 0.02
+                ? alpha(GOLD, 0.35 + live * 0.65)
+                : 'rgba(255,250,242,0.13)';
+            ctx.lineWidth = 3 + live * 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+
+    const BAND = { title: 268, body: 372, action: 852 };
+
+    function sectionHead(index, titleText, subText) {
+        whereRing(index);
+        label(titleText, C, BAND.title,
+            { size: TYPE.display, weight: 300, colour: INK, align: 'center' });
+        if (subText) {
+            label(subText, C, BAND.title + 46,
+                { size: TYPE.meta, colour: FAINT, align: 'center' });
+        }
+    }
+
+    /**
+     * The action band. Back names its destination, because an arrow on a screen
+     * with no chrome tells you a direction and not a place. The primary action,
+     * when there is one, is the only solid shape on the screen.
+     */
+    function actionBar(primary) {
+        const bl = 'Dial';
+        const bw = measure(bl, TYPE.pill - 6, 400) + 128;
+        const bx = primary ? C - 124 : C;
+        const a = hit('back', bx - bw / 2, BAND.action - 44, bw, 88, function () { nav('home'); });
+        glass(bx - bw / 2, BAND.action - 38, bw, 76, 38, a);
+        label('←', bx - bw / 2 + 40, BAND.action + 12,
+            { size: 28, colour: a > 0.4 ? GOLD_SOFT : DIM });
+        label(bl, bx + 20, BAND.action + 11,
+            { size: TYPE.pill - 6, weight: 400, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.86)' });
+
+        if (!primary) return;
+        const pw = measure(primary.label, TYPE.pill - 6, 500) + 116;
+        const px = C + 124;
+        const pa = primary.disabled ? 0
+            : hit('primary', px - pw / 2, BAND.action - 44, pw, 88, primary.fn);
+        ctx.save();
+        ctx.globalAlpha = primary.disabled ? 0.3 : 1;
+        ctx.beginPath();
+        roundRect(px - pw / 2, BAND.action - 32, pw, 76, 38);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.filter = 'blur(10px)';
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = primary.disabled ? 0.3 : 1;
+        roundRect(px - pw / 2, BAND.action - 38, pw, 76, 38);
+        ctx.fillStyle = pa > 0.5 ? '#ffffff' : INK;
+        ctx.fill();
+        ctx.restore();
+        label(primary.label, px, BAND.action + 11,
+            { size: TYPE.pill - 6, weight: 500, colour: '#14100e', align: 'center' });
+    }
+
+    /** One line of glass. Label left, value right, nothing else. */
+    function glassRow(id, y, left, right, o) {
+        o = o || {};
+        const w = 660, h = 104, x = C - w / 2;
+        const a = o.fn ? hit(id, x, y, w, h, o.fn) : 0;
+        glass(x, y, w, h, 52, a);
+        label(clip(left, right == null ? 560 : 452, TYPE.pill, 400), x + 46, y + h / 2 + 12,
+            { size: TYPE.pill, weight: 400, colour: o.muted ? DIM : INK });
+        if (right != null) {
+            label(String(right), x + w - 46, y + h / 2 + 12, {
+                size: TYPE.pill, weight: 400, align: 'right',
+                colour: o.accent ? (a > 0.4 ? GOLD_SOFT : GOLD) : INK
+            });
+        }
+        return a;
+    }
+
     /* ----- screens ------------------------------------------------------------ */
 
     const DIAL = [
@@ -498,29 +579,31 @@
         { k: 'Ambience', i: 'ambience', v: 'ambience' }
     ];
 
+    function indexOfView(v) {
+        for (let i = 0; i < DIAL.length; i++) if (DIAL[i].v === v) return i;
+        return -1;
+    }
+
     /**
      * The dial.
      *
      * A thick segmented ring with an icon in each wedge, and a large light knob
-     * in the middle. The knob is the brightest thing on the screen on purpose:
-     * on a black glass disc it is the one element that reads as hardware rather
-     * than as software, and it gives the eye somewhere to start.
+     * in the middle. On a black glass disc the knob is the one element that
+     * reads as hardware rather than software, so it is the brightest thing here
+     * and the eye starts on it.
      *
      * The wedges carry icons only. Six labels on a ring is a wheel of words at
-     * six different angles; instead the knob names whatever the hand is over,
-     * so there is exactly one label on screen and it is always in the same
-     * place, at the size the eye is already focused on.
+     * six different angles; the knob names whatever the hand is over instead,
+     * so there is one label, always in the same place.
      */
     function screenHome() {
-        const R0 = 168, R1 = 306, GAP = 0.026;
-        const KNOB = 138;
+        const R0 = 172, R1 = 312, KNOB = 142;
 
-        // Ring bed, so the wedges sit in something rather than float.
         ctx.save();
         ctx.beginPath();
-        ctx.arc(C, C, R1 + 6, 0, Math.PI * 2);
-        ctx.arc(C, C, R0 - 6, Math.PI * 2, 0, true);
-        ctx.fillStyle = 'rgba(255,250,242,0.035)';
+        ctx.arc(C, C, R1 + 7, 0, Math.PI * 2);
+        ctx.arc(C, C, R0 - 7, Math.PI * 2, 0, true);
+        ctx.fillStyle = 'rgba(255,250,242,0.03)';
         ctx.fill();
         ctx.restore();
 
@@ -528,14 +611,13 @@
 
         DIAL.forEach(function (d, i) {
             const step = Math.PI * 2 / DIAL.length;
-            // Start at the top and centre the first wedge on twelve o'clock.
-            const a0 = -Math.PI / 2 - step / 2 + i * step + GAP / 2;
-            const a1 = a0 + step - GAP;
+            const a0 = -Math.PI / 2 - step / 2 + i * step + 0.024;
+            const a1 = a0 + step - 0.048;
             const mid = (a0 + a1) / 2;
 
             const ix = C + Math.cos(mid) * (R0 + R1) / 2;
             const iy = C + Math.sin(mid) * (R0 + R1) / 2;
-            const a = hit('dial' + i, ix - 62, iy - 62, 124, 124, function () { nav(d.v); });
+            const a = hit('dial' + i, ix - 64, iy - 64, 128, 128, function () { nav(d.v); });
             if (a > 0.5) named = d.k;
 
             ctx.save();
@@ -544,27 +626,20 @@
             ctx.arc(C, C, R0, a1, a0, true);
             ctx.closePath();
             const wg = ctx.createRadialGradient(C, C, R0, C, C, R1);
-            wg.addColorStop(0, 'rgba(255,250,242,' + (0.10 + a * 0.13) + ')');
+            wg.addColorStop(0, 'rgba(255,250,242,' + (0.125 + a * 0.13) + ')');
             wg.addColorStop(1, 'rgba(255,250,242,' + (0.05 + a * 0.10) + ')');
             ctx.fillStyle = wg;
             ctx.fill();
             ctx.restore();
 
-            icon(d.i, ix, iy, 52 + a * 3,
-                a > 0.4 ? '#ffffff' : 'rgba(247,244,240,0.66)');
+            icon(d.i, ix, iy, 56 + a * 4, a > 0.4 ? '#ffffff' : 'rgba(247,244,240,0.72)');
         });
 
-        /*
-         *  The knob. A light disc with a bevel: a bright rim at the top left
-         *  where the room's key would catch it, a dark one at the bottom right,
-         *  and a face that falls off toward the edge. Three gradients, and it
-         *  stops looking like a filled circle.
-         */
         ctx.save();
         ctx.beginPath();
-        ctx.arc(C, C + 5, KNOB + 9, 0, Math.PI * 2);
+        ctx.arc(C, C + 6, KNOB + 10, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.filter = 'blur(14px)';
+        ctx.filter = 'blur(16px)';
         ctx.fill();
         ctx.restore();
 
@@ -590,157 +665,52 @@
         ctx.fill();
         ctx.restore();
 
-        // Machined ring, the way a real control has a turned edge.
         ctx.save();
         ctx.beginPath();
-        ctx.arc(C, C, KNOB - 13, 0, Math.PI * 2);
+        ctx.arc(C, C, KNOB - 14, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(20,16,14,0.10)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
 
-        // Course progress, riding the knob's shoulder in gold.
-        const t = anim('course', GUEST.course / GUEST.courses, 4);
+        const t = anim('course', TABLE.course / TABLE.courses, 4);
         ctx.save();
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(C, C, KNOB + 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
+        ctx.arc(C, C, KNOB + 23, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
         ctx.strokeStyle = GOLD;
         ctx.lineWidth = 4;
         ctx.stroke();
         ctx.restore();
 
-        const sub = anim('knobSub', named ? 1 : 0, 14);
-        label('TABLE ' + GUEST.table, C, C - 26,
-            { size: 19, weight: 500, colour: 'rgba(20,16,14,0.45)', align: 'center', tracking: 5 });
-        label(GUEST.name, C, C + 16,
-            { size: 34, weight: 400, colour: '#14100e', align: 'center' });
-        ctx.save();
-        ctx.globalAlpha = 1;
-        label(named || ('Course ' + GUEST.course + ' of ' + GUEST.courses), C, C + 50, {
-            size: 19, weight: 500, align: 'center',
-            colour: named
-                ? 'rgba(150,112,30,' + (0.5 + sub * 0.5) + ')'
-                : 'rgba(20,16,14,0.42)'
+        label('TABLE', C, C - 34,
+            { size: TYPE.micro, weight: 500, colour: 'rgba(20,16,14,0.42)', align: 'center', tracking: 7 });
+        label(TABLE.number, C, C + 26,
+            { size: 62, weight: 400, colour: '#14100e', align: 'center' });
+        label(named || ('Course ' + TABLE.course + ' of ' + TABLE.courses), C, C + 62, {
+            size: 21, weight: 500, align: 'center',
+            colour: named ? 'rgba(150,112,30,0.95)' : 'rgba(20,16,14,0.4)'
         });
-        ctx.restore();
-    }
-
-    /* -------------------------------------------------------------------------
-     *  ONE LAYOUT, EVERY SECTION
-     *
-     *  Fixed bands, so nothing moves between screens and the hand learns the
-     *  interface in one visit rather than reading it every time:
-     *
-     *      TITLE   232          what this is, and a rule under it
-     *      BODY    316 - 760    the only part that differs
-     *      ACTION  848          Back on the left, the primary action beside it
-     *
-     *  Every hit box is at least 88 across in design space, which at the size
-     *  this disc sits on screen is comfortably past what a fingertip needs. One
-     *  primary action per screen and never more; if a screen has no forward
-     *  move, the action band carries Back alone, centred.
-     * ---------------------------------------------------------------------- */
-    const BAND = { title: 232, body: 316, action: 848 };
-
-    function sectionHead(titleText) {
-        label(titleText.toUpperCase(), C, BAND.title,
-            { size: 21, weight: 500, colour: GOLD, align: 'center', tracking: 6 });
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(C - 84, BAND.title + 22);
-        ctx.lineTo(C + 84, BAND.title + 22);
-        ctx.strokeStyle = 'rgba(200,160,74,0.28)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    /**
-     * The action band. Back is always in the same place and always says so; the
-     * primary action, when a screen has one, sits beside it and is the only
-     * filled shape on the screen.
-     */
-    function actionBar(primary) {
-        const bx = primary ? C - 118 : C;
-        const bw = measure('Back', 23, 500) + 96;
-        const a = hit('back', bx - bw / 2, BAND.action - 36, bw, 72, function () { nav('home'); });
-        ctx.save();
-        roundRect(bx - bw / 2, BAND.action - 34, bw, 68, 34);
-        ctx.fillStyle = 'rgba(255,250,242,' + (0.09 + a * 0.09) + ')';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,250,242,' + (0.16 + a * 0.16) + ')';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-        label('←', bx - bw / 2 + 32, BAND.action + 10,
-            { size: 24, colour: a > 0.4 ? GOLD_SOFT : DIM });
-        label('Back', bx + 12, BAND.action + 9,
-            { size: 23, weight: 500, colour: a > 0.4 ? INK : 'rgba(247,244,240,0.84)' });
-
-        if (!primary) return;
-        const pw = measure(primary.label, 23, 500) + 104;
-        const px = C + 118;
-        const pa = primary.disabled ? 0
-            : hit('primary', px - pw / 2, BAND.action - 36, pw, 72, primary.fn);
-        ctx.save();
-        ctx.globalAlpha = primary.disabled ? 0.34 : 1;
-        roundRect(px - pw / 2, BAND.action - 34, pw, 68, 34);
-        ctx.fillStyle = pa > 0.5 ? '#ffffff' : INK;
-        ctx.fill();
-        ctx.restore();
-        label(primary.label, px, BAND.action + 9,
-            { size: 23, weight: 500, colour: '#14100e', align: 'center' });
-    }
-
-    /** A live count, top right, so the order is never out of sight. */
-    function cartBadge() {
-        const n = state.order.reduce(function (a, i) { return a + i.q; }, 0);
-        const t = anim('cartIn', n ? 1 : 0, 11);
-        if (t < 0.02) return;
-        const x = C + 208, y = BAND.title - 4;
-        const a = hit('cart', x - 44, y - 44, 88, 88, function () { nav('order'); });
-        ctx.save();
-        ctx.globalAlpha = t;
-        ctx.beginPath();
-        ctx.arc(x, y, 30 + a * 3, 0, Math.PI * 2);
-        ctx.fillStyle = a > 0.4 ? GOLD_SOFT : GOLD;
-        ctx.fill();
-        ctx.restore();
-        label(String(n || ''), x, y + 10,
-            { size: 25, weight: 600, colour: '#14100e', align: 'center' });
     }
 
     function screenMenu() {
-        sectionHead('The menu');
-        cartBadge();
+        const g = MENU[state.group];
+        sectionHead(indexOfView('menu'), 'Menu', g.group + ' · tap to add');
 
-        const gap = 16;
-        let total = -gap;
-        MENU.forEach(function (g) { total += measure(g.group, 21, 500) + 60 + gap; });
-        let x = C - total / 2;
-        MENU.forEach(function (g, i) {
-            const w = measure(g.group, 21, 500) + 60;
-            const live = anim('tabLit' + i, i === state.group ? 1 : 0, 11);
-            const a = hit('tab' + i, x - 4, BAND.body - 26, w + 8, 72, function () { state.group = i; });
-            ctx.save();
-            roundRect(x, BAND.body - 18, w, 56, 28);
-            ctx.fillStyle = live > 0.02
-                ? 'rgba(240,236,230,' + (0.10 + live * 0.82) + ')'
-                : 'rgba(255,250,242,' + (0.06 + a * 0.06) + ')';
-            ctx.fill();
-            ctx.restore();
-            label(g.group, x + w / 2, BAND.body + 18, {
-                size: 21, weight: 500, align: 'center',
-                colour: live > 0.5 ? '#14100e' : (a > 0.4 ? INK : DIM)
-            });
-            x += w + gap;
-        });
+        // The category is one control, not three: it cycles. Three tabs plus
+        // three dishes plus a total plus two actions was more than a screen
+        // this size should ask anyone to read.
+        const cw = measure(g.group, TYPE.meta, 500) + 92;
+        const ca = hit('cycle', C - cw / 2, BAND.title + 66, cw, 66,
+            function () { state.group = (state.group + 1) % MENU.length; });
+        glass(C - cw / 2, BAND.title + 72, cw, 54, 27, ca);
+        label(g.group.toUpperCase(), C, BAND.title + 107,
+            { size: TYPE.micro, weight: 500, colour: ca > 0.4 ? INK : DIM, align: 'center', tracking: 5 });
 
-        let y = BAND.body + 78;
-        MENU[state.group].items.forEach(function (it, i) {
-            pillRow('dish' + state.group + '_' + i, y, it.n, it.p, {
-                sub: it.d, dots: false, accent: true,
+        let y = BAND.body + 84;
+        g.items.slice(0, 3).forEach(function (it, i) {
+            glassRow('dish' + state.group + '_' + i, y, it.n, it.p, {
+                accent: true,
                 fn: function () {
                     const f = state.order.filter(function (o) { return o.n === it.n; })[0];
                     if (f) f.q++; else state.order.push({ n: it.n, p: it.p, q: 1 });
@@ -748,70 +718,67 @@
                     toast(it.n.split(',')[0] + ' added');
                 }
             });
-            y += 112;
+            y += 114;
         });
 
         const n = state.order.reduce(function (a, o) { return a + o.q; }, 0);
-        actionBar(n ? { label: 'Review ' + n, fn: function () { nav('order'); } } : null);
+        actionBar(n ? { label: 'Order · ' + n, fn: function () { nav('order'); } } : null);
     }
 
     function screenOrder() {
-        sectionHead(state.fired ? 'With the kitchen' : 'Your order');
+        const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
+        sectionHead(indexOfView('order'),
+            state.fired ? 'Sent' : 'Order',
+            state.fired ? 'Chef Karim has it' : (total ? 'AED ' + total.toLocaleString('en-US') : 'Nothing yet'));
 
         if (!state.order.length) {
-            bigTitle('Nothing yet', 452, 46);
-            lede('Everything you choose from the menu arrives here.', 508, 440);
+            label('Everything you choose', C, 520, { size: TYPE.meta, colour: FAINT, align: 'center' });
+            label('arrives here.', C, 552, { size: TYPE.meta, colour: FAINT, align: 'center' });
             actionBar({ label: 'Open the menu', fn: function () { nav('menu'); } });
             return;
         }
 
-        let y = BAND.body;
+        let y = BAND.body + 60;
         state.order.slice(0, 3).forEach(function (o, i) {
-            pillRow('item' + i, y, o.n, null, { dots: false, sub: 'AED ' + o.p });
-            const yc = y + 48;
-            roundBtn('q' + i + '_0', C + 212, yc, 32, '−', {
-                size: 30, dy: 10, fn: function () {
-                    o.q--; if (o.q <= 0) state.order.splice(i, 1);
+            glassRow('item' + i, y, o.n, null, {});
+            const yc = y + 52;
+            ['−', '+'].forEach(function (gl, k) {
+                const cx = C + (k === 0 ? 200 : 296);
+                const a = hit('q' + i + '_' + k, cx - 34, yc - 34, 68, 68, function () {
+                    o.q += k === 0 ? -1 : 1;
+                    if (o.q <= 0) state.order.splice(i, 1);
                     state.fired = false;
-                }
+                });
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(cx, yc, 27, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,250,242,' + (0.18 + a * 0.3) + ')';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+                label(gl, cx, yc + 11, { size: 30, colour: a > 0.4 ? INK : DIM, align: 'center' });
             });
-            label(String(o.q), C + 262, yc + 10,
-                { size: 25, weight: 500, colour: INK, align: 'center' });
-            roundBtn('q' + i + '_1', C + 312, yc, 32, '+', {
-                size: 30, dy: 10, fn: function () { o.q++; state.fired = false; }
-            });
-            y += 112;
+            label(String(o.q), C + 248, yc + 11,
+                { size: TYPE.pill - 6, weight: 500, colour: INK, align: 'center' });
+            y += 118;
         });
 
-        const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
-        label('TOTAL', C - 320, y + 44, { size: 18, weight: 500, colour: FAINT, tracking: 5 });
-        label('AED ' + Math.round(anim('total', total, 7)).toLocaleString('en-US'),
-            C + 320, y + 50, { size: 38, weight: 300, colour: INK, align: 'right' });
-
-        if (state.fired) {
-            const d = new Date();
-            label('Fired at ' + String(d.getHours()).padStart(2, '0') + ':' +
-                String(d.getMinutes()).padStart(2, '0') + ' · Chef Karim has it',
-                C, y + 108, { size: 21, colour: GOLD, align: 'center' });
-            actionBar(null);
-        } else {
-            actionBar({
-                label: 'Send to kitchen',
-                fn: function () { state.fired = true; toast('The kitchen has your order'); }
-            });
-        }
+        actionBar(state.fired ? null : {
+            label: 'Send to kitchen',
+            fn: function () { state.fired = true; toast('The kitchen has your order'); }
+        });
     }
 
     /**
-     * The mood wheel. Three wedges around a hub, the chosen one brighter and
-     * reaching further out. The one screen where the shape of the hardware is
-     * doing real work rather than being decorated around.
+     * The mood wheel. The one screen where the shape of the hardware is doing
+     * real work rather than being decorated around.
      */
     function screenAmbience() {
-        sectionHead('Ambience');
+        const m = MOODS[state.mood];
+        sectionHead(indexOfView('ambience'), 'Ambience', m.k + ' · ' + m.note);
 
-        const cy = 552, r0 = 104, r1 = 226;
-        MOODS.forEach(function (m, i) {
+        const cy = 596, r0 = 108, r1 = 232;
+        MOODS.forEach(function (mm, i) {
             const a0 = -Math.PI / 2 + i * (Math.PI * 2 / 3) + 0.04;
             const a1 = a0 + (Math.PI * 2 / 3) - 0.08;
             const mid = (a0 + a1) / 2;
@@ -819,144 +786,107 @@
 
             const hx = C + Math.cos(mid) * (r0 + r1) / 2;
             const hy = cy + Math.sin(mid) * (r0 + r1) / 2;
-            const hv = hit('mood' + i, hx - 88, hy - 72, 176, 144, function () {
+            const hv = hit('mood' + i, hx - 92, hy - 76, 184, 152, function () {
                 state.mood = i;
-                if (api.onMood) api.onMood(m.pattern);
-                toast(m.k);
+                if (api.onMood) api.onMood(mm.pattern);
+                toast(mm.k);
             });
 
-            const grow = live * 18 + hv * 8;
+            const grow = live * 20 + hv * 9;
             ctx.save();
             ctx.beginPath();
             ctx.arc(C, cy, r1 + grow, a0, a1);
             ctx.arc(C, cy, r0, a1, a0, true);
             ctx.closePath();
             ctx.fillStyle = live > 0.02
-                ? 'rgba(240,236,230,' + (0.14 + live * 0.76) + ')'
-                : 'rgba(255,250,242,' + (0.13 + hv * 0.08) + ')';
+                ? 'rgba(243,239,233,' + (0.16 + live * 0.76) + ')'
+                : 'rgba(255,250,242,' + (0.12 + hv * 0.09) + ')';
             ctx.fill();
             ctx.restore();
 
             const tx = C + Math.cos(mid) * ((r0 + r1) / 2 + grow / 2);
             const ty = cy + Math.sin(mid) * ((r0 + r1) / 2 + grow / 2);
-            const dark = live > 0.5;
-            label(m.k, tx, ty, {
-                size: 26, weight: 500, align: 'center',
-                colour: dark ? '#14100e' : (hv > 0.4 ? INK : DIM)
-            });
-            label(m.note, tx, ty + 28, {
-                size: 18, align: 'center',
-                colour: dark ? 'rgba(20,16,14,0.6)' : FAINT
+            label(mm.k, tx, ty + 10, {
+                size: 28, weight: 500, align: 'center',
+                colour: live > 0.5 ? '#14100e' : (hv > 0.4 ? INK : DIM)
             });
         });
 
-        const warm = anim('warm', MOODS[state.mood].warm, 6);
-        label(Math.round(warm) + '%', C, cy + 8,
-            { size: 38, weight: 300, colour: INK, align: 'center' });
-        label('WARMTH', C, cy + 38,
-            { size: 16, weight: 500, colour: FAINT, align: 'center', tracking: 4 });
+        const warm = anim('warm', m.warm, 6);
+        label(Math.round(warm) + '%', C, cy + 12,
+            { size: 44, weight: 300, colour: INK, align: 'center' });
 
         actionBar(null);
     }
 
     function screenService() {
-        sectionHead('Service');
-        lede('No hand raised, no eye caught, no waiting.', BAND.body + 4, 460);
-
-        let y = BAND.body + 62;
+        sectionHead(indexOfView('service'), 'Service', 'No hand raised, no waiting');
+        // Four rows have to fit between the subtitle and the action band, so
+        // they run tighter than the three-row screens do.
+        let y = BAND.body + 18;
         SERVICE.forEach(function (s, i) {
-            pillRow('svc' + i, y, s.k, '→', { dots: false, fn: function () { toast(s.done); } });
+            glassRow('svc' + i, y, s.k, '→', { fn: function () { toast(s.done); } });
             y += 108;
         });
         actionBar(null);
     }
 
     function screenBill() {
-        sectionHead('The bill');
         const total = state.order.reduce(function (a, i) { return a + i.q * i.p; }, 0);
-        const service = Math.round(total * 0.1);
+        const grand = total + Math.round(total * 0.1);
+        sectionHead(indexOfView('bill'), 'Bill',
+            total ? 'Including 10% service' : 'Nothing on the table yet');
 
-        label('AED ' + (total + service).toLocaleString('en-US'), C, BAND.body + 78,
-            { size: 62, weight: 300, colour: INK, align: 'center' });
-        label(total ? 'Including 10% service' : 'Nothing on the table yet', C, BAND.body + 118,
-            { size: 20, colour: FAINT, align: 'center' });
+        label('AED ' + grand.toLocaleString('en-US'), C, BAND.body + 132,
+            { size: 92, weight: 300, colour: total ? INK : FAINT, align: 'center' });
 
-        let y = BAND.body + 168;
-        [['Split evenly', String(GUEST.covers) + ' ways'],
-        ['Add gratuity', '10%'],
-        ['Email the receipt', '→']].forEach(function (r, i) {
-            pillRow('bill' + i, y, r[0], r[1], {
-                dots: false, muted: !total,
-                fn: total ? function () { toast(r[0] + ' · noted'); } : null
+        if (total) {
+            glassRow('split', BAND.body + 206, 'Split evenly', TABLE.covers + ' ways', {
+                fn: function () { toast('Split ' + TABLE.covers + ' ways'); }
             });
-            y += 108;
-        });
+        }
         actionBar(total ? { label: 'Settle', fn: function () { toast('Settling, one moment'); } } : null);
     }
 
     function screenFeedback() {
         if (state.sent) {
-            sectionHead('Thank you');
-            bigTitle('Noted', 452, 52);
-            lede('It reaches the floor manager before you have finished your coffee.',
-                516, 440);
+            sectionHead(indexOfView('feedback'), 'Thank you', 'It reaches the floor manager tonight');
             actionBar(null);
             return;
         }
 
-        sectionHead('Feedback');
-        bigTitle('How was tonight?', BAND.body + 42, 42);
+        sectionHead(indexOfView('feedback'), 'Tonight', 'How was it');
 
-        const sw = 96;
+        const sw = 108;
         for (let i = 1; i <= 5; i++) {
             const x = C + (i - 3) * sw;
-            const y = BAND.body + 148;
-            const a = hit('star' + i, x - 46, y - 46, 92, 92, function () { state.stars = i; });
+            const y = BAND.body + 178;
+            const a = hit('star' + i, x - 52, y - 52, 104, 104, function () { state.stars = i; });
             const lit = anim('starLit' + i, i <= state.stars ? 1 : 0, 13);
             ctx.save();
             ctx.translate(x, y);
             ctx.scale(1 + lit * 0.14 + a * 0.08, 1 + lit * 0.14 + a * 0.08);
             ctx.beginPath();
-            ctx.arc(0, 0, 40, 0, Math.PI * 2);
-            ctx.fillStyle = lit > 0.02 ? alpha(GOLD, 0.12 + lit * 0.2)
-                : 'rgba(255,250,242,' + (0.055 + a * 0.06) + ')';
+            ctx.arc(0, 0, 46, 0, Math.PI * 2);
+            ctx.fillStyle = lit > 0.02 ? alpha(GOLD, 0.14 + lit * 0.22)
+                : 'rgba(255,250,242,' + (0.07 + a * 0.07) + ')';
             ctx.fill();
             ctx.restore();
-            icon('feedback', x, y, 42,
-                lit > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : 'rgba(247,244,240,0.4)'));
+            icon('feedback', x, y, 48,
+                lit > 0.5 ? GOLD_SOFT : (a > 0.4 ? INK : 'rgba(247,244,240,0.42)'));
         }
-
-        let x = C - 300, y = BAND.body + 232;
-        TAGS.forEach(function (t, i) {
-            const w = measure(t, 20, 400) + 54;
-            if (x + w > C + 300) { x = C - 300; y += 62; }
-            const on = state.tags.indexOf(t) >= 0;
-            const lit = anim('tagLit' + i, on ? 1 : 0, 12);
-            const a = hit('tag' + i, x, y - 6, w, 62, function () {
-                const k = state.tags.indexOf(t);
-                if (k >= 0) state.tags.splice(k, 1); else state.tags.push(t);
-            });
-            ctx.save();
-            roundRect(x, y, w, 50, 25);
-            ctx.fillStyle = 'rgba(255,250,242,' + (0.05 + lit * 0.13 + a * 0.05) + ')';
-            ctx.fill();
-            ctx.restore();
-            label(t, x + w / 2, y + 32,
-                { size: 20, align: 'center', colour: lit > 0.5 ? INK : DIM });
-            x += w + 14;
-        });
 
         actionBar({
             label: 'Send', disabled: !state.stars,
             fn: function () { state.sent = true; toast('Sent, with thanks'); }
         });
     }
+
     const SCREENS = {
         home: screenHome, menu: screenMenu, order: screenOrder,
         ambience: screenAmbience, service: screenService,
         feedback: screenFeedback, bill: screenBill
     };
-
     /* ----- the loop ----------------------------------------------------------- */
 
     function nav(view) {
