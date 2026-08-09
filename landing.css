@@ -1294,10 +1294,25 @@ body.cfg-open .hs-layer {
         mask-image: none;
     }
 
-    /* No scrim. The composition keeps the type and the product apart instead:
-       the camera looks down into the group so the lamps sit low in the frame,
-       and a wash over the middle of a transparent canvas was reading as a
-       smudge rather than as depth. */
+    /* One flat wash across the whole panel, not a gradient and not a vignette.
+       The three lamps now fill the frame and the copy sits over them, so the
+       type needs help everywhere rather than in one place — and an uneven
+       scrim over a transparent canvas reads as a smudge, which is what the
+       radial one did.
+
+       It has to live INSIDE the dock: the canvas container is z-index 2, and
+       .vp::after is behind the whole panel at -1, so a panel level scrim would
+       paint under the lamps instead of over them. The dock is positioned with
+       a z-index, so it is its own stacking context and the wash at 3 sits
+       above the canvas without escaping it. */
+    .lamp-dock.bleed::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+        background: rgba(14, 12, 11, 0.58);
+    }
 
     /* There is no side-by-side to lay out on this one, so the split rules must
        not narrow it. */
@@ -1312,17 +1327,16 @@ body.cfg-open .hs-layer {
         color: var(--text);
     }
 
-    /* Smaller than the page's display size, and sitting high in the panel. The
-       statement and the three lamps are sharing one viewport with no scrim
-       between them, so every line the type gives back is a band of product
-       that can be seen. */
+    /* Smaller than the page's display size. The statement and the three lamps
+       share one viewport, so every line the type gives back is a band of
+       product that can be seen. Symmetric padding: the copy is centred in the
+       panel, over the middle of the group. */
     .vp.has-dock.bleed .t-display {
         font-size: clamp(2.2rem, 4.5vw, 3.9rem);
     }
 
     .vp.has-dock.bleed .vp-copy {
-        padding-top: clamp(3.5rem, 8vh, 5.5rem);
-        padding-bottom: clamp(10rem, 24vh, 16rem);
+        padding-block: clamp(3rem, 7vh, 5rem);
     }
 }
 

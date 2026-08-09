@@ -547,11 +547,11 @@
      *  bases would put their rings behind red's.
      */
     const TRIO = [
-        { base: 'Black', rim: 'Golden Ring', pattern: 'Data Rain', x: -0.215, z: -0.150 },
-        { base: 'Red', rim: 'Golden Ring', pattern: 'Arabic', x: 0.000, z: 0.150 },
-        { base: 'Gold', rim: 'Golden Ring', pattern: 'Ladder', x: 0.215, z: -0.150 }
+        { base: 'Black', rim: 'Golden Ring', pattern: 'Data Rain', x: -0.205, z: -0.110 },
+        { base: 'Red', rim: 'Golden Ring', pattern: 'Arabic', x: 0.000, z: 0.110 },
+        { base: 'Gold', rim: 'Golden Ring', pattern: 'Ladder', x: 0.205, z: -0.110 }
     ];
-    const TRIO_SPREAD = 0.43;    // outermost centres, apart
+    const TRIO_SPREAD = 0.41;    // outermost centres, apart
     let trioGroup = null;
 
     function buildTrio() {
@@ -620,8 +620,8 @@
         // No finish: this is the only panel that shows what the VISITOR has
         // configured, which is the argument the button under it is making.
         dockEntry('contact', 'closeDock', {
-            frameH: 0.78, aimY: 0.356, rise: 0.04,
-            yaw: 0, pitch: 16, roll: 0, trio: true, fitW: 0.86
+            frameH: 0.435, aimY: 0.029, rise: 0.03,
+            yaw: 0, pitch: 9, roll: 0, trio: true, fitW: 0.86
         })
     ];
 
@@ -630,24 +630,29 @@
      *
      *  Two sine drifts and a pointer offset, all on the CAMERA. The periods are
      *  deliberately not multiples of each other, so yaw and pitch never come
-     *  back into phase and the motion never visibly repeats — 14 and 19 seconds
-     *  resync once every 266.
+     *  back into phase and the motion never visibly repeats — 27 and 35 seconds
+     *  resync once every 945.
+     *
+     *  The amounts are small on purpose. This should read as a camera that is
+     *  not quite locked off, not as a camera that is moving: 2.1 degrees over
+     *  27 seconds is about a tenth of a degree a second. An earlier pass ran
+     *  more than twice this and it looked like a slow turntable.
      *
      *  Roll is left out of it. A Dutch angle that wobbles is seasickness, not
      *  life; the tilt has to read as a decision the camera operator made.
      *
      *  The pointer is eased rather than followed, at a rate slow enough that a
-     *  flick across the window arrives about a third of a second later. Direct
+     *  flick across the window takes about half a second to arrive. Direct
      *  tracking on a 10-degree lens is twitchy out of all proportion to the
      *  mouse movement.
      * ---------------------------------------------------------------------- */
-    const DRIFT_YAW = 5.5 * Math.PI / 180;
-    const DRIFT_YAW_MS = 14000;
-    const DRIFT_PITCH = 1.6 * Math.PI / 180;
-    const DRIFT_PITCH_MS = 19000;
-    const POINTER_YAW = 6 * Math.PI / 180;
-    const POINTER_PITCH = 3.5 * Math.PI / 180;
-    const POINTER_EASE = 0.07;
+    const DRIFT_YAW = 2.1 * Math.PI / 180;
+    const DRIFT_YAW_MS = 27000;
+    const DRIFT_PITCH = 0.7 * Math.PI / 180;
+    const DRIFT_PITCH_MS = 35000;
+    const POINTER_YAW = 2.4 * Math.PI / 180;
+    const POINTER_PITCH = 1.4 * Math.PI / 180;
+    const POINTER_EASE = 0.04;
 
     // The composer is three scene renders and two whole-scene traversals per
     // frame. A 14-second oscillation does not need 60 of those a second, and
