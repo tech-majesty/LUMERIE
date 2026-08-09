@@ -1236,6 +1236,70 @@ html {
     transform: scale(1.24) translateX(-7%);
 }
 
+/* ----- The panel that borrows the hero's canvas -------------------------
+ *  Two mutually exclusive states, switched at the same 900px the split
+ *  collapses at:
+ *
+ *  under 900px  the panel is an ordinary photographic one — the render,
+ *               pushed right, under the default left-weighted scrim.
+ *  over 900px   the render and the scrim are both off and #lampDock owns the
+ *               right half. hero.js moves #threeCanvasContainer into it.
+ *
+ *  The renderer is alpha:true and the scene has no background, so the panel
+ *  has to supply one. It is the hero's gradient, re-centred on the dock, or
+ *  the lamp would be lit from a halo standing on nothing.
+ */
+.lamp-dock {
+    display: none;
+}
+
+@media (min-width: 900px) {
+    /* No lit box. hero.js drops the stage's backdrop dome while the canvas is
+       docked, so the panel is the page's own background and the lamp stands
+       on it rather than inside a rectangle of studio. */
+    .vp.has-dock {
+        background: var(--bg);
+    }
+
+    .vp.has-dock>img {
+        display: none;
+    }
+
+    .vp.has-dock::after {
+        background: none;
+    }
+
+    .lamp-dock {
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 54%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        /* Only the left edge needs softening: the other three sit on the
+           viewport edge, where there is nothing to seam against. */
+        -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18%);
+        mask-image: linear-gradient(to right, transparent 0, #000 18%);
+    }
+
+    /* The copy column has to stop before the lamp starts, and the lamp is a
+       fixed WIDTH in pixels however wide the dock is: the framing binds on
+       height, so the model is 0.216 world units across a frame whose height is
+       the window's, and the dock's width cancels out of the projection. At a
+       900px window that is ~447px of lamp, centred in the dock. 1.15fr of a
+       centred shell ran the list rules under it; this pair leaves 129px. */
+    .vp.has-dock .vp-split {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+        align-items: center;
+    }
+
+    .vp.has-dock .vp-split>div {
+        max-width: 34rem;
+    }
+}
+
 /* A panel with no photograph: the type is the image. */
 .vp.plain::after {
     background: none;

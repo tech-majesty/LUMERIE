@@ -475,6 +475,15 @@
         scene.add(floor);
 
 
+        // Two independent reasons the dome can be off screen, tracked
+        // separately because they are toggled by different callers at
+        // different rates: the bloom pass hides the whole stage twice a frame,
+        // and the landing page's precision panel hides the backdrop for as
+        // long as it is scrolled past. Writing dome.visible from outside would
+        // be undone by the next bloom pass.
+        let stageOn = true;
+        let backdropOn = true;
+
         const api = {
             dome: dome,
             floor: floor,
@@ -563,8 +572,16 @@
             blur: function () { },
 
             setVisible: function (on) {
-                dome.visible = on;
-                floor.visible = on;
+                stageOn = !!on;
+                dome.visible = stageOn && backdropOn;
+                floor.visible = stageOn;
+            },
+
+            /** Drop the backdrop, keep the floor. The canvas goes transparent
+             *  behind the product, so whatever is under it shows through. */
+            setBackdropVisible: function (on) {
+                backdropOn = !!on;
+                dome.visible = stageOn && backdropOn;
             },
 
             dispose: function () {

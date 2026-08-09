@@ -296,13 +296,25 @@
         </div>
     </section>
 
-    <!-- ===== Render · precision ============================================ -->
-    <section class="vp scrim-right push-left">
+    <!-- ===== The lamp itself · precision ===================================
+         No render on this panel above 900px. The hero's WebGL canvas is
+         re-parented into #lampDock while the panel is on screen and put back
+         when it leaves, so the lamp beside this copy is the same lamp, in the
+         same context, and the camera drifts with the scroll. A second viewer
+         would mean a second GL context, a second copy of the model and a
+         second set of composer targets for one section of scrolling.
+
+         Below 900px the split collapses to a single column, so the lamp would
+         sit behind the type rather than beside it, and a phone has better uses
+         for a second stretch of live WebGL. The render is the fallback there,
+         which is why it is still in the markup. -->
+    <section class="vp push-right has-dock" id="precision">
         <img src="assets/renders/black-star.webp" alt="LUMERIE in black with the star light pattern" loading="lazy"
             decoding="async">
+        <div class="lamp-dock" id="lampDock" aria-hidden="true"></div>
         <div class="shell vp-copy">
             <div class="vp-split">
-                <div class="col-right">
+                <div>
                     <div class="reveal">
                         <p class="lbl"><b>05</b>Precision at every moment</p>
                         <h2 class="t-h2" data-split>Every second of service,
@@ -310,21 +322,21 @@
                         </h2>
                     </div>
                     <div class="list reveal" style="--d:120ms;grid-template-columns:minmax(0,1fr);margin-top:1.6rem">
-                    <div class="list-row"><span class="idx">01</span>
-                        <p>Atmosphere that adapts light and mood</p>
-                    </div>
-                    <div class="list-row"><span class="idx">02</span>
-                        <p>Personalized welcomes</p>
-                    </div>
-                    <div class="list-row"><span class="idx">03</span>
-                        <p>Orchestrate real-time guest intelligence</p>
-                    </div>
-                    <div class="list-row"><span class="idx">04</span>
-                        <p>Optimize every table, every second</p>
-                    </div>
-                    <div class="list-row"><span class="idx">05</span>
-                        <p>Influence decisions in real time</p>
-                    </div>
+                        <div class="list-row"><span class="idx">01</span>
+                            <p>Atmosphere that adapts light and mood</p>
+                        </div>
+                        <div class="list-row"><span class="idx">02</span>
+                            <p>Personalized welcomes</p>
+                        </div>
+                        <div class="list-row"><span class="idx">03</span>
+                            <p>Orchestrate real-time guest intelligence</p>
+                        </div>
+                        <div class="list-row"><span class="idx">04</span>
+                            <p>Optimize every table, every second</p>
+                        </div>
+                        <div class="list-row"><span class="idx">05</span>
+                            <p>Influence decisions in real time</p>
+                        </div>
                         <div class="list-row"><span class="idx">06</span>
                             <p>Seamless exits, effortless flows</p>
                         </div>

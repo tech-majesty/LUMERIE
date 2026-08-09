@@ -136,7 +136,9 @@
             queued = true;
             requestAnimationFrame(function () {
                 queued = false;
-                if (cfgOpen || animating) return;
+                // While the canvas is docked into the precision panel the
+                // camera belongs to that panel, not to the hero.
+                if (cfgOpen || animating || docked) return;
                 const h = window.innerHeight || 1;
                 const next = Math.min(1, Math.max(0, window.scrollY / h));
                 if (Math.abs(next - scrollProgress) < 0.0005) return;
@@ -278,6 +280,192 @@
         wordPlane.position.y = framing.aimY + (0.5 - frac) * 2 * halfHeight;
     }
 
+    /* -------------------------------------------------------------------------
+     *  The lamp again, halfway down the page
+     *
+     *  The precision panel shows the real model rather than a render, and it
+     *  does it with the hero's canvas: #threeCanvasContainer is re-parented
+     *  into the panel while the panel is on screen and put back when it
+     *  leaves. Re-parenting a canvas keeps its GL context, so this costs one
+     *  DOM move and one resize. A second ThreeViewer would cost a second
+     *  context, a second copy of the 6.7 MB model and a second set of composer
+     *  targets, all for one section of scrolling.
+     *
+     *  Above 900px only. Below it the split is one column, so the lamp would
+     *  land behind the type instead of beside it; landing.css shows the render
+     *  there instead.
+     *
+     *  Framing is the configurator's, not the hero's — the whole product, not
+     *  a close-up on its top — and the camera dollies vertically across the
+     *  pass so the lamp rides up the frame faster than the panel is moving.
+     *  Nothing rotates: this is the same still object the hero shows, seen for
+     *  longer, and a turntable here would undo that.
+     * ---------------------------------------------------------------------- */
+    /*
+     *  FILL and RISE are paired. The model is centred in the frame at rest and
+     *  covers DOCK_FILL of its height, so there is (1 - DOCK_FILL) / 2 of clear
+     *  frame above and below it, and the camera's travel is DOCK_RISE / 2 in
+     *  each direction. Not cropping the lamp at the ends of the pass needs
+     *
+     *      DOCK_RISE / 2  <  (1 - DOCK_FILL) / 2
+     *
+     *  0.14 against 0.26 keeps 6% of the frame in hand at both extremes.
+     *
+     *  The tilt is why this is not just the hero pose at a different distance.
+     *  YAW swings the camera round so the ring is seen along its curve rather
+     *  than as a circle; PITCH lifts it enough to open up the top face; ROLL is
+     *  a Dutch angle, put on the camera's up vector rather than the model, so
+     *  the floor and its reflection tilt with everything else.
+     *
+     *  Only ROLL costs frame. The lamp is a solid of revolution, so yaw changes
+     *  nothing about its silhouette; rolling by θ needs H·cosθ + W·sinθ of
+     *  height, which at 3.5° is 3.4% more than H. That is inside the 6%.
+     */
+    const DOCK_FILL = 0.86;   // share of the frame's height the model covers
+    const DOCK_RISE = 0.10;   // parallax travel across the pass, same units
+
+    /*
+     *  The frame is deliberately NOT symmetric about the lamp.
+     *
+     *  At this size the clear frame is 7% of its height at each end, and the
+     *  parallax spends 5% of that, so at the top of the pass the ring would be
+     *  30px below the top of the window — underneath the fixed nav. Aiming
+     *  above the model's centre pushes it down the frame: the ring keeps ~76px
+     *  of clearance at every point in the pass, and what gives instead is the
+     *  bottom of the base, which crops into the floor it is already standing
+     *  on. Of the two, that is the one to lose.
+     *
+     *  Measured: the ring stays 95px or more clear of the top of the window
+     *  across the whole pass, against a nav that ends at 76.
+     */
+    const DOCK_AIM = 0.028;
+    const DOCK_YAW = 15 * Math.PI / 180;
+    const DOCK_PITCH = 7 * Math.PI / 180;
+    const DOCK_ROLL = 3.5 * Math.PI / 180;
+
+    let dockPanel = null;
+    let dockSlot = null;
+    let heroSlot = null;
+    let dockMQ = null;
+    let docked = false;
+    let dockProgress = 0.5;
+
+    function dockDistance() {
+        const c = viewer.camera;
+        const t = Math.tan((c.fov * Math.PI) / 360);
+        // Whichever of the two constraints puts the camera further back wins,
+        // for the same reason configuratorDistance() does it: the dock is a
+        // tall narrow column, where the binding dimension is the WIDTH.
+        // Rolled, so the height it has to fit is the rotated bounding box.
+        const rolled = MODEL_H * Math.cos(DOCK_ROLL) + MODEL_W * Math.sin(DOCK_ROLL);
+        const forHeight = rolled / (DOCK_FILL * 2 * t);
+        const forWidth = MODEL_W / (DOCK_FILL * 0.72 * 2 * t * c.aspect);
+        return Math.max(forHeight, forWidth);
+    }
+
+    function applyDockCamera() {
+        if (!docked || !viewer || !viewer.camera) return;
+        const c = viewer.camera;
+        const d = dockDistance();
+        const halfHeight = d * Math.tan((c.fov * Math.PI) / 360);
+        // dockProgress runs 0 (panel entering from below) to 1 (panel gone off
+        // the top). The camera falls across that, which sends the lamp up.
+        const drift = DOCK_AIM - (dockProgress - 0.5) * 2 * DOCK_RISE * halfHeight;
+
+        // The drift is applied to the eye AND the target, so the whole rig
+        // slides vertically and the pose itself never changes. Panning the
+        // target instead would swing the lamp against the stage's halo, which
+        // is fixed in world space.
+        const horizontal = d * Math.cos(DOCK_PITCH);
+        c.up.set(Math.sin(DOCK_ROLL), Math.cos(DOCK_ROLL), 0);
+        c.position.set(
+            horizontal * Math.sin(DOCK_YAW),
+            d * Math.sin(DOCK_PITCH) + drift,
+            horizontal * Math.cos(DOCK_YAW)
+        );
+        c.lookAt(0, drift, 0);
+        viewer.requestRender();
+    }
+
+    function dock() {
+        if (docked) return;
+        const container = el('threeCanvasContainer');
+        if (!container || !dockSlot || !viewer) return;
+        docked = true;
+        dockSlot.appendChild(container);
+        // The wordmark plane belongs to the hero's composition and would sit
+        // across this panel's copy.
+        if (wordPlane) wordPlane.visible = false;
+        // The hero sits inside the stage. Here the lamp sits on the page: the
+        // backdrop dome comes off so the canvas is transparent behind it and
+        // the panel is the page's own background rather than a lit box.
+        if (viewer.stage && viewer.stage.setBackdropVisible) viewer.stage.setBackdropVisible(false);
+        viewer.onWindowResize();
+    }
+
+    function undock() {
+        if (!docked) return;
+        docked = false;
+        const container = el('threeCanvasContainer');
+        // First child, not last: the veil and the hero foot are painted over
+        // the canvas and DOM order is the tie-break between positioned
+        // siblings at the same z-index.
+        if (container && heroSlot) heroSlot.insertBefore(container, heroSlot.firstChild);
+        if (wordPlane) wordPlane.visible = true;
+        // Put the Dutch angle back. camera.up is global state: left tilted, the
+        // hero, every configurator angle and the cart thumbnail all inherit it.
+        if (viewer && viewer.camera) viewer.camera.up.set(0, 1, 0);
+        if (viewer && viewer.stage && viewer.stage.setBackdropVisible) viewer.stage.setBackdropVisible(true);
+        if (viewer) viewer.onWindowResize();
+        computeFraming();
+        sizeWordmark();
+        if (!cfgOpen && !animating) applyHeroCamera();
+    }
+
+    /**
+     * Decide whether the canvas belongs to the panel right now, and if it
+     * does, where in the pass the scroll is.
+     *
+     * Driven off the panel's own rect rather than an IntersectionObserver,
+     * because the same answer is needed on scroll, on resize and when the
+     * media query flips — and an observer that is already intersecting does
+     * not re-fire when the viewport merely gets wider.
+     */
+    function syncDock() {
+        if (!dockPanel || !viewer || !viewer.model) return;
+        const r = dockPanel.getBoundingClientRect();
+        const vh = window.innerHeight || 1;
+        const onScreen = r.bottom > 0 && r.top < vh;
+
+        if (!dockMQ.matches || cfgOpen || animating || !onScreen) { undock(); return; }
+
+        dock();
+        dockProgress = Math.min(1, Math.max(0, (vh - r.top) / (vh + r.height)));
+        applyDockCamera();
+    }
+
+    function initLampDock() {
+        dockPanel = el('precision');
+        dockSlot = el('lampDock');
+        heroSlot = document.querySelector('.hero');
+        if (!dockPanel || !dockSlot || !heroSlot) return;
+
+        dockMQ = window.matchMedia('(min-width: 900px)');
+
+        let queued = false;
+        const tick = function () {
+            if (queued) return;
+            queued = true;
+            requestAnimationFrame(function () { queued = false; syncDock(); });
+        };
+
+        window.addEventListener('scroll', tick, { passive: true });
+        window.addEventListener('resize', tick);
+        if (dockMQ.addEventListener) dockMQ.addEventListener('change', tick);
+        else if (dockMQ.addListener) dockMQ.addListener(tick);
+        tick();
+    }
+
     /* ---------------------------------------------------------------------- */
 
     function mountViewer() {
@@ -304,6 +492,10 @@
                 claimCamera();
                 applyHeroCamera();
                 dismissPreloader();
+                // A reload part-way down the page lands on the precision panel
+                // with the canvas still in the hero. Nothing has scrolled since
+                // the model arrived, so nothing else would move it.
+                syncDock();
             }
         });
 
@@ -326,7 +518,7 @@
         // the hero is scrolled away and the configurator is shut.
         const originalRender = viewer.renderFrame.bind(viewer);
         viewer.renderFrame = function () {
-            if (heroVisible || cfgOpen || animating) originalRender();
+            if (heroVisible || cfgOpen || animating || docked) originalRender();
         };
 
         // ThreeViewer's own resize handler updates camera.aspect; this must run
@@ -340,6 +532,8 @@
                     const active = document.querySelector('.camera-btn.active');
                     viewer.setCameraAngle(active ? active.dataset.angle : 'front');
                 }
+            } else if (docked) {
+                applyDockCamera();
             } else if (!animating) {
                 applyHeroCamera();
             }
@@ -470,6 +664,12 @@
         if (cfgOpen || animating || !viewer || !viewer.model) return;
         cfgOpen = true;
         animating = true;
+
+        // Synchronously, before the scroll: the configurator's chrome is a
+        // fixed layer over the hero, so the canvas has to be back in the hero
+        // by the time the camera starts moving. Waiting for the scroll handler
+        // would open it into the precision panel's column.
+        undock();
 
         // The canvas is pinned to the hero, so the hero has to be the viewport.
         window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1132,6 +1332,7 @@
         initYear();
         initCursorCta();
         initScrollParallax();
+        initLampDock();
         armConfigurator();
         mountViewer();
 
