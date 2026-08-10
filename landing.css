@@ -2229,7 +2229,14 @@ body.cfg-open .hs-layer {
     line-height: 0.78;
     text-align: center;
     color: transparent;
-    background: linear-gradient(180deg, rgba(247, 244, 240, 0.1), rgba(247, 244, 240, 0));
+    /* A watermark has to be legible to be a watermark. This ran 0.10 to 0 over
+       a 243px glyph, which against the page's near-black is under 2% contrast
+       at the top and nothing at all by the baseline: the word was not dim, it
+       was absent. 0.42 to 0.08 measures 3.8:1 at the top against this
+       background, which is present and clearly secondary: the footer's own
+       copy runs 7.7:1, so the word still sits behind it rather than
+       competing with it. */
+    background: linear-gradient(180deg, rgba(247, 244, 240, 0.42), rgba(247, 244, 240, 0.08));
     -webkit-background-clip: text;
     background-clip: text;
     user-select: none;

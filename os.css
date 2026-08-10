@@ -78,10 +78,13 @@ body.os-pointing #threeCanvasContainer {
     cursor: pointer;
 }
 
-/* Approaching the glass with the interface shut. The hero's pill normally says
-   Customize; on this one disc the click does something else, and the colour
-   change is the only warning a visitor gets. */
-body.over-screen:not(.cfg-open) #cursorCta .cta-pill {
-    background: var(--gold);
-    color: #14100e;
-}
+/* Approaching the glass with the interface shut, the pill's LABEL changes: it
+   says Open MAJESTY OS rather than Customize, because on this one disc the
+   click does something else.
+
+   It used to change colour as well, to gold. That was wrong twice over. The
+   pill is the page's one recurring control and recolouring it makes the page
+   look like it has two of them; and gold-on-gold is exactly where the pill sits
+   when it is over the glass, since the bezel it is hovering is gold, so the one
+   moment the colour was meant to signal is the one moment it disappears. The
+   words carry it. */
